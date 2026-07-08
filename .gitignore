@@ -5,6 +5,9 @@ node_modules/
 .next/
 dist/
 coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
 
 # Local environment
 .env
@@ -17,6 +20,7 @@ coverage/
 *.db
 tmp/
 logs/
+exports/
 
 # Private planning notes and raw specs.
 # Public specs should live under docs/specs/.
@@ -29,4 +33,3 @@ docs/private/
 .DS_Store
 .idea/
 .vscode/
-
