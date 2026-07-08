@@ -85,6 +85,12 @@ input:focus-visible {
   width: 100%;
 }
 
+.app-frame {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 88px;
+}
+
 .login-panel {
   display: flex;
   flex-direction: column;
@@ -205,6 +211,12 @@ p {
   justify-content: space-between;
 }
 
+.session-copy {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
 .ghost-button {
   background: #edf3f1;
   color: var(--accent-dark);
@@ -223,6 +235,237 @@ p {
   overflow: hidden;
   padding: 20px;
   position: relative;
+}
+
+.screen-title {
+  margin-top: 18px;
+}
+
+.screen-title h1 {
+  font-size: clamp(2.2rem, 12vw, 3.4rem);
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.dashboard-today {
+  margin: 0;
+  min-height: 136px;
+}
+
+.metric-caption {
+  color: #d7e2de;
+  font-size: 0.86rem;
+  margin: 10px 0 0;
+}
+
+.progress-ring {
+  --progress: 0%;
+  align-items: center;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle, var(--foreground) 0 55%, transparent 56%),
+    conic-gradient(var(--signal) var(--progress), rgb(247 251 248 / 18%) 0);
+  border-radius: 999px;
+  color: #ffffff;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 0.92rem;
+  font-weight: 760;
+  justify-content: center;
+  width: 82px;
+}
+
+.metric-strip {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.metric-strip div {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.metric-strip svg {
+  color: var(--accent);
+}
+
+.metric-strip span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.metric-strip strong {
+  color: var(--foreground);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.radar-panel,
+.dashboard-section {
+  background: rgb(255 255 255 / 70%);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.radar-panel {
+  padding: 8px 6px 12px;
+}
+
+.chart-legend {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.chart-legend span {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 0.78rem;
+  gap: 6px;
+}
+
+.legend-dot {
+  border-radius: 999px;
+  display: inline-block;
+  height: 8px;
+  width: 8px;
+}
+
+.legend-dot.measured {
+  background: var(--accent);
+}
+
+.legend-dot.self {
+  background: var(--signal);
+  border: 1px solid #9eb554;
+}
+
+.dashboard-section {
+  padding: 16px;
+}
+
+.section-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-heading h2 {
+  color: var(--foreground);
+  font-size: 1rem;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.section-heading a,
+.prompt-row a {
+  align-items: center;
+  color: var(--accent-dark);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.section-heading svg {
+  color: var(--accent);
+}
+
+.compact-list {
+  display: grid;
+  gap: 4px;
+}
+
+.compact-list div {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.compact-list span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.compact-list strong {
+  color: var(--foreground);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.prompt-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.prompt-row a {
+  background: #edf3f1;
+  border-radius: 16px;
+  justify-content: center;
+  min-height: 46px;
+}
+
+.app-nav {
+  align-items: center;
+  background: rgb(251 252 250 / 94%);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  bottom: 18px;
+  box-shadow: 0 14px 30px rgb(23 38 34 / 10%);
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(6, 1fr);
+  left: 18px;
+  padding: 8px;
+  position: absolute;
+  right: 18px;
+}
+
+.app-nav a {
+  align-items: center;
+  border-radius: 14px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 2px;
+  text-decoration: none;
+}
+
+.app-nav a[aria-current="page"] {
+  background: #dff3ed;
+  color: var(--accent-dark);
+}
+
+.app-nav span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
 }
 
 .metric-label {
