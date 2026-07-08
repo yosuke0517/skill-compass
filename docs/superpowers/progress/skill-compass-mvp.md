@@ -22,11 +22,12 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 4: added fixed password authentication, session helpers, login action, protected app proxy, and login E2E coverage.
 - Task 5: added deterministic scoring rules and self-vs-measured gap calculation.
 - Task 6: added replaceable LLM evaluation provider and answer evaluation orchestration.
+- Task 7: added deterministic daily quiz selection.
 - Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
 
 ## Verification Snapshot
 
-Last known full verification passed after Task 6:
+Last known full verification passed after Task 7:
 
 ```bash
 pnpm test
@@ -39,11 +40,10 @@ Docker Desktop was running and the local MySQL service was healthy. Seed data wa
 
 ## Current Task
 
-Task 7: implement daily quiz selection from seeded questions.
+Task 8: connect dashboard to real database summaries.
 
 ## Next Tasks
 
-- Task 8: connect dashboard to real database summaries.
 - Task 9: implement today quiz answer flow.
 - Task 10: implement skills, concepts, sources, and settings screens.
 - Task 11: add replaceable Markdown note writer and export flow.
@@ -60,4 +60,5 @@ Task 7: implement daily quiz selection from seeded questions.
 - `945fa4d` feat: add fixed password authentication
 - `b107900` feat: add deterministic scoring rules
 - `6737f2f` style: polish mobile-first app shell
-- Current commit: feat: add replaceable answer evaluation provider
+- feat: add replaceable answer evaluation provider
+- Current commit: feat: add daily quiz selection
