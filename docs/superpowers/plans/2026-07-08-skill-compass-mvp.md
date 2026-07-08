@@ -573,7 +573,7 @@ git commit -m "feat: add skill compass data model"
 - Create: `src/lib/auth/password.ts`
 - Create: `src/lib/auth/session.ts`
 - Create: `src/app/actions/auth.ts`
-- Create: `src/middleware.ts`
+- Create: `src/proxy.ts`
 - Create: `src/app/(auth)/login/page.tsx`
 - Create: `tests/unit/auth.test.ts`
 - Create: `tests/e2e/login.spec.ts`
@@ -621,7 +621,7 @@ Create `src/lib/auth/session.ts` with a signed cookie named `skill_compass_sessi
 
 Create `src/app/actions/auth.ts` to validate the password, set the session cookie, and redirect to `/dashboard`.
 
-Create `src/middleware.ts` so `/dashboard`, `/today`, `/skills`, `/concepts`, `/sources`, and `/settings` require a valid session.
+Create `src/proxy.ts` so `/dashboard`, `/today`, `/skills`, `/concepts`, `/sources`, and `/settings` require a valid session.
 
 - [ ] **Step 4: Add login page**
 
@@ -641,7 +641,7 @@ Expected: login succeeds with `SKILL_COMPASS_PASSWORD` and protected routes redi
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/auth src/app/actions/auth.ts src/middleware.ts src/app/'(auth)'/login tests/unit/auth.test.ts tests/e2e/login.spec.ts
+git add src/lib/auth src/app/actions/auth.ts src/proxy.ts src/app/'(auth)'/login tests/unit/auth.test.ts tests/e2e/login.spec.ts
 git commit -m "feat: add fixed password authentication"
 ```
 

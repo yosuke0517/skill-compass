@@ -21,6 +21,7 @@ test-results/
 tmp/
 logs/
 exports/
+.evidence/
 
 # Private planning notes and raw specs.
 # Public specs should live under docs/specs/.
