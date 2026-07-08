@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+coverage/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Local database and generated files
+*.sqlite
+*.sqlite3
+*.db
+tmp/
+logs/
+
+# Private planning notes and raw specs.
+# Public specs should live under docs/specs/.
+.private/
+private/
+docs/internal/
+docs/private/
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+
