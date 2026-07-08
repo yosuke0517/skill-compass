@@ -29,7 +29,7 @@
 
 Create the application in the repository root without introducing private configuration. The important files and responsibilities are:
 
-- `package.json`: npm scripts for dev, build, test, lint, db migrations, jobs, and Playwright.
+- `package.json`: pnpm package scripts for dev, build, test, lint, db migrations, jobs, and Playwright.
 - `next.config.ts`, `tsconfig.json`, `eslint.config.mjs`, `prettier.config.mjs`, `vitest.config.ts`, `playwright.config.ts`: project tooling.
 - `.env.example`: public-safe environment variable names and non-secret example values.
 - `.gitignore`: excludes local env files, node modules, Next output, coverage, Playwright reports, and generated exports.
@@ -67,6 +67,7 @@ Create the application in the repository root without introducing private config
 
 **Files:**
 - Create: `package.json`
+- Create: `pnpm-workspace.yaml`
 - Create: `next.config.ts`
 - Create: `tsconfig.json`
 - Create: `eslint.config.mjs`
@@ -80,7 +81,7 @@ Create the application in the repository root without introducing private config
 - Create: `src/app/page.tsx`
 
 **Interfaces:**
-- Produces: a working Next.js App Router project with `npm run dev`, `npm run build`, `npm run lint`, `npm run test`, and `npm run test:e2e`.
+- Produces: a working Next.js App Router project with `pnpm dev`, `pnpm build`, `pnpm lint`, `pnpm test`, and `pnpm test:e2e`.
 - Consumes: none.
 
 - [ ] **Step 1: Initialize dependencies**
@@ -88,13 +89,13 @@ Create the application in the repository root without introducing private config
 Run:
 
 ```bash
-npm init -y
-npm install next react react-dom drizzle-orm mysql2 zod jose clsx lucide-react recharts
-npm install -D typescript @types/node @types/react @types/react-dom eslint eslint-config-next prettier vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/user-event @testing-library/jest-dom playwright tsx drizzle-kit
-npx playwright install chromium
+pnpm init
+pnpm add next react react-dom drizzle-orm mysql2@3.22.5 zod jose clsx lucide-react recharts
+pnpm add -D typescript @types/node@24.13.2 @types/react @types/react-dom eslint eslint-config-next prettier vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/user-event @testing-library/jest-dom playwright @playwright/test tsx drizzle-kit
+pnpm exec playwright install chromium
 ```
 
-Expected: `package.json` and `package-lock.json` are created, and dependencies install without errors.
+Expected: `package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml` are created, and dependencies install without errors.
 
 - [ ] **Step 2: Add scripts**
 
@@ -106,7 +107,7 @@ Set `package.json` scripts to:
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -169,8 +170,8 @@ export default function HomePage() {
 Run:
 
 ```bash
-npm run typecheck
-npm run build
+pnpm typecheck
+pnpm build
 ```
 
 Expected: both commands pass.
@@ -178,7 +179,7 @@ Expected: both commands pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add package.json package-lock.json next.config.ts tsconfig.json eslint.config.mjs prettier.config.mjs vitest.config.ts playwright.config.ts .gitignore .env.example src/app
+git add package.json pnpm-workspace.yaml pnpm-lock.yaml next.config.ts tsconfig.json eslint.config.mjs prettier.config.mjs vitest.config.ts playwright.config.ts .gitignore .env.example src/app
 git commit -m "chore: scaffold skill compass app"
 ```
 
@@ -229,7 +230,7 @@ describe("parseEnv", () => {
 });
 ```
 
-Run: `npm run test -- tests/unit/env.test.ts`
+Run: `pnpm test -- tests/unit/env.test.ts`
 
 Expected: FAIL because `src/lib/env.ts` does not exist.
 
@@ -320,8 +321,8 @@ export const db = drizzle(pool, { schema, mode: "default" });
 Run:
 
 ```bash
-npm run test -- tests/unit/env.test.ts
-npm run typecheck
+pnpm test -- tests/unit/env.test.ts
+pnpm typecheck
 ```
 
 Expected: both pass.
@@ -367,7 +368,7 @@ describe("schema", () => {
 });
 ```
 
-Run: `npm run test -- tests/unit/schema-shape.test.ts`
+Run: `pnpm test -- tests/unit/schema-shape.test.ts`
 
 Expected: FAIL because schema does not exist.
 
@@ -551,10 +552,10 @@ Run:
 
 ```bash
 docker compose up -d mysql
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-npm run test -- tests/unit/schema-shape.test.ts
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
+pnpm test -- tests/unit/schema-shape.test.ts
 ```
 
 Expected: migrations apply, seed completes, and tests pass.
@@ -600,7 +601,7 @@ describe("verifyFixedPassword", () => {
 });
 ```
 
-Run: `npm run test -- tests/unit/auth.test.ts`
+Run: `pnpm test -- tests/unit/auth.test.ts`
 
 Expected: FAIL because auth helpers do not exist.
 
@@ -631,8 +632,8 @@ Create `src/app/(auth)/login/page.tsx` with a single password field and submit b
 Run:
 
 ```bash
-npm run test -- tests/unit/auth.test.ts
-npm run test:e2e -- tests/e2e/login.spec.ts
+pnpm test -- tests/unit/auth.test.ts
+pnpm test:e2e -- tests/e2e/login.spec.ts
 ```
 
 Expected: login succeeds with `SKILL_COMPASS_PASSWORD` and protected routes redirect when no session exists.
@@ -772,7 +773,7 @@ export function calculateGap(selfRating: number, measuredScore: number): SkillGa
 
 - [ ] **Step 3: Verify**
 
-Run: `npm run test -- tests/unit/scoring.test.ts`
+Run: `pnpm test -- tests/unit/scoring.test.ts`
 
 Expected: PASS.
 
@@ -880,7 +881,7 @@ Create `src/lib/quiz/evaluate-answer.ts` to combine selected-choice correctness,
 
 - [ ] **Step 4: Verify**
 
-Run: `npm run test -- tests/unit/evaluate-answer.test.ts`
+Run: `pnpm test -- tests/unit/evaluate-answer.test.ts`
 
 Expected: PASS.
 
@@ -950,7 +951,7 @@ Create `src/lib/quiz/types.ts` and `src/lib/quiz/select-daily-quiz.ts` with dete
 
 - [ ] **Step 3: Verify**
 
-Run: `npm run test -- tests/unit/select-daily-quiz.test.ts`
+Run: `pnpm test -- tests/unit/select-daily-quiz.test.ts`
 
 Expected: PASS.
 
@@ -1012,8 +1013,8 @@ Use `recharts` for the radar chart and simple CSS modules or global utility clas
 Run:
 
 ```bash
-npm run build
-npm run test:e2e -- tests/e2e/dashboard.spec.ts
+pnpm build
+pnpm test:e2e -- tests/e2e/dashboard.spec.ts
 ```
 
 Expected: dashboard is reachable after login and shows all five skill axes.
@@ -1078,8 +1079,8 @@ Create a form for each unanswered question with:
 Run:
 
 ```bash
-npm run test -- tests/integration/submit-answer.test.ts
-npm run test:e2e -- tests/e2e/quiz-flow.spec.ts
+pnpm test -- tests/integration/submit-answer.test.ts
+pnpm test:e2e -- tests/e2e/quiz-flow.spec.ts
 ```
 
 Expected: a logged-in user can complete a five-question daily quiz.
@@ -1140,8 +1141,8 @@ Build:
 Run:
 
 ```bash
-npm run test:e2e -- tests/e2e/mvp-navigation.spec.ts
-npm run build
+pnpm test:e2e -- tests/e2e/mvp-navigation.spec.ts
+pnpm build
 ```
 
 Expected: every required MVP screen is reachable from authenticated navigation.
@@ -1213,7 +1214,7 @@ Create `src/lib/notes/filesystem-writer.ts` using `fs/promises.mkdir` and `fs/pr
 Run:
 
 ```bash
-npm run test -- tests/unit/markdown-notes.test.ts tests/integration/export-sync.test.ts
+pnpm test -- tests/unit/markdown-notes.test.ts tests/integration/export-sync.test.ts
 ```
 
 Expected: Markdown output matches snapshots or explicit string assertions, and export sync writes under a temporary directory in tests.
@@ -1240,7 +1241,7 @@ git commit -m "feat: add portable markdown export"
 - Test: `tests/integration/jobs.test.ts`
 
 **Interfaces:**
-- Produces: `npm run job -- <job-name>` for `daily-quiz-preparation`, `source-ingestion`, `weekly-summary`, `monthly-self-assessment`, and `markdown-export-sync`.
+- Produces: `pnpm job -- <job-name>` for `daily-quiz-preparation`, `source-ingestion`, `weekly-summary`, `monthly-self-assessment`, and `markdown-export-sync`.
 - Consumes: quiz selection, source status helpers, note export, deterministic LLM provider, and job run table.
 
 - [ ] **Step 1: Write job tests**
@@ -1282,9 +1283,9 @@ Implement application-level jobs:
 Run:
 
 ```bash
-npm run test -- tests/unit/jobs.test.ts tests/integration/jobs.test.ts
-npm run job -- daily-quiz-preparation
-npm run job -- markdown-export-sync
+pnpm test -- tests/unit/jobs.test.ts tests/integration/jobs.test.ts
+pnpm job -- daily-quiz-preparation
+pnpm job -- markdown-export-sync
 ```
 
 Expected: tests pass, job commands exit successfully, and failures are recorded without corrupting database state.
@@ -1365,11 +1366,11 @@ Create `docs/public-boundary.md` explaining what must not be committed and how `
 Run:
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-npm run test:e2e
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:e2e
 git status --short
 ```
 
