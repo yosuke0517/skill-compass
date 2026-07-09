@@ -591,6 +591,44 @@ p {
   font-weight: 700;
 }
 
+.add-questions-card {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0 0 14px;
+  padding: 14px;
+}
+
+.add-questions-card div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.add-questions-card strong {
+  color: var(--foreground);
+  font-size: 1rem;
+}
+
+.add-questions-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.add-questions-card button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.add-questions-card.limit-reached {
+  justify-content: flex-start;
+}
+
 .quiz-stack {
   display: grid;
   gap: 14px;

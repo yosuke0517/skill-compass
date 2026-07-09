@@ -178,6 +178,36 @@ const conceptSourceRows = [
   { conceptId: "concept_mcp", sourceId: "source_model_context_protocol_docs" },
 ];
 
+const extraPracticeQuestionRows = Array.from({ length: 24 }, (_, index) => {
+  const concept = conceptRows[index % conceptRows.length];
+  const sourceId =
+    concept.id === "concept_index_design"
+      ? "source_mysql_docs"
+      : concept.id === "concept_mcp"
+        ? "source_model_context_protocol_docs"
+        : concept.id === "concept_satisfies_operator"
+          ? "source_typescript_handbook"
+          : "source_mdndocs_web";
+
+  return {
+    id: `question_extra_${String(index + 1).padStart(2, "0")}`,
+    conceptId: concept.id,
+    sourceId,
+    difficulty: (index % 3 === 0 ? "beginner" : index % 3 === 1 ? "intermediate" : "advanced") as
+      | "beginner"
+      | "intermediate"
+      | "advanced",
+    prompt: `Which practice habit best improves understanding of ${concept.title}?`,
+    choices: [
+      { id: "a", label: "Compare the concept against a concrete source and explain the tradeoff.", correct: true },
+      { id: "b", label: "Memorize the term without checking where it applies.", correct: false },
+      { id: "c", label: "Skip examples and only read unrelated summaries.", correct: false },
+      { id: "d", label: "Assume the concept has the same meaning in every system.", correct: false },
+    ],
+    rationale: "Grounding a concept in a trusted source and explaining tradeoffs improves durable understanding.",
+  };
+});
+
 const questionRows = [
   {
     id: "question_satisfies_literal_preservation",
@@ -272,6 +302,91 @@ const questionRows = [
     ],
     rationale: "A protocol boundary makes tool and context access explicit, reusable, and inspectable.",
   },
+  {
+    id: "question_typescript_narrowing",
+    conceptId: "concept_satisfies_operator",
+    sourceId: "source_typescript_handbook",
+    difficulty: "beginner" as const,
+    prompt: "What does TypeScript control-flow narrowing help with?",
+    choices: [
+      { id: "a", label: "Refining a variable's type after checks such as typeof or equality.", correct: true },
+      { id: "b", label: "Changing JavaScript runtime values into database rows.", correct: false },
+      { id: "c", label: "Skipping all compile-time type checks.", correct: false },
+      { id: "d", label: "Compressing source maps for production builds.", correct: false },
+    ],
+    rationale: "Control-flow analysis narrows types based on checks and reachable code paths.",
+  },
+  {
+    id: "question_api_backward_compatibility",
+    conceptId: "concept_api_contract",
+    sourceId: "source_mdndocs_web",
+    difficulty: "intermediate" as const,
+    prompt: "Which API change is usually backward compatible?",
+    choices: [
+      { id: "a", label: "Renaming a required request field.", correct: false },
+      { id: "b", label: "Removing an enum value clients already send.", correct: false },
+      { id: "c", label: "Adding a new optional response field.", correct: true },
+      { id: "d", label: "Changing a response number into a string.", correct: false },
+    ],
+    rationale: "Adding optional output is usually compatible because existing clients can ignore unknown fields.",
+  },
+  {
+    id: "question_reverse_proxy_tls",
+    conceptId: "concept_reverse_proxy",
+    sourceId: "source_mdndocs_web",
+    difficulty: "intermediate" as const,
+    prompt: "Why might a reverse proxy terminate TLS?",
+    choices: [
+      { id: "a", label: "To centralize certificate handling before forwarding traffic upstream.", correct: true },
+      { id: "b", label: "To make DNS records unnecessary.", correct: false },
+      { id: "c", label: "To disable all authentication checks.", correct: false },
+      { id: "d", label: "To convert HTTP requests into SQL queries.", correct: false },
+    ],
+    rationale: "A reverse proxy can handle TLS at the edge and pass requests to internal services.",
+  },
+  {
+    id: "question_index_selectivity",
+    conceptId: "concept_index_design",
+    sourceId: "source_mysql_docs",
+    difficulty: "advanced" as const,
+    prompt: "Why does index selectivity matter?",
+    choices: [
+      { id: "a", label: "Highly selective indexes can filter rows more effectively.", correct: true },
+      { id: "b", label: "Low selectivity always guarantees faster writes and reads.", correct: false },
+      { id: "c", label: "Selectivity removes the need for query predicates.", correct: false },
+      { id: "d", label: "Selectivity only applies to text columns.", correct: false },
+    ],
+    rationale: "Indexes are most useful when they reduce the search space for a query.",
+  },
+  {
+    id: "question_design_token_alias",
+    conceptId: "concept_design_token",
+    sourceId: "source_mdndocs_web",
+    difficulty: "intermediate" as const,
+    prompt: "Why might a design system use semantic tokens?",
+    choices: [
+      { id: "a", label: "To name intent such as foreground or danger instead of one raw color.", correct: true },
+      { id: "b", label: "To force every component to use a unique color.", correct: false },
+      { id: "c", label: "To replace accessibility contrast checks.", correct: false },
+      { id: "d", label: "To store production API credentials in CSS.", correct: false },
+    ],
+    rationale: "Semantic tokens capture usage intent and can map to different raw values per theme.",
+  },
+  {
+    id: "question_mcp_tool_context",
+    conceptId: "concept_mcp",
+    sourceId: "source_model_context_protocol_docs",
+    difficulty: "intermediate" as const,
+    prompt: "What should a tool boundary make clear to an LLM client?",
+    choices: [
+      { id: "a", label: "The inputs, outputs, and permission shape for calling the tool.", correct: true },
+      { id: "b", label: "The private billing details of every user.", correct: false },
+      { id: "c", label: "A guarantee that all tool calls are correct.", correct: false },
+      { id: "d", label: "A way to bypass application authorization.", correct: false },
+    ],
+    rationale: "Explicit tool boundaries make capabilities and constraints inspectable.",
+  },
+  ...extraPracticeQuestionRows,
 ];
 
 async function main() {
