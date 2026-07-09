@@ -5,7 +5,6 @@ describe("parseEnv", () => {
   it("accepts public-safe local configuration", () => {
     const env = parseEnv({
       DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-      SKILL_COMPASS_PASSWORD: "local-password",
       SESSION_SECRET: "12345678901234567890123456789012",
       MARKDOWN_EXPORT_DIR: "./exports/skill-compass",
       LLM_PROVIDER: "deterministic",
@@ -26,7 +25,6 @@ describe("parseEnv", () => {
   it("accepts Gemini translation configuration without requiring a committed key", () => {
     const env = parseEnv({
       DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-      SKILL_COMPASS_PASSWORD: "local-password",
       SESSION_SECRET: "12345678901234567890123456789012",
       TRANSLATION_PROVIDER: "gemini",
       ASSISTANT_PROVIDER: "gemini",
@@ -45,35 +43,10 @@ describe("parseEnv", () => {
     expect(env.GEMINI_ASSISTANT_MODEL).toBe("gemini-2.5-flash-lite");
   });
 
-  it("accepts a Keychain-backed login password without requiring an env password", () => {
-    const env = parseEnv({
-      DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-      SESSION_SECRET: "12345678901234567890123456789012",
-      SKILL_COMPASS_PASSWORD_SOURCE: "keychain",
-      SKILL_COMPASS_PASSWORD_KEYCHAIN_SERVICE: "skill-compass/login-password",
-      SKILL_COMPASS_PASSWORD_KEYCHAIN_ACCOUNT: "local",
-    });
-
-    expect(env.SKILL_COMPASS_PASSWORD_SOURCE).toBe("keychain");
-    expect(env.SKILL_COMPASS_PASSWORD_KEYCHAIN_SERVICE).toBe("skill-compass/login-password");
-    expect(env.SKILL_COMPASS_PASSWORD_KEYCHAIN_ACCOUNT).toBe("local");
-  });
-
-  it("rejects env-backed login configuration without a password", () => {
-    expect(() =>
-      parseEnv({
-        DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-        SESSION_SECRET: "12345678901234567890123456789012",
-        SKILL_COMPASS_PASSWORD_SOURCE: "env",
-      }),
-    ).toThrow(/SKILL_COMPASS_PASSWORD/);
-  });
-
   it("rejects a short session secret", () => {
     expect(() =>
       parseEnv({
         DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-        SKILL_COMPASS_PASSWORD: "local-password",
         SESSION_SECRET: "short",
       }),
     ).toThrow(/SESSION_SECRET/);
@@ -83,7 +56,6 @@ describe("parseEnv", () => {
     expect(() =>
       parseEnv({
         DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-        SKILL_COMPASS_PASSWORD: "local-password",
         SESSION_SECRET: "12345678901234567890123456789012",
         TRANSLATION_PROVIDER: "remote-secret-provider",
       }),

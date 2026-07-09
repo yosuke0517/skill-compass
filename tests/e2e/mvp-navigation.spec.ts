@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("authenticated user can navigate all MVP management screens", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
 
@@ -23,11 +24,12 @@ test("authenticated user can navigate all MVP management screens", async ({ page
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/settings/);
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-  await expect(page.getByText("Fixed password, signed 24 hour session")).toBeVisible();
+  await expect(page.getByText("Database user password hash, signed 24 hour session")).toBeVisible();
 });
 
 test("primary navigation stays fixed while scrolling long screens", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();

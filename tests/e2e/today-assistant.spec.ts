@@ -12,6 +12,7 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   });
 
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -66,6 +67,7 @@ test("Today assistant sends previous chat turns with follow-up questions", async
   });
 
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -102,6 +104,7 @@ test("Today assistant sends the complete visible chat history", async ({ page })
   });
 
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -131,6 +134,7 @@ test("Today assistant does not submit when the message field inserts a newline",
   });
 
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -152,6 +156,7 @@ test("Today assistant does not submit when the message field inserts a newline",
 test("Today assistant stays floating while the quiz page scrolls", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -207,6 +212,7 @@ test("Today assistant stays floating while the quiz page scrolls", async ({ page
 test("Today assistant button can be dragged without opening the sheet", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -239,6 +245,7 @@ test("Today assistant shows pending feedback while answering", async ({ page }) 
   });
 
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();

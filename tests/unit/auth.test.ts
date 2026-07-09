@@ -2,48 +2,27 @@
 
 import { describe, expect, it } from "vitest";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
-import { getLoginPassword, verifyConfiguredPassword, verifyFixedPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPasswordHash } from "@/lib/auth/password";
 
-describe("verifyFixedPassword", () => {
-  it("accepts the configured password", () => {
-    expect(verifyFixedPassword("secret", "secret")).toBe(true);
+describe("password hashes", () => {
+  it("stores passwords as salted scrypt hashes", async () => {
+    const passwordHash = await hashPassword("secret", {
+      salt: Buffer.from("0123456789abcdef"),
+      keyLength: 32,
+    });
+
+    expect(passwordHash).toMatch(/^scrypt\$16384\$8\$1\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/);
+    expect(passwordHash).not.toContain("secret");
+    await expect(verifyPasswordHash(passwordHash, "secret")).resolves.toBe(true);
   });
 
-  it("rejects an incorrect password", () => {
-    expect(verifyFixedPassword("secret", "wrong")).toBe(false);
-  });
-});
+  it("rejects a password that does not match the hash", async () => {
+    const passwordHash = await hashPassword("secret", {
+      salt: Buffer.from("0123456789abcdef"),
+      keyLength: 32,
+    });
 
-describe("login password configuration", () => {
-  it("resolves the login password from macOS Keychain when configured", async () => {
-    const env = {
-      SKILL_COMPASS_PASSWORD_SOURCE: "keychain",
-      SKILL_COMPASS_PASSWORD_KEYCHAIN_SERVICE: "skill-compass/login-password",
-      SKILL_COMPASS_PASSWORD_KEYCHAIN_ACCOUNT: "local",
-      SKILL_COMPASS_PASSWORD: undefined,
-    } as const;
-
-    await expect(
-      getLoginPassword(env, async (options) => {
-        expect(options).toEqual({
-          service: "skill-compass/login-password",
-          account: "local",
-        });
-        return "secret-from-keychain";
-      }),
-    ).resolves.toBe("secret-from-keychain");
-  });
-
-  it("verifies a submitted password against the configured Keychain password", async () => {
-    const env = {
-      SKILL_COMPASS_PASSWORD_SOURCE: "keychain",
-      SKILL_COMPASS_PASSWORD_KEYCHAIN_SERVICE: "skill-compass/login-password",
-      SKILL_COMPASS_PASSWORD_KEYCHAIN_ACCOUNT: "local",
-      SKILL_COMPASS_PASSWORD: undefined,
-    } as const;
-
-    await expect(verifyConfiguredPassword("secret", env, async () => "secret")).resolves.toBe(true);
-    await expect(verifyConfiguredPassword("wrong", env, async () => "secret")).resolves.toBe(false);
+    await expect(verifyPasswordHash(passwordHash, "wrong")).resolves.toBe(false);
   });
 });
 

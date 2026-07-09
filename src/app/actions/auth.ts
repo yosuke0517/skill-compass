@@ -2,17 +2,19 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyConfiguredPassword } from "@/lib/auth/password";
 import { createSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { authenticateUser } from "@/lib/auth/users";
 
 export async function loginAction(formData: FormData) {
+  const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  const user = await authenticateUser(email, password);
 
-  if (!(await verifyConfiguredPassword(password))) {
+  if (!user) {
     redirect("/login?error=invalid");
   }
 
-  const { token, expiresAt } = await createSessionToken();
+  const { token, expiresAt } = await createSessionToken(undefined, undefined, user);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,

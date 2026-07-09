@@ -22,6 +22,7 @@ export const sourceStatusValues = ["active", "failed", "pending"] as const;
 export const jobStatusValues = ["pending", "running", "succeeded", "failed"] as const;
 export const scoreSubjectTypeValues = ["category", "tag", "concept"] as const;
 export const selfAssessmentSubjectTypeValues = ["category", "tag"] as const;
+export const userStatusValues = ["active", "invited", "disabled"] as const;
 
 export const sourceTrustTierEnum = {
   enumValues: sourceTrustTierValues,
@@ -64,6 +65,37 @@ export const translationCache = mysqlTable(
     lastUsedAt: timestamp("last_used_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
   },
   (table) => [uniqueIndex("translation_cache_source_hash_idx").on(table.sourceHash)],
+);
+
+export const users = mysqlTable(
+  "users",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    displayName: varchar("display_name", { length: 120 }),
+    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+    status: mysqlEnum("status", userStatusValues).default("active").notNull(),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("users_email_idx").on(table.email)],
+);
+
+export const invites = mysqlTable(
+  "invites",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    tokenHash: varchar("token_hash", { length: 255 }).notNull(),
+    invitedByUserId: varchar("invited_by_user_id", { length: 64 }).references(() => users.id),
+    expiresAt: datetime("expires_at").notNull(),
+    usedAt: datetime("used_at"),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  },
+  (table) => [
+    uniqueIndex("invites_token_hash_idx").on(table.tokenHash),
+    index("invites_email_idx").on(table.email),
+  ],
 );
 
 export const concepts = mysqlTable("concepts", {

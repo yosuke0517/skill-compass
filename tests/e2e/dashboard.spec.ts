@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("dashboard shows real skill axes after login", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
 

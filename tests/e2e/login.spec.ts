@@ -9,15 +9,17 @@ test("protected routes redirect to login", async ({ page }) => {
 
 test("invalid password stays on login", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("wrong-password");
   await page.getByRole("button", { name: "Log in" }).click();
 
   await expect(page).toHaveURL(/\/login\?error=invalid/);
-  await expect(page.getByText("Password did not match.")).toBeVisible();
+  await expect(page.getByText("Email or password did not match.")).toBeVisible();
 });
 
 test("valid password opens the protected dashboard", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
 

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("user can answer a daily quiz question", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -30,6 +31,7 @@ test("user can answer a daily quiz question", async ({ page }) => {
 
 test("user can add more questions after completing the current set", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();

@@ -12,7 +12,6 @@ export default defineConfig({
     command: "pnpm dev",
     env: {
       DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
-      SKILL_COMPASS_PASSWORD: "local-password",
       SESSION_SECRET: "12345678901234567890123456789012",
     },
     url: "http://127.0.0.1:3000",

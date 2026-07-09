@@ -9,6 +9,8 @@ export const SESSION_DURATION_SECONDS = 24 * 60 * 60;
 export type SessionState =
   | {
       authenticated: true;
+      userId?: string;
+      email?: string;
       expiresAt: Date;
     }
   | {
@@ -19,11 +21,19 @@ function sessionKey(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(secret = getEnv().SESSION_SECRET, now = new Date()) {
+export async function createSessionToken(
+  secret = getEnv().SESSION_SECRET,
+  now = new Date(),
+  user?: { id: string; email: string },
+) {
   const issuedAt = Math.floor(now.getTime() / 1000);
   const expiresAt = new Date(now.getTime() + SESSION_DURATION_SECONDS * 1000);
   const expiresAtSeconds = Math.floor(expiresAt.getTime() / 1000);
-  const token = await new SignJWT({ purpose: "skill-compass-session" })
+  const token = await new SignJWT({
+    purpose: "skill-compass-session",
+    userId: user?.id,
+    email: user?.email,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt(issuedAt)
     .setExpirationTime(expiresAtSeconds)
@@ -45,7 +55,12 @@ export async function verifySessionToken(
       return { authenticated: false };
     }
 
-    return { authenticated: true, expiresAt: new Date(payload.exp * 1000) };
+    return {
+      authenticated: true,
+      userId: typeof payload.userId === "string" ? payload.userId : undefined,
+      email: typeof payload.email === "string" ? payload.email : undefined,
+      expiresAt: new Date(payload.exp * 1000),
+    };
   } catch {
     return { authenticated: false };
   }

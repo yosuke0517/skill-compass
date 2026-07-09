@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("user can request Japanese translation for a quiz card", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -24,6 +25,7 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
 
 test("translation keeps the current scroll position on lower cards", async ({ page }) => {
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
@@ -64,6 +66,7 @@ test("translation shows an in-card loading state while pending", async ({ page }
   });
 
   await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();

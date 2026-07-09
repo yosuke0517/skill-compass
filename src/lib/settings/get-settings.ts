@@ -21,7 +21,7 @@ export function buildSettingsData(env: Pick<AppEnv, "MARKDOWN_EXPORT_DIR" | "LLM
       { label: "Notes", value: env.NOTE_WRITER },
     ],
     exportDir: env.MARKDOWN_EXPORT_DIR,
-    sessionPolicy: "Fixed password, signed 24 hour session",
+    sessionPolicy: "Database user password hash, signed 24 hour session",
     translationRuntime:
       env.TRANSLATION_PROVIDER === "gemini"
         ? { label: "Gemini model", value: env.GEMINI_TRANSLATION_MODEL }

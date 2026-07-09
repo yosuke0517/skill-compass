@@ -9,7 +9,9 @@ import {
   selfAssessments,
   sources,
   tags,
+  users,
 } from "@/db/schema";
+import { hashPassword } from "@/lib/auth/password";
 
 const categoryRows = [
   {
@@ -390,6 +392,17 @@ const questionRows = [
 ];
 
 async function main() {
+  await db
+    .insert(users)
+    .ignore()
+    .values({
+      id: "user_local",
+      email: "local@example.com",
+      displayName: "Local User",
+      passwordHash: await hashPassword("local-password"),
+      status: "active",
+    });
+
   await db.insert(categories).ignore().values(categoryRows);
   await db.insert(tags).ignore().values(tagRows);
   await db.insert(concepts).ignore().values(conceptRows);

@@ -37,9 +37,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </p>
 
         <form action={loginAction} className="login-form">
+          <label htmlFor="email">Email</label>
+          <input id="email" name="email" type="email" autoComplete="username" />
           <label htmlFor="password">Password</label>
           <input id="password" name="password" type="password" autoComplete="current-password" />
-          {hasError ? <p className="form-error">Password did not match.</p> : null}
+          {hasError ? <p className="form-error">Email or password did not match.</p> : null}
           <button type="submit">
             <span>Log in</span>
             <ArrowRight size={18} strokeWidth={2} />

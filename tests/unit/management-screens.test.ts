@@ -112,7 +112,7 @@ describe("management screen read models", () => {
         { label: "Notes", value: "filesystem" },
       ],
       exportDir: "./exports/skill-compass",
-      sessionPolicy: "Fixed password, signed 24 hour session",
+      sessionPolicy: "Database user password hash, signed 24 hour session",
       translationRuntime: { label: "Claude CLI", value: "claude" },
     });
   });

@@ -10,7 +10,7 @@ This document is the public-safe handoff log for continuing implementation after
 - Implementation plan: `docs/superpowers/plans/2026-07-08-skill-compass-mvp.md`
 - Package manager: pnpm
 - App stack: Next.js App Router, TypeScript, MySQL, Drizzle ORM, Docker Compose
-- Auth: fixed password login with signed 24 hour session
+- Auth: database user login with salted password hash and signed 24 hour session
 - UI direction: mobile-first dashboard shell; desktop centers the mobile app surface
 
 ## Completed Work
@@ -19,7 +19,7 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 2: added Docker Compose, Drizzle config, environment validation, and database client.
 - Task 3: added Drizzle schema, initial migration, and public-safe seed data.
 - Package manager migration: switched from npm lockfile to pnpm workspace and lockfile.
-- Task 4: added fixed password authentication, session helpers, login action, protected app proxy, and login E2E coverage.
+- Task 4: added authentication, session helpers, login action, protected app proxy, and login E2E coverage.
 - Task 5: added deterministic scoring rules and self-vs-measured gap calculation.
 - Task 6: added replaceable LLM evaluation provider and answer evaluation orchestration.
 - Task 7: added deterministic daily quiz selection.
@@ -28,6 +28,7 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 9.5: added cache-first Japanese quiz card translation with optional Claude CLI provider.
 - Task 10: added skills, concepts, sources, and settings management screens.
 - Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
+- Auth update: replaced fixed env password login with database-backed user password hashes and invite-ready tables.
 
 ## Verification Snapshot
 
