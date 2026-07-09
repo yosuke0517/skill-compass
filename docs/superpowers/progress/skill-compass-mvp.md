@@ -26,11 +26,12 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 8: connected the authenticated dashboard to real database summaries.
 - Task 9: added the daily quiz page, answer submission, feedback, and score updates.
 - Task 9.5: added cache-first Japanese quiz card translation with optional Claude CLI provider.
+- Task 10: added skills, concepts, sources, and settings management screens.
 - Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
 
 ## Verification Snapshot
 
-Last known full verification passed after Task 9:
+Last known full verification passed after Task 10:
 
 ```bash
 pnpm test
@@ -43,11 +44,10 @@ Docker Desktop was running and the local MySQL service was healthy. Seed data wa
 
 ## Current Task
 
-Task 10: implement skills, concepts, sources, and settings screens.
+Task 11: add replaceable Markdown note writer and export flow.
 
 ## Next Tasks
 
-- Task 11: add replaceable Markdown note writer and export flow.
 - Task 12: add scheduled job abstractions and CLI commands.
 - Task 13: finalize docs, safety checks, and public repo hygiene.
 
@@ -64,4 +64,6 @@ Task 10: implement skills, concepts, sources, and settings screens.
 - feat: add replaceable answer evaluation provider
 - `597040a` feat: add daily quiz selection
 - `8163956` feat: add dashboard-first app shell
-- Current commit: feat: add daily quiz flow
+- `450a0a0` feat: add daily quiz flow
+- `0caa9c1` fix: harden quiz translation state
+- Current commit: feat: add MVP management screens
