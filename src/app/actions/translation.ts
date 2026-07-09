@@ -48,11 +48,47 @@ export async function getTranslatedQuizCards(): Promise<Record<string, Translate
   return parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return typeof value === "string" || value === null;
+}
+
+function isTranslatedQuizCard(value: unknown): value is Omit<TranslatedQuizCard, "questionId"> {
+  if (!isObject(value)) return false;
+  if (!("prompt" in value) || !("feedback" in value) || !("unavailable" in value) || !("choices" in value)) {
+    return false;
+  }
+
+  if (!isNullableString(value.prompt) || !isNullableString(value.feedback) || typeof value.unavailable !== "boolean") return false;
+  if (!Array.isArray(value.choices)) return false;
+
+  return value.choices.every(
+    (choice) =>
+      isObject(choice) &&
+      typeof choice.id === "string" &&
+      (typeof choice.label === "string" || choice.label === null),
+  );
+}
+
 function parseTranslatedCookie(value: string | undefined): Record<string, TranslatedQuizCard> {
   if (!value) return {};
   try {
     const parsed = JSON.parse(value);
-    return typeof parsed === "object" && parsed !== null ? parsed : {};
+    if (!isObject(parsed)) return {};
+
+    const translations: Record<string, TranslatedQuizCard> = {};
+    for (const [questionId, translation] of Object.entries(parsed)) {
+      if (!isTranslatedQuizCard(translation)) continue;
+      translations[questionId] = {
+        ...translation,
+        questionId,
+      };
+    }
+
+    return translations;
   } catch {
     return {};
   }
