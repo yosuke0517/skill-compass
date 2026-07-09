@@ -2,14 +2,13 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyFixedPassword } from "@/lib/auth/password";
+import { verifyConfiguredPassword } from "@/lib/auth/password";
 import { createSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
-import { getEnv } from "@/lib/env";
 
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
-  if (!verifyFixedPassword(getEnv().SKILL_COMPASS_PASSWORD, password)) {
+  if (!(await verifyConfiguredPassword(password))) {
     redirect("/login?error=invalid");
   }
 

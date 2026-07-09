@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
-import { verifyFixedPassword } from "@/lib/auth/password";
+import { getLoginPassword, verifyConfiguredPassword, verifyFixedPassword } from "@/lib/auth/password";
 
 describe("verifyFixedPassword", () => {
   it("accepts the configured password", () => {
@@ -11,6 +11,39 @@ describe("verifyFixedPassword", () => {
 
   it("rejects an incorrect password", () => {
     expect(verifyFixedPassword("secret", "wrong")).toBe(false);
+  });
+});
+
+describe("login password configuration", () => {
+  it("resolves the login password from macOS Keychain when configured", async () => {
+    const env = {
+      SKILL_COMPASS_PASSWORD_SOURCE: "keychain",
+      SKILL_COMPASS_PASSWORD_KEYCHAIN_SERVICE: "skill-compass/login-password",
+      SKILL_COMPASS_PASSWORD_KEYCHAIN_ACCOUNT: "local",
+      SKILL_COMPASS_PASSWORD: undefined,
+    } as const;
+
+    await expect(
+      getLoginPassword(env, async (options) => {
+        expect(options).toEqual({
+          service: "skill-compass/login-password",
+          account: "local",
+        });
+        return "secret-from-keychain";
+      }),
+    ).resolves.toBe("secret-from-keychain");
+  });
+
+  it("verifies a submitted password against the configured Keychain password", async () => {
+    const env = {
+      SKILL_COMPASS_PASSWORD_SOURCE: "keychain",
+      SKILL_COMPASS_PASSWORD_KEYCHAIN_SERVICE: "skill-compass/login-password",
+      SKILL_COMPASS_PASSWORD_KEYCHAIN_ACCOUNT: "local",
+      SKILL_COMPASS_PASSWORD: undefined,
+    } as const;
+
+    await expect(verifyConfiguredPassword("secret", env, async () => "secret")).resolves.toBe(true);
+    await expect(verifyConfiguredPassword("wrong", env, async () => "secret")).resolves.toBe(false);
   });
 });
 

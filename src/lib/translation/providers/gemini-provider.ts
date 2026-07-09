@@ -1,11 +1,6 @@
-import { execFile as nodeExecFile } from "node:child_process";
-import { promisify } from "node:util";
-
+import { createKeychainSecretResolver, type ExecFile } from "@/lib/secrets/keychain";
 import type { TranslationProvider } from "../types";
 
-const execFileAsync = promisify(nodeExecFile) as ExecFile;
-
-type ExecFile = (command: string, args: string[]) => Promise<{ stdout: string; stderr: string }>;
 type ApiKeyResolver = () => Promise<string | undefined>;
 type FetchLike = (url: string, init: { method: "POST"; headers: Record<string, string>; body: string }) => Promise<Response>;
 
@@ -62,22 +57,7 @@ export function createKeychainApiKeyResolver(options: {
   account?: string;
   execFile?: ExecFile;
 }): ApiKeyResolver {
-  const execFile = options.execFile ?? execFileAsync;
-
-  return async () => {
-    const args = ["find-generic-password", "-s", options.service];
-    if (options.account) {
-      args.push("-a", options.account);
-    }
-    args.push("-w");
-
-    try {
-      const result = await execFile("security", args);
-      return result.stdout.trim() || undefined;
-    } catch {
-      return undefined;
-    }
-  };
+  return createKeychainSecretResolver(options);
 }
 
 function buildPrompt(input: Parameters<TranslationProvider["translate"]>[0]): string {
