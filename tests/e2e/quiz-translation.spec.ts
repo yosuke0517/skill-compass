@@ -20,3 +20,28 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
     await expect(page.locator(".answer-feedback").first()).toBeVisible();
   }
 });
+
+test("translation keeps the current scroll position on lower cards", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const lowerCard = page.locator(".quiz-card").nth(3);
+  await lowerCard.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(100);
+  const beforeScrollY = await page.evaluate(() => window.scrollY);
+  let mainFrameNavigations = 0;
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) {
+      mainFrameNavigations += 1;
+    }
+  });
+
+  await lowerCard.getByLabel("Translate to Japanese").click();
+  await expect(lowerCard.getByLabel("Japanese translation")).toBeVisible();
+
+  const afterScrollY = await page.evaluate(() => window.scrollY);
+  expect(mainFrameNavigations).toBe(0);
+  expect(afterScrollY).toBeGreaterThan(beforeScrollY - 120);
+});

@@ -1,7 +1,7 @@
-import { Languages } from "lucide-react";
+"use client";
 
-import { translateQuizCardAction } from "@/app/actions/translation";
-import { CheckCircle2, CircleHelp } from "lucide-react";
+import { useState, useTransition } from "react";
+import { CheckCircle2, CircleHelp, Languages } from "lucide-react";
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
 import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
@@ -26,6 +26,33 @@ const reasonLabels: Record<string, string> = {
 
 export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionCardProps) {
   const answered = item.answer !== null;
+  const [currentTranslation, setCurrentTranslation] = useState<TranslatedQuizCard | undefined>(translation);
+  const [isTranslating, startTranslating] = useTransition();
+
+  function handleTranslate() {
+    startTranslating(async () => {
+      try {
+        const response = await fetch("/api/quiz/translation", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ questionId: item.question.id }),
+        });
+        if (!response.ok) {
+          throw new Error("translation request failed");
+        }
+        const translated = (await response.json()) as TranslatedQuizCard;
+        setCurrentTranslation(translated);
+      } catch {
+        setCurrentTranslation({
+          questionId: item.question.id,
+          prompt: null,
+          choices: item.question.choices.map((choice) => ({ id: choice.id, label: null })),
+          feedback: null,
+          unavailable: true,
+        });
+      }
+    });
+  }
 
   return (
     <article className={`quiz-card${answered ? " answered" : ""}`}>
@@ -34,15 +61,20 @@ export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionC
           <span>#{item.slot}</span>
           <strong>{reasonLabels[item.reason] ?? item.reason}</strong>
         </div>
-        <form action={translateQuizCardAction}>
-          <input type="hidden" name="questionId" value={item.question.id} />
-          <button type="submit" className="icon-button" title="Translate to Japanese" aria-label="Translate to Japanese">
-            <Languages size={17} aria-hidden="true" />
-          </button>
-        </form>
+        <button
+          type="button"
+          className="icon-button"
+          title="Translate to Japanese"
+          aria-label="Translate to Japanese"
+          aria-busy={isTranslating}
+          disabled={isTranslating}
+          onClick={handleTranslate}
+        >
+          <Languages size={17} aria-hidden="true" />
+        </button>
       </div>
       <h2>{item.question.prompt}</h2>
-      {translation ? <QuizTranslationPanel translation={translation} /> : null}
+      {currentTranslation ? <QuizTranslationPanel translation={currentTranslation} /> : null}
 
       {answered ? (
         <div className="answer-feedback">

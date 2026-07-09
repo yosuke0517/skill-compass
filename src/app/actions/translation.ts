@@ -4,42 +4,41 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getTodayQuiz, type TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
+import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
 import { getTranslationProvider } from "@/lib/translation/provider";
-import { getCachedTranslatedQuizCard, translateQuizCard, type TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
+import { getCachedTranslatedQuizCard, type TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
+import { addTranslatedQuizQuestionId, parseTranslatedQuizCookie, TRANSLATED_QUIZ_COOKIE } from "@/lib/translation/translated-quiz-cookie";
+import { translateTodayQuizQuestion } from "@/lib/translation/translate-today-question";
 import { createDrizzleTranslationRepository, type TranslationRepository } from "@/lib/translation/translate-text";
-
-const TRANSLATED_QUIZ_COOKIE = "skill_compass_translated_quiz";
 
 export async function translateQuizCardAction(formData: FormData) {
   const questionId = String(formData.get("questionId") ?? "");
   if (!questionId) redirect("/today");
 
-  const quiz = await getTodayQuiz();
-  const item = quiz.questions.find((entry) => entry.question.id === questionId);
-  if (!item) redirect("/today");
+  const translated = await translateTodayQuizQuestion(questionId);
+  if (!translated) redirect("/today");
+  await markQuestionAsTranslated(questionId);
 
-  await translateQuizCard(
-    {
-      question: item.question,
-      feedback: item.answer?.feedback ?? null,
-    },
-    createDrizzleTranslationRepository(),
-    getTranslationProvider(),
-  );
+  revalidatePath("/today");
+  redirect("/today");
+}
 
+export async function translateQuizCardInlineAction(questionId: string): Promise<TranslatedQuizCard> {
+  const translated = await translateTodayQuizQuestion(questionId);
+  if (!translated) redirect("/today");
+  await markQuestionAsTranslated(questionId);
+  return translated;
+}
+
+async function markQuestionAsTranslated(questionId: string): Promise<void> {
   const cookieStore = await cookies();
-  const visibleQuestionIds = parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
-  cookieStore.set(TRANSLATED_QUIZ_COOKIE, JSON.stringify([...new Set([...visibleQuestionIds, questionId])]), {
+  cookieStore.set(TRANSLATED_QUIZ_COOKIE, addTranslatedQuizQuestionId(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value, questionId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 60 * 60 * 24,
   });
-
-  revalidatePath("/today");
-  redirect("/today");
 }
 
 export async function getTranslatedQuizCards(
@@ -48,7 +47,7 @@ export async function getTranslatedQuizCards(
   providerCacheScope?: string,
 ): Promise<Record<string, TranslatedQuizCard>> {
   const cookieStore = await cookies();
-  const visibleQuestionIds = parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
+  const visibleQuestionIds = parseTranslatedQuizCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
   if (visibleQuestionIds.length === 0) return {};
 
   const cacheScope = providerCacheScope ?? getTranslationProvider().cacheScope;
@@ -74,15 +73,4 @@ export async function getTranslatedQuizCards(
   return Object.fromEntries(
     translations.filter((entry): entry is readonly [string, TranslatedQuizCard] => entry !== null),
   );
-}
-
-function parseTranslatedCookie(value: string | undefined): string[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return [...new Set(parsed.filter((questionId): questionId is string => typeof questionId === "string" && questionId.length > 0))];
-  } catch {
-    return [];
-  }
 }
