@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowRight, BookOpen, Brain, Compass } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { getSettingsData } from "@/lib/settings/get-settings";
 
@@ -12,6 +14,41 @@ export default async function SettingsPage() {
       </div>
 
       <div className="management-stack settings-stack">
+        <section className="management-card">
+          <div className="management-card-heading">
+            <div>
+              <h2>Manage</h2>
+              <p>Reference data and learning detail views.</p>
+            </div>
+          </div>
+          <div className="settings-link-list">
+            <Link href="/sources">
+              <BookOpen size={18} aria-hidden="true" />
+              <span>
+                <strong>Sources</strong>
+                <small>Trusted references and source status</small>
+              </span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+            <Link href="/skills">
+              <Compass size={18} aria-hidden="true" />
+              <span>
+                <strong>Skills</strong>
+                <small>Dashboard axes and calibration detail</small>
+              </span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+            <Link href="/concepts">
+              <Brain size={18} aria-hidden="true" />
+              <span>
+                <strong>Concepts</strong>
+                <small>Topic scores, tags, and review dates</small>
+              </span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+
         <section className="management-card">
           <h2>Providers</h2>
           <div className="compact-list">

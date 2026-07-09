@@ -26,7 +26,7 @@ test("user can browse answered quiz history from the dashboard", async ({ page }
 
   await expect(page).toHaveURL(/\/history/);
   await expect(page.getByRole("heading", { name: "Archive" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Primary" }).getByText("Hist")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" }).getByText("Archive")).toBeVisible();
   await expect(page.locator(".history-days a").first()).toBeVisible();
   await expect(page.getByText("Your answer").first()).toBeVisible();
   await expect(page.getByText("Expected").first()).toBeVisible();
