@@ -8,6 +8,13 @@
       "when": 1783498903917,
       "tag": "0000_fuzzy_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1783569744799,
+      "tag": "0002_translation_cache",
+      "breakpoints": true
     }
   ]
 }
