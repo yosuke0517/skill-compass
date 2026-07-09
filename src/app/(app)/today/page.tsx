@@ -1,8 +1,9 @@
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
 import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
+import { getTranslatedQuizCards } from "@/app/actions/translation";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const [{ error }, quiz] = await Promise.all([searchParams, getTodayQuiz()]);
+  const [{ error }, quiz, translations] = await Promise.all([searchParams, getTodayQuiz(), getTranslatedQuizCards()]);
 
   return (
     <>
@@ -25,7 +26,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
       <div className="quiz-stack">
         {quiz.questions.map((item) => (
-          <QuizQuestionCard key={item.question.id} quizDayId={quiz.quizDayId} item={item} />
+          <QuizQuestionCard key={item.question.id} quizDayId={quiz.quizDayId} item={item} translation={translations[item.question.id]} />
         ))}
       </div>
     </>

@@ -226,6 +226,14 @@ p {
   padding: 0 12px;
 }
 
+.icon-button {
+  background: #edf3f1;
+  color: var(--accent-dark);
+  min-height: 34px;
+  padding: 0;
+  width: 34px;
+}
+
 .today-card {
   background: var(--foreground);
   border-radius: 22px;
@@ -597,6 +605,12 @@ p {
   justify-content: space-between;
 }
 
+.quiz-card-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .quiz-card-header span,
 .quiz-card-header strong {
   color: var(--accent-dark);
@@ -736,6 +750,34 @@ p {
   display: block;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.translation-panel,
+.translation-unavailable {
+  background: #f1f6f4;
+  border: 1px solid #d7e5df;
+  border-radius: 16px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0;
+  padding: 12px;
+}
+
+.translation-panel p {
+  color: var(--foreground);
+  margin: 0 0 8px;
+}
+
+.translation-panel ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.translation-panel strong {
+  color: var(--accent-dark);
+  display: block;
+  margin-top: 8px;
 }
 
 @media (min-width: 700px) {
