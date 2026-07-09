@@ -139,6 +139,13 @@ const thinkingLineStyle: CSSProperties = {
   height: 9,
 };
 
+type AssistantViewport = {
+  width: number;
+  height: number;
+  offsetLeft: number;
+  offsetTop: number;
+};
+
 export function TodayAssistantWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -161,20 +168,28 @@ export function TodayAssistantWidget() {
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setPosition((current) =>
-        current ? clampPosition(current.x, current.y) : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
+        current
+          ? clampAssistantPosition(current, getAssistantViewport())
+          : calculateAssistantDefaultPosition(getAssistantViewport()),
       );
     });
 
     function handleResize() {
       setPosition((current) =>
-        current ? clampPosition(current.x, current.y) : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
+        current
+          ? clampAssistantPosition(current, getAssistantViewport())
+          : calculateAssistantDefaultPosition(getAssistantViewport()),
       );
     }
 
     window.addEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("scroll", handleResize);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("scroll", handleResize);
     };
   }, []);
 
@@ -244,7 +259,7 @@ export function TodayAssistantWidget() {
     const nextY = drag.startY + event.clientY - drag.startClientY;
     const moved = Math.abs(event.clientX - drag.startClientX) > 4 || Math.abs(event.clientY - drag.startClientY) > 4;
     dragRef.current = { ...drag, moved: drag.moved || moved };
-    setPosition(clampPosition(nextX, nextY));
+    setPosition(clampAssistantPosition({ x: nextX, y: nextY }, getAssistantViewport()));
   }
 
   function handlePointerUp(event: PointerEvent<HTMLButtonElement>) {
@@ -397,12 +412,34 @@ export function TodayAssistantWidget() {
   );
 }
 
-function clampPosition(x: number, y: number) {
-  const maxX = window.innerWidth - buttonSize - edgeGap;
-  const maxY = window.innerHeight - buttonSize - edgeGap;
+export function calculateAssistantDefaultPosition(viewport: AssistantViewport) {
+  return clampAssistantPosition(
+    {
+      x: viewport.offsetLeft + viewport.width - buttonSize - edgeGap,
+      y: viewport.offsetTop + viewport.height - defaultBottomGap,
+    },
+    viewport,
+  );
+}
+
+export function clampAssistantPosition(position: { x: number; y: number }, viewport: AssistantViewport) {
+  const minX = viewport.offsetLeft + edgeGap;
+  const minY = viewport.offsetTop + edgeGap;
+  const maxX = viewport.offsetLeft + viewport.width - buttonSize - edgeGap;
+  const maxY = viewport.offsetTop + viewport.height - buttonSize - edgeGap;
 
   return {
-    x: Math.min(Math.max(edgeGap, x), maxX),
-    y: Math.min(Math.max(edgeGap, y), maxY),
+    x: Math.min(Math.max(minX, position.x), maxX),
+    y: Math.min(Math.max(minY, position.y), maxY),
+  };
+}
+
+function getAssistantViewport(): AssistantViewport {
+  const viewport = window.visualViewport;
+  return {
+    width: viewport?.width ?? window.innerWidth,
+    height: viewport?.height ?? window.innerHeight,
+    offsetLeft: viewport?.offsetLeft ?? 0,
+    offsetTop: viewport?.offsetTop ?? 0,
   };
 }
