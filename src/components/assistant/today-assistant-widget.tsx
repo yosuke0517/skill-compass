@@ -278,7 +278,7 @@ export function TodayAssistantWidget() {
     setOpen((current) => !current);
   }
 
-  if (!position || typeof document === "undefined") {
+  if (typeof document === "undefined") {
     return null;
   }
 
@@ -297,11 +297,13 @@ export function TodayAssistantWidget() {
         zIndex: 60,
       }
     : {
+        bottom: position ? "auto" : "calc(112px + env(safe-area-inset-bottom))",
         height: buttonSize,
-        left: position.x,
+        left: position?.x ?? "auto",
         pointerEvents: "none",
         position: "fixed",
-        top: position.y,
+        right: position ? "auto" : 18,
+        top: position?.y ?? "auto",
         width: buttonSize,
         zIndex: 60,
       };
