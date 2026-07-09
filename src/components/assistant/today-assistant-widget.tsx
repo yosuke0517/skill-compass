@@ -14,6 +14,8 @@ const promptChips = ["この問題をやさしく説明して", "ヒントだけ
 const buttonSize = 62;
 const defaultBottomGap = 92 + buttonSize;
 const edgeGap = 18;
+const orbBackground =
+  "radial-gradient(circle at 42% 34%, #eefaff 0 12%, transparent 13%), linear-gradient(180deg, #52c7ff 0%, #2177f4 52%, #0860df 100%)";
 
 export function TodayAssistantWidget() {
   const pathname = usePathname();
@@ -136,19 +138,57 @@ export function TodayAssistantWidget() {
     return null;
   }
 
-  return createPortal(
-    <div
-      className="today-assistant"
-      data-open={open ? "true" : "false"}
-      style={
-        open
-          ? undefined
-          : ({
-              "--assistant-x": `${position.x}px`,
-              "--assistant-y": `${position.y}px`,
-            } as CSSProperties)
+  const hostStyle: CSSProperties = open
+    ? {
+        bottom: "calc(92px + env(safe-area-inset-bottom))",
+        height: "auto",
+        left: "50%",
+        maxWidth: 394,
+        pointerEvents: "none",
+        position: "fixed",
+        right: "auto",
+        top: "auto",
+        transform: "translateX(-50%)",
+        width: "calc(100vw - 36px)",
+        zIndex: 60,
       }
-    >
+    : {
+        height: buttonSize,
+        left: position.x,
+        pointerEvents: "none",
+        position: "fixed",
+        top: position.y,
+        width: buttonSize,
+        zIndex: 60,
+      };
+
+  const orbStyle: CSSProperties = {
+    alignItems: "center",
+    background: orbBackground,
+    border: "3px solid #9ee6ff",
+    borderRadius: 999,
+    boxShadow: "0 14px 30px rgb(13 91 213 / 34%), inset 0 -8px 16px rgb(3 64 177 / 24%)",
+    color: "#ffffff",
+    display: "inline-flex",
+    flex: "0 0 auto",
+    gap: 8,
+    height: buttonSize,
+    justifyContent: "center",
+    marginLeft: "auto",
+    maxHeight: buttonSize,
+    maxWidth: buttonSize,
+    minHeight: buttonSize,
+    minWidth: buttonSize,
+    padding: 0,
+    pointerEvents: "auto",
+    position: "relative",
+    touchAction: "none",
+    userSelect: "none",
+    width: buttonSize,
+  };
+
+  return createPortal(
+    <div className="today-assistant" data-open={open ? "true" : "false"} style={hostStyle}>
       {open ? (
         <section className="assistant-sheet" aria-label="Today assistant">
           <div className="assistant-sheet-header">
@@ -197,6 +237,7 @@ export function TodayAssistantWidget() {
         type="button"
         className="assistant-orb"
         aria-label="Open Today assistant"
+        style={orbStyle}
         onClick={handleOrbClick}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

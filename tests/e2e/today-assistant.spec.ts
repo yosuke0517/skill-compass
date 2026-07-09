@@ -41,6 +41,8 @@ test("Today assistant stays floating while the quiz page scrolls", async ({ page
       buttonWidth: element.getBoundingClientRect().width,
       cardWidth: card?.getBoundingClientRect().width ?? 0,
       hostParent: host?.parentElement?.tagName,
+      hostStyle: host?.getAttribute("style") ?? "",
+      orbStyle: element.getAttribute("style") ?? "",
     };
   });
 
@@ -58,13 +60,19 @@ test("Today assistant stays floating while the quiz page scrolls", async ({ page
       cardWidth: card?.getBoundingClientRect().width ?? 0,
       hostBottom: host?.getBoundingClientRect().bottom ?? 0,
       hostParent: host?.parentElement?.tagName,
+      hostStyle: host?.getAttribute("style") ?? "",
       hostPosition: hostStyle?.position,
+      orbStyle: element.getAttribute("style") ?? "",
       navTop: document.querySelector(".app-nav")?.getBoundingClientRect().top ?? 0,
     };
   });
 
   expect(initial.hostParent).toBe("BODY");
   expect(placement.hostParent).toBe("BODY");
+  expect(initial.hostStyle).toContain("position: fixed");
+  expect(initial.orbStyle).toContain("linear-gradient");
+  expect(placement.hostStyle).toContain("position: fixed");
+  expect(placement.orbStyle).toContain("linear-gradient");
   expect(placement.hostPosition).toBe("fixed");
   expect(placement.hostBottom).toBeLessThanOrEqual(placement.navTop);
   expect(placement.buttonRadius).toBe("999px");
