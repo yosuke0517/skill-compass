@@ -89,6 +89,36 @@ test("Today assistant sends previous chat turns with follow-up questions", async
   );
 });
 
+test("Today assistant sends the complete visible chat history", async ({ page }) => {
+  const requests: Array<{ message?: string; messages?: Array<{ role: string; text: string }> }> = [];
+  await page.route("**/api/assistant/today", async (route) => {
+    const payload = route.request().postDataJSON();
+    requests.push(payload);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ answer: `reply-${requests.length}`, provider: "test" }),
+    });
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByLabel("Open Today assistant").click();
+
+  for (let index = 1; index <= 7; index += 1) {
+    await page.getByLabel("Ask the Today assistant").fill(`question-${index}`);
+    await page.getByLabel("Send question").click();
+    await expect(page.getByText(`reply-${index}`)).toBeVisible();
+  }
+
+  const lastMessages = requests.at(-1)?.messages ?? [];
+  expect(lastMessages).toHaveLength(14);
+  expect(lastMessages[0]).toEqual({ role: "assistant", text: "今日の問題について聞けます。迷った選択肢や、知りたい観点を送ってください。" });
+  expect(lastMessages.at(-1)).toEqual({ role: "user", text: "question-7" });
+});
+
 test("Today assistant does not submit when the message field inserts a newline", async ({ page }) => {
   let requestCount = 0;
   await page.route("**/api/assistant/today", async (route) => {

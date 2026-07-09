@@ -32,6 +32,24 @@ describe("today assistant", () => {
     expect(prompt).not.toContain("API_KEY");
   });
 
+  it("keeps the full conversation history in the prompt", () => {
+    const conversation = Array.from({ length: 12 }, (_, index) => ({
+      role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+      text: `turn-${index + 1}`,
+    }));
+
+    const prompt = buildTodayAssistantPrompt({
+      userMessage: "続きです",
+      conversation,
+      quizDate: "2026-07-09",
+      progress: { answered: 1, total: 5 },
+      questions: [],
+    });
+
+    expect(prompt).toContain("User: turn-1");
+    expect(prompt).toContain("Assistant: turn-12");
+  });
+
   it("posts today assistant prompts to Gemini", async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
     const provider = createGeminiAssistantProvider({

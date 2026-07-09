@@ -194,7 +194,7 @@ export function TodayAssistantWidget() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          messages: nextMessages.slice(-10),
+          messages: nextMessages,
         }),
       });
 

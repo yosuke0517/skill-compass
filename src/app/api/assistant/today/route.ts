@@ -5,7 +5,6 @@ import { buildTodayAssistantInput } from "@/lib/assistant/today-assistant";
 import type { TodayAssistantMessage } from "@/lib/assistant/types";
 import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 
-const maxConversationMessages = 10;
 const maxMessageLength = 1200;
 
 export async function POST(request: Request) {
@@ -44,6 +43,5 @@ function parseConversation(value: unknown): TodayAssistantMessage[] {
         text: text.slice(0, maxMessageLength),
       } satisfies TodayAssistantMessage;
     })
-    .filter((item): item is TodayAssistantMessage => item !== null)
-    .slice(-maxConversationMessages);
+    .filter((item): item is TodayAssistantMessage => item !== null);
 }
