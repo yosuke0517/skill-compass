@@ -20,6 +20,12 @@ test("user can answer a daily quiz question", async ({ page }) => {
   }
 
   await expect(page.locator(".answer-feedback").first()).toBeVisible();
+  const answeredCard = page.locator(".quiz-card.answered").first();
+  await expect(answeredCard.getByLabel("Answer review")).toBeVisible();
+  await expect(answeredCard.locator(".answer-review-summary").filter({ hasText: "Your answer" })).toBeVisible();
+  await expect(answeredCard.locator(".answer-review-summary").filter({ hasText: "Correct answer" })).toBeVisible();
+  await expect(answeredCard.locator(".answer-badge.selected")).toBeVisible();
+  await expect(answeredCard.locator(".answer-badge.correct")).toBeVisible();
 });
 
 test("user can add more questions after completing the current set", async ({ page }) => {

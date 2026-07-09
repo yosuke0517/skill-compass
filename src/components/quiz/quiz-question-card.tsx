@@ -26,6 +26,7 @@ const reasonLabels: Record<string, string> = {
 
 export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionCardProps) {
   const answered = item.answer !== null;
+  const correctChoice = item.question.choices.find((choice) => choice.correct);
   const [currentTranslation, setCurrentTranslation] = useState<TranslatedQuizCard | undefined>(translation);
   const [isTranslating, startTranslating] = useTransition();
 
@@ -84,13 +85,46 @@ export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionC
       {currentTranslation ? <QuizTranslationPanel translation={currentTranslation} /> : null}
 
       {answered ? (
-        <div className="answer-feedback">
-          {item.answer?.correct ? <CheckCircle2 size={20} aria-hidden="true" /> : <CircleHelp size={20} aria-hidden="true" />}
-          <div>
-            <p>{item.answer?.correct ? "Correct" : "Review"}</p>
-            <span>{item.answer?.feedback}</span>
+        <>
+          <section className="answer-review" aria-label="Answer review">
+            <div className="answer-review-summary">
+              <span>Your answer</span>
+              <strong>{item.question.choices.find((choice) => choice.id === item.answer?.selectedChoiceId)?.label ?? "Unknown choice"}</strong>
+            </div>
+            <div className="answer-review-summary correct">
+              <span>Correct answer</span>
+              <strong>{correctChoice?.label ?? "Not configured"}</strong>
+            </div>
+
+            <div className="answered-choice-list">
+              {item.question.choices.map((choice, index) => {
+                const selected = choice.id === item.answer?.selectedChoiceId;
+                const correct = choice.correct;
+
+                return (
+                  <div key={choice.id} className={`answered-choice${selected ? " selected" : ""}${correct ? " correct" : ""}`}>
+                    <span className="answered-choice-marker" aria-hidden="true">
+                      {correct ? <CheckCircle2 size={16} /> : index + 1}
+                    </span>
+                    <p>{choice.label}</p>
+                    <div className="answered-choice-badges">
+                      {selected ? <span className="answer-badge selected">Your answer</span> : null}
+                      {correct ? <span className="answer-badge correct">Correct</span> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="answer-feedback">
+            {item.answer?.correct ? <CheckCircle2 size={20} aria-hidden="true" /> : <CircleHelp size={20} aria-hidden="true" />}
+            <div>
+              <p>{item.answer?.correct ? "Correct" : "Review"}</p>
+              <span>{item.answer?.feedback}</span>
+            </div>
           </div>
-        </div>
+        </>
       ) : (
         <form action={submitQuizAnswerAction} className="quiz-form">
           <input type="hidden" name="quizDayId" value={quizDayId} />
