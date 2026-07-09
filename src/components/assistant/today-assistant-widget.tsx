@@ -101,10 +101,13 @@ const inputStyle: CSSProperties = {
   background: "transparent",
   border: 0,
   color: "#111816",
+  lineHeight: 1.35,
+  maxHeight: 74,
   minHeight: 38,
   minWidth: 0,
   outline: 0,
   padding: "0 8px",
+  resize: "none",
 };
 const sendButtonStyle: CSSProperties = {
   alignItems: "center",
@@ -353,8 +356,9 @@ export function TodayAssistantWidget() {
           </div>
 
           <form className="assistant-form" style={formStyle} onSubmit={handleSubmit}>
-            <input
+            <textarea
               value={input}
+              rows={1}
               style={inputStyle}
               onChange={(event) => setInput(event.target.value)}
               placeholder="今日の問題について聞く"

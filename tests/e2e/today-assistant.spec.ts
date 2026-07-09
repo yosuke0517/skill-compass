@@ -49,6 +49,36 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   await expect(page.getByText("API契約の互換性を見る問題です")).toBeVisible();
 });
 
+test("Today assistant does not submit when the message field inserts a newline", async ({ page }) => {
+  let requestCount = 0;
+  await page.route("**/api/assistant/today", async (route) => {
+    requestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ answer: "送信されました。", provider: "test" }),
+    });
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByLabel("Open Today assistant").click();
+
+  const input = page.getByLabel("Ask the Today assistant");
+  await input.fill("1行目");
+  await input.press("Enter");
+  await input.type("2行目");
+
+  await expect(input).toHaveValue("1行目\n2行目");
+  expect(requestCount).toBe(0);
+
+  await page.getByLabel("Send question").click();
+  await expect(page.getByText("送信されました。")).toBeVisible();
+  expect(requestCount).toBe(1);
+});
+
 test("Today assistant stays floating while the quiz page scrolls", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/login");
