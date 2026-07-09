@@ -16,6 +16,125 @@ const defaultBottomGap = 92 + buttonSize;
 const edgeGap = 18;
 const orbBackground =
   "radial-gradient(circle at 42% 34%, #eefaff 0 12%, transparent 13%), linear-gradient(180deg, #52c7ff 0%, #2177f4 52%, #0860df 100%)";
+const sheetStyle: CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #c9d9ff",
+  borderRadius: 24,
+  boxShadow: "0 22px 54px rgb(20 40 78 / 22%)",
+  display: "grid",
+  gap: 12,
+  maxHeight: "min(70svh, 560px)",
+  overflow: "hidden",
+  padding: 14,
+  pointerEvents: "auto",
+};
+const sheetHeaderStyle: CSSProperties = {
+  alignItems: "center",
+  display: "flex",
+  justifyContent: "space-between",
+};
+const closeButtonStyle: CSSProperties = {
+  alignItems: "center",
+  background: "#edf3f1",
+  border: 0,
+  borderRadius: 999,
+  color: "#0b5c4e",
+  display: "inline-flex",
+  height: 38,
+  justifyContent: "center",
+  minHeight: 38,
+  padding: 0,
+  width: 38,
+};
+const messagesStyle: CSSProperties = {
+  display: "grid",
+  gap: 8,
+  maxHeight: 260,
+  overflow: "auto",
+  paddingRight: 2,
+};
+const assistantMessageStyle: CSSProperties = {
+  background: "#edf3f1",
+  borderRadius: "16px 16px 16px 6px",
+  color: "#2c3935",
+  fontSize: "0.9rem",
+  lineHeight: 1.5,
+  margin: 0,
+  padding: "10px 12px",
+};
+const userMessageStyle: CSSProperties = {
+  ...assistantMessageStyle,
+  background: "#155ddb",
+  borderRadius: "16px 16px 6px 16px",
+  color: "#ffffff",
+  justifySelf: "end",
+  maxWidth: "88%",
+};
+const chipsStyle: CSSProperties = {
+  display: "flex",
+  gap: 8,
+  overflowX: "auto",
+  paddingBottom: 2,
+};
+const chipButtonStyle: CSSProperties = {
+  background: "#eef4ff",
+  border: 0,
+  borderRadius: 999,
+  color: "#1553bd",
+  flex: "0 0 auto",
+  fontSize: "0.8rem",
+  fontWeight: 650,
+  minHeight: 36,
+  padding: "0 12px",
+};
+const formStyle: CSSProperties = {
+  alignItems: "center",
+  background: "#f6f8fb",
+  border: "1px solid #d7dfdc",
+  borderRadius: 18,
+  display: "grid",
+  gap: 8,
+  gridTemplateColumns: "1fr auto",
+  padding: 8,
+};
+const inputStyle: CSSProperties = {
+  background: "transparent",
+  border: 0,
+  color: "#111816",
+  minHeight: 38,
+  minWidth: 0,
+  outline: 0,
+  padding: "0 8px",
+};
+const sendButtonStyle: CSSProperties = {
+  alignItems: "center",
+  background: "#0f7b68",
+  border: 0,
+  borderRadius: 999,
+  color: "#ffffff",
+  display: "inline-flex",
+  height: 38,
+  justifyContent: "center",
+  minHeight: 38,
+  padding: 0,
+  width: 38,
+};
+const thinkingStyle: CSSProperties = {
+  background: "#edf3f1",
+  borderRadius: 16,
+  display: "grid",
+  gap: 7,
+  justifySelf: "start",
+  padding: "11px 12px",
+  width: "72%",
+};
+const thinkingLineStyle: CSSProperties = {
+  background: "linear-gradient(90deg, #dfe9e5 0%, #f8fbfa 48%, #dfe9e5 100%)",
+  backgroundSize: "220% 100%",
+  borderRadius: 999,
+  display: "block",
+  height: 9,
+};
 
 export function TodayAssistantWidget() {
   const pathname = usePathname();
@@ -195,64 +314,76 @@ export function TodayAssistantWidget() {
   return createPortal(
     <div className="today-assistant" data-open={open ? "true" : "false"} style={hostStyle}>
       {open ? (
-        <section className="assistant-sheet" aria-label="Today assistant">
-          <div className="assistant-sheet-header">
+        <section className="assistant-sheet" aria-label="Today assistant" style={sheetStyle}>
+          <div className="assistant-sheet-header" style={sheetHeaderStyle}>
             <div>
               <p className="eyebrow">Ask anything</p>
               <strong>Today coach</strong>
             </div>
-            <button type="button" className="icon-button" aria-label="Close assistant" onClick={() => setOpen(false)}>
+            <button type="button" className="icon-button" aria-label="Close assistant" style={closeButtonStyle} onClick={() => setOpen(false)}>
               <X size={17} aria-hidden="true" />
             </button>
           </div>
 
-          <div className="assistant-messages" aria-live="polite">
+          <div className="assistant-messages" aria-live="polite" style={messagesStyle}>
             {messages.map((message, index) => (
-              <p key={`${message.role}-${index}`} className={message.role === "user" ? "assistant-message user" : "assistant-message"}>
+              <p
+                key={`${message.role}-${index}`}
+                className={message.role === "user" ? "assistant-message user" : "assistant-message"}
+                style={message.role === "user" ? userMessageStyle : assistantMessageStyle}
+              >
                 {message.text}
               </p>
             ))}
             {pending ? (
-              <div className="assistant-thinking" aria-label="Assistant thinking">
-                <span />
-                <span />
-                <span />
+              <div className="assistant-thinking" aria-label="Assistant thinking" style={thinkingStyle}>
+                <span style={thinkingLineStyle} />
+                <span style={{ ...thinkingLineStyle, width: "70%" }} />
+                <span style={{ ...thinkingLineStyle, width: "84%" }} />
               </div>
             ) : null}
           </div>
 
-          <div className="assistant-chips">
+          <div className="assistant-chips" style={chipsStyle}>
             {promptChips.map((chip) => (
-              <button key={chip} type="button" onClick={() => void askAssistant(chip)} disabled={pending}>
+              <button key={chip} type="button" style={chipButtonStyle} onClick={() => void askAssistant(chip)} disabled={pending}>
                 {chip}
               </button>
             ))}
           </div>
 
-          <form className="assistant-form" onSubmit={handleSubmit}>
-            <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="今日の問題について聞く" aria-label="Ask the Today assistant" />
-            <button type="submit" aria-label="Send question" disabled={pending || input.trim().length === 0}>
+          <form className="assistant-form" style={formStyle} onSubmit={handleSubmit}>
+            <input
+              value={input}
+              style={inputStyle}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="今日の問題について聞く"
+              aria-label="Ask the Today assistant"
+            />
+            <button type="submit" aria-label="Send question" style={sendButtonStyle} disabled={pending || input.trim().length === 0}>
               <Send size={16} aria-hidden="true" />
             </button>
           </form>
         </section>
       ) : null}
 
-      <button
-        type="button"
-        className="assistant-orb"
-        aria-label="Open Today assistant"
-        style={orbStyle}
-        onClick={handleOrbClick}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        <span className="assistant-orb-ring" />
-        <Bot size={23} aria-hidden="true" />
-        <Sparkles size={12} aria-hidden="true" className="assistant-orb-spark" />
-      </button>
+      {!open ? (
+        <button
+          type="button"
+          className="assistant-orb"
+          aria-label="Open Today assistant"
+          style={orbStyle}
+          onClick={handleOrbClick}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
+          <span className="assistant-orb-ring" />
+          <Bot size={23} aria-hidden="true" />
+          <Sparkles size={12} aria-hidden="true" className="assistant-orb-spark" />
+        </button>
+      ) : null}
     </div>,
     document.body,
   );

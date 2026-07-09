@@ -18,7 +18,31 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   await expect(openButton).toBeVisible();
   await openButton.click();
 
-  await expect(page.getByRole("region", { name: "Today assistant" })).toBeVisible();
+  const sheet = page.getByRole("region", { name: "Today assistant" });
+  await expect(sheet).toBeVisible();
+  const sheetChrome = await sheet.evaluate((element) => {
+    const chip = element.querySelector(".assistant-chips button");
+    const inputForm = element.querySelector(".assistant-form");
+    const sheetStyle = getComputedStyle(element);
+    const chipStyle = chip ? getComputedStyle(chip) : null;
+    const formStyle = inputForm ? getComputedStyle(inputForm) : null;
+    return {
+      background: sheetStyle.backgroundColor,
+      borderRadius: sheetStyle.borderRadius,
+      chipBackground: chipStyle?.backgroundColor,
+      chipColor: chipStyle?.color,
+      display: sheetStyle.display,
+      formDisplay: formStyle?.display,
+      orbVisible: !!document.querySelector(".assistant-orb"),
+    };
+  });
+
+  expect(sheetChrome.background).toBe("rgb(255, 255, 255)");
+  expect(sheetChrome.borderRadius).toBe("24px");
+  expect(sheetChrome.chipBackground).toBe("rgb(238, 244, 255)");
+  expect(sheetChrome.display).toBe("grid");
+  expect(sheetChrome.formDisplay).toBe("grid");
+  expect(sheetChrome.orbVisible).toBe(false);
   await page.getByLabel("Ask the Today assistant").fill("この問題を説明して");
   await page.getByLabel("Send question").click();
 
