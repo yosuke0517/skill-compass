@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { ArrowRight, Flame, Target, TrendingUp } from "lucide-react";
+import { ArrowRight, CalendarDays, Flame, Target, TrendingUp } from "lucide-react";
 
 import type { DashboardData } from "@/lib/dashboard/get-dashboard";
 
@@ -88,6 +88,17 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="dashboard-section archive-entry">
+        <div className="section-heading">
+          <h2>Archive</h2>
+          <CalendarDays size={18} aria-hidden="true" />
+        </div>
+        <Link href="/history">
+          <span>Browse answered days</span>
+          <ArrowRight size={16} aria-hidden="true" />
+        </Link>
       </section>
 
       <section className="prompt-row" aria-label="Review prompts">

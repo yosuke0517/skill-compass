@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Brain, Compass, Settings, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, Brain, CalendarDays, Compass, Settings, Sparkles } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dash", icon: BarChart3 },
   { href: "/today", label: "Today", icon: Sparkles },
+  { href: "/history", label: "Hist", icon: CalendarDays },
   { href: "/skills", label: "Skills", icon: Compass },
   { href: "/concepts", label: "Concepts", icon: Brain },
   { href: "/sources", label: "Sources", icon: BookOpen },

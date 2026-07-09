@@ -29,6 +29,7 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 10: added skills, concepts, sources, and settings management screens.
 - Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
 - Auth update: replaced fixed env password login with database-backed user password hashes and invite-ready tables.
+- History archive: added `/history` for browsing answered Today quiz records by year, month, and day.
 
 ## Verification Snapshot
 

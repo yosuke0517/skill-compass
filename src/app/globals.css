@@ -452,7 +452,7 @@ p {
   box-shadow: 0 14px 30px rgb(23 38 34 / 10%);
   display: grid;
   gap: 2px;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   left: 50%;
   max-width: 394px;
   padding: 8px;
@@ -487,6 +487,258 @@ p {
   white-space: nowrap;
   width: 100%;
   text-align: center;
+}
+
+.archive-entry > a {
+  align-items: center;
+  background: #edf3f1;
+  border-radius: 16px;
+  color: var(--accent-dark);
+  display: flex;
+  font-size: 0.9rem;
+  font-weight: 760;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.history-page {
+  padding-bottom: 112px;
+}
+
+.history-search-placeholder {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+.history-search-placeholder svg {
+  color: var(--accent);
+}
+
+.empty-panel {
+  align-items: start;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.empty-panel svg {
+  color: var(--accent);
+}
+
+.empty-panel h2,
+.empty-panel p {
+  margin: 0;
+}
+
+.empty-panel h2 {
+  color: var(--foreground);
+  font-size: 1.05rem;
+}
+
+.empty-panel p {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.history-layout,
+.history-tree,
+.history-detail,
+.history-answer-list {
+  display: grid;
+  gap: 14px;
+}
+
+.history-tree {
+  background: rgb(255 255 255 / 68%);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.history-year,
+.history-month {
+  display: grid;
+  gap: 10px;
+}
+
+.history-year + .history-year {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.history-year-heading,
+.history-month-heading,
+.history-detail-heading,
+.history-answer-meta {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.history-year-heading strong,
+.history-detail-heading h2 {
+  color: var(--foreground);
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.history-year-heading span,
+.history-month-heading small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.history-month-heading span {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-weight: 760;
+}
+
+.history-days {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.history-days a {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--foreground);
+  display: grid;
+  gap: 2px;
+  min-height: 58px;
+  padding: 8px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.history-days a[aria-current="page"] {
+  background: #dff3ed;
+  border-color: #9bd6c8;
+  color: var(--accent-dark);
+}
+
+.history-days span {
+  font-size: 1.2rem;
+  font-weight: 780;
+}
+
+.history-days small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.history-detail {
+  min-width: 0;
+}
+
+.history-detail-heading {
+  background: var(--foreground);
+  border-radius: 22px;
+  color: #ffffff;
+  padding: 18px;
+}
+
+.history-detail-heading .eyebrow {
+  color: #b7c6c1;
+  margin-bottom: 5px;
+}
+
+.history-detail-heading h2 {
+  color: #ffffff;
+}
+
+.history-score-pill {
+  align-items: center;
+  background: rgb(255 255 255 / 12%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.history-answer-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.history-answer-meta {
+  justify-content: start;
+}
+
+.history-answer-meta span {
+  color: var(--accent-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.history-answer-meta strong {
+  color: var(--accent-dark);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-answer-meta em {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 760;
+  margin-left: auto;
+}
+
+.history-answer-card h3 {
+  color: var(--foreground);
+  font-size: 1.18rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.history-answer-card dl,
+.history-answer-card dl div {
+  display: grid;
+  gap: 8px;
+}
+
+.history-answer-card dl {
+  margin: 0;
+}
+
+.history-answer-card dt {
+  color: var(--accent-dark);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-answer-card dd {
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  line-height: 1.55;
+  margin: 0;
 }
 
 .metric-label {
