@@ -46,3 +46,32 @@ test("translation keeps the current scroll position on lower cards", async ({ pa
   expect(mainFrameNavigations).toBe(0);
   expect(afterScrollY).toBeGreaterThan(beforeScrollY - 120);
 });
+
+test("translation shows an in-card loading state while pending", async ({ page }) => {
+  await page.route("**/api/quiz/translation", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        questionId: "question_api_contract_change",
+        prompt: "API変更の翻訳",
+        choices: [{ id: "a", label: "選択肢" }],
+        feedback: null,
+        unavailable: false,
+      }),
+    });
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const card = page.locator(".quiz-card").first();
+  await card.getByLabel("Translate to Japanese").click();
+
+  await expect(card.getByLabel("Translation loading")).toBeVisible();
+  await expect(card.getByLabel("Translate to Japanese")).toBeDisabled();
+  await expect(card.getByLabel("Japanese translation")).toBeVisible();
+});

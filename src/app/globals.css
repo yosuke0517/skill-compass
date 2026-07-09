@@ -236,6 +236,11 @@ p {
   width: 34px;
 }
 
+.icon-button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
 .today-card {
   background: var(--foreground);
   border-radius: 22px;
@@ -784,6 +789,46 @@ p {
   color: var(--accent-dark);
   display: block;
   margin-top: 8px;
+}
+
+.translation-loading {
+  background: #f1f6f4;
+  border: 1px solid #d7e5df;
+  border-radius: 16px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.translation-loading span {
+  animation: translation-shimmer 1.1s ease-in-out infinite;
+  background: linear-gradient(90deg, #dfe9e5 0%, #f8fbfa 48%, #dfe9e5 100%);
+  background-size: 220% 100%;
+  border-radius: 999px;
+  display: block;
+  height: 10px;
+}
+
+.translation-loading span:nth-child(1) {
+  width: 82%;
+}
+
+.translation-loading span:nth-child(2) {
+  width: 64%;
+}
+
+.translation-loading span:nth-child(3) {
+  width: 72%;
+}
+
+@keyframes translation-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
 }
 
 .management-stack {

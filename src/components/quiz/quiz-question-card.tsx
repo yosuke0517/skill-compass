@@ -74,6 +74,13 @@ export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionC
         </button>
       </div>
       <h2>{item.question.prompt}</h2>
+      {isTranslating ? (
+        <div className="translation-loading" aria-label="Translation loading" aria-live="polite">
+          <span />
+          <span />
+          <span />
+        </div>
+      ) : null}
       {currentTranslation ? <QuizTranslationPanel translation={currentTranslation} /> : null}
 
       {answered ? (
