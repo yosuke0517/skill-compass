@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { Bot, Send, Sparkles, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 type Message = {
   role: "user" | "assistant";
@@ -11,6 +12,7 @@ type Message = {
 const promptChips = ["この問題をやさしく説明して", "ヒントだけください", "なぜこの答え？", "日本語で要約して"];
 
 export function TodayAssistantWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([
@@ -58,8 +60,12 @@ export function TodayAssistantWidget() {
     void askAssistant(input);
   }
 
+  if (pathname !== "/today") {
+    return null;
+  }
+
   return (
-    <div className="today-assistant">
+    <div className="today-assistant" data-open={open ? "true" : "false"}>
       {open ? (
         <section className="assistant-sheet" aria-label="Today assistant">
           <div className="assistant-sheet-header">

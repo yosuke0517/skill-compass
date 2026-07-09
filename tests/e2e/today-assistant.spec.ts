@@ -25,6 +25,34 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   await expect(page.getByText("API契約の互換性を見る問題です")).toBeVisible();
 });
 
+test("Today assistant stays floating while the quiz page scrolls", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const openButton = page.getByLabel("Open Today assistant");
+  await expect(openButton).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(openButton).toBeVisible();
+
+  const placement = await openButton.evaluate((element) => {
+    const host = element.closest(".today-assistant");
+    const hostStyle = host ? getComputedStyle(host) : null;
+    const buttonStyle = getComputedStyle(element);
+    return {
+      buttonRadius: buttonStyle.borderRadius,
+      hostBottom: host?.getBoundingClientRect().bottom ?? 0,
+      hostPosition: hostStyle?.position,
+      navTop: document.querySelector(".app-nav")?.getBoundingClientRect().top ?? 0,
+    };
+  });
+
+  expect(placement.hostPosition).toBe("fixed");
+  expect(placement.hostBottom).toBeLessThan(placement.navTop);
+  expect(placement.buttonRadius).toBe("999px");
+});
+
 test("Today assistant shows pending feedback while answering", async ({ page }) => {
   await page.route("**/api/assistant/today", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 700));
