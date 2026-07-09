@@ -5,8 +5,14 @@ export type TodayAssistantQuestion = {
   answerFeedback: string | null;
 };
 
+export type TodayAssistantMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
 export type TodayAssistantInput = {
   userMessage: string;
+  conversation: TodayAssistantMessage[];
   quizDate: string;
   progress: { answered: number; total: number };
   questions: TodayAssistantQuestion[];

@@ -7,6 +7,10 @@ describe("today assistant", () => {
   it("builds a public-safe prompt from today quiz context", () => {
     const prompt = buildTodayAssistantPrompt({
       userMessage: "ヒントだけください",
+      conversation: [
+        { role: "user", text: "最後の問題について" },
+        { role: "assistant", text: "インデックス設計の問題ですね。" },
+      ],
       quizDate: "2026-07-09",
       progress: { answered: 1, total: 5 },
       questions: [
@@ -20,6 +24,9 @@ describe("today assistant", () => {
     });
 
     expect(prompt).toContain("Skill Compass Today assistant");
+    expect(prompt).toContain("Conversation so far:");
+    expect(prompt).toContain("User: 最後の問題について");
+    expect(prompt).toContain("Assistant: インデックス設計の問題ですね。");
     expect(prompt).toContain("ヒントだけください");
     expect(prompt).toContain("Which API change");
     expect(prompt).not.toContain("API_KEY");
@@ -43,6 +50,7 @@ describe("today assistant", () => {
 
     const result = await provider.ask({
       userMessage: "この問題を説明して",
+      conversation: [{ role: "user", text: "前の質問です" }],
       quizDate: "2026-07-09",
       progress: { answered: 1, total: 5 },
       questions: [],

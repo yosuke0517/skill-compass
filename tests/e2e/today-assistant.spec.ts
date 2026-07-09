@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test("user can ask the Today assistant from the floating button", async ({ page }) => {
+  const requests: Array<{ message?: string; messages?: Array<{ role: string; text: string }> }> = [];
   await page.route("**/api/assistant/today", async (route) => {
+    requests.push(route.request().postDataJSON());
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -47,6 +49,44 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   await page.getByLabel("Send question").click();
 
   await expect(page.getByText("API契約の互換性を見る問題です")).toBeVisible();
+  expect(requests[0]?.message).toBe("この問題を説明して");
+  expect(requests[0]?.messages?.at(-1)).toEqual({ role: "user", text: "この問題を説明して" });
+  expect(requests[0]?.messages?.some((message) => message.role === "assistant")).toBe(true);
+});
+
+test("Today assistant sends previous chat turns with follow-up questions", async ({ page }) => {
+  const requests: Array<{ message?: string; messages?: Array<{ role: string; text: string }> }> = [];
+  await page.route("**/api/assistant/today", async (route) => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ answer: requests.length === 1 ? "インデックスの話ですね。" : "前の話を踏まえると、書き込みコストの話です。", provider: "test" }),
+    });
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByLabel("Open Today assistant").click();
+
+  await page.getByLabel("Ask the Today assistant").fill("最後の問題について");
+  await page.getByLabel("Send question").click();
+  await expect(page.getByText("インデックスの話ですね。")).toBeVisible();
+
+  await page.getByLabel("Ask the Today assistant").fill("検索が早くなり、遅くなるものはないのでは？");
+  await page.getByLabel("Send question").click();
+  await expect(page.getByText("前の話を踏まえると")).toBeVisible();
+
+  expect(requests[1]?.message).toBe("検索が早くなり、遅くなるものはないのでは？");
+  expect(requests[1]?.messages).toEqual(
+    expect.arrayContaining([
+      { role: "user", text: "最後の問題について" },
+      { role: "assistant", text: "インデックスの話ですね。" },
+      { role: "user", text: "検索が早くなり、遅くなるものはないのでは？" },
+    ]),
+  );
 });
 
 test("Today assistant does not submit when the message field inserts a newline", async ({ page }) => {

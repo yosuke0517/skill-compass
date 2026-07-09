@@ -185,13 +185,17 @@ export function TodayAssistantWidget() {
     setOpen(true);
     setInput("");
     setPending(true);
-    setMessages((current) => [...current, { role: "user", text: trimmed }]);
+    const nextMessages: Message[] = [...messages, { role: "user", text: trimmed }];
+    setMessages(nextMessages);
 
     try {
       const response = await fetch("/api/assistant/today", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({
+          message: trimmed,
+          messages: nextMessages.slice(-10),
+        }),
       });
 
       if (!response.ok) {

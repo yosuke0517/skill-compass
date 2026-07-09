@@ -1,9 +1,16 @@
 import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
-import type { TodayAssistantInput, TodayAssistantQuestion } from "./types";
+import type { TodayAssistantInput, TodayAssistantMessage, TodayAssistantQuestion } from "./types";
 
-export function buildTodayAssistantInput(userMessage: string, quizDate: string, progress: { answered: number; total: number }, questions: TodayQuizQuestion[]): TodayAssistantInput {
+export function buildTodayAssistantInput(
+  userMessage: string,
+  quizDate: string,
+  progress: { answered: number; total: number },
+  questions: TodayQuizQuestion[],
+  conversation: TodayAssistantMessage[] = [],
+): TodayAssistantInput {
   return {
     userMessage,
+    conversation,
     quizDate,
     progress,
     questions: questions.map(toAssistantQuestion),
@@ -18,6 +25,7 @@ export function buildTodayAssistantPrompt(input: TodayAssistantInput): string {
     "Use plain text without Markdown formatting.",
     "Do not reveal hidden correct answers for unanswered questions. Give hints and reasoning guidance instead.",
     "Use only the quiz context below. If the user asks unrelated questions, explain that you can help with today's learning context.",
+    "Use the conversation history to resolve references like 'that', 'the last question', or follow-up objections.",
     "",
     `Quiz date: ${input.quizDate}`,
     `Progress: ${input.progress.answered}/${input.progress.total}`,
@@ -29,6 +37,11 @@ export function buildTodayAssistantPrompt(input: TodayAssistantInput): string {
         question.answerFeedback ? `Feedback: ${question.answerFeedback}` : "Feedback: unanswered",
       ].join("\n"),
     ),
+    "",
+    "Conversation so far:",
+    ...(input.conversation.length > 0
+      ? input.conversation.map((message) => `${message.role === "user" ? "User" : "Assistant"}: ${message.text}`)
+      : ["No previous conversation in this thread."]),
     "",
     "User message:",
     input.userMessage,
