@@ -24,11 +24,12 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 6: added replaceable LLM evaluation provider and answer evaluation orchestration.
 - Task 7: added deterministic daily quiz selection.
 - Task 8: connected the authenticated dashboard to real database summaries.
+- Task 9: added the daily quiz page, answer submission, feedback, and score updates.
 - Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
 
 ## Verification Snapshot
 
-Last known full verification passed after Task 8:
+Last known full verification passed after Task 9:
 
 ```bash
 pnpm test
@@ -41,11 +42,10 @@ Docker Desktop was running and the local MySQL service was healthy. Seed data wa
 
 ## Current Task
 
-Task 9: implement today quiz answer flow.
+Task 10: implement skills, concepts, sources, and settings screens.
 
 ## Next Tasks
 
-- Task 10: implement skills, concepts, sources, and settings screens.
 - Task 11: add replaceable Markdown note writer and export flow.
 - Task 12: add scheduled job abstractions and CLI commands.
 - Task 13: finalize docs, safety checks, and public repo hygiene.
@@ -62,4 +62,5 @@ Task 9: implement today quiz answer flow.
 - `6737f2f` style: polish mobile-first app shell
 - feat: add replaceable answer evaluation provider
 - `597040a` feat: add daily quiz selection
-- Current commit: feat: add dashboard-first app shell
+- `8163956` feat: add dashboard-first app shell
+- Current commit: feat: add daily quiz flow
