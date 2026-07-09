@@ -21,11 +21,7 @@ export function TodayAssistantWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(() =>
-    typeof window === "undefined"
-      ? null
-      : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
-  );
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -41,6 +37,12 @@ export function TodayAssistantWidget() {
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setPosition((current) =>
+        current ? clampPosition(current.x, current.y) : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
+      );
+    });
+
     function handleResize() {
       setPosition((current) =>
         current ? clampPosition(current.x, current.y) : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
@@ -48,7 +50,10 @@ export function TodayAssistantWidget() {
     }
 
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   async function askAssistant(message: string) {
