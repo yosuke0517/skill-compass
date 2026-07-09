@@ -26,6 +26,7 @@ test("user can ask the Today assistant from the floating button", async ({ page 
 });
 
 test("Today assistant stays floating while the quiz page scrolls", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/login");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
@@ -33,6 +34,16 @@ test("Today assistant stays floating while the quiz page scrolls", async ({ page
 
   const openButton = page.getByLabel("Open Today assistant");
   await expect(openButton).toBeVisible();
+  const initial = await openButton.evaluate((element) => {
+    const host = element.closest(".today-assistant");
+    const card = document.querySelector(".quiz-card");
+    return {
+      buttonWidth: element.getBoundingClientRect().width,
+      cardWidth: card?.getBoundingClientRect().width ?? 0,
+      hostParent: host?.parentElement?.tagName,
+    };
+  });
+
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect(openButton).toBeVisible();
 
@@ -40,17 +51,49 @@ test("Today assistant stays floating while the quiz page scrolls", async ({ page
     const host = element.closest(".today-assistant");
     const hostStyle = host ? getComputedStyle(host) : null;
     const buttonStyle = getComputedStyle(element);
+    const card = document.querySelector(".quiz-card");
     return {
       buttonRadius: buttonStyle.borderRadius,
+      buttonWidth: element.getBoundingClientRect().width,
+      cardWidth: card?.getBoundingClientRect().width ?? 0,
       hostBottom: host?.getBoundingClientRect().bottom ?? 0,
+      hostParent: host?.parentElement?.tagName,
       hostPosition: hostStyle?.position,
       navTop: document.querySelector(".app-nav")?.getBoundingClientRect().top ?? 0,
     };
   });
 
+  expect(initial.hostParent).toBe("BODY");
+  expect(placement.hostParent).toBe("BODY");
   expect(placement.hostPosition).toBe("fixed");
-  expect(placement.hostBottom).toBeLessThan(placement.navTop);
+  expect(placement.hostBottom).toBeLessThanOrEqual(placement.navTop);
   expect(placement.buttonRadius).toBe("999px");
+  expect(placement.buttonWidth).toBe(62);
+  expect(placement.cardWidth).toBe(initial.cardWidth);
+});
+
+test("Today assistant button can be dragged without opening the sheet", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const openButton = page.getByLabel("Open Today assistant");
+  await expect(openButton).toBeVisible();
+  const before = await openButton.boundingBox();
+  expect(before).not.toBeNull();
+
+  await page.mouse.move(before!.x + before!.width / 2, before!.y + before!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(before!.x - 72, before!.y - 96, { steps: 8 });
+  await page.mouse.up();
+
+  const after = await openButton.boundingBox();
+  expect(after).not.toBeNull();
+  expect(after!.x).toBeLessThan(before!.x - 40);
+  expect(after!.y).toBeLessThan(before!.y - 60);
+  await expect(page.getByRole("region", { name: "Today assistant" })).toBeHidden();
 });
 
 test("Today assistant shows pending feedback while answering", async ({ page }) => {

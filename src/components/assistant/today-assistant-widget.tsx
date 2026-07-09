@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { CSSProperties, FormEvent, PointerEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Bot, Send, Sparkles, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 
@@ -10,15 +11,43 @@ type Message = {
 };
 
 const promptChips = ["この問題をやさしく説明して", "ヒントだけください", "なぜこの答え？", "日本語で要約して"];
+const buttonSize = 62;
+const defaultBottomGap = 92 + buttonSize;
+const edgeGap = 18;
 
 export function TodayAssistantWidget() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(() =>
+    typeof window === "undefined"
+      ? null
+      : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
+  );
+  const suppressClickRef = useRef(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", text: "今日の問題について聞けます。迷った選択肢や、知りたい観点を送ってください。" },
   ]);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    function handleResize() {
+      setPosition((current) =>
+        current ? clampPosition(current.x, current.y) : clampPosition(window.innerWidth - buttonSize - edgeGap, window.innerHeight - defaultBottomGap),
+      );
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function askAssistant(message: string) {
     const trimmed = message.trim();
@@ -60,12 +89,66 @@ export function TodayAssistantWidget() {
     void askAssistant(input);
   }
 
-  if (pathname !== "/today") {
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (open || !position) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: position.x,
+      startY: position.y,
+      moved: false,
+    };
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const nextX = drag.startX + event.clientX - drag.startClientX;
+    const nextY = drag.startY + event.clientY - drag.startClientY;
+    const moved = Math.abs(event.clientX - drag.startClientX) > 4 || Math.abs(event.clientY - drag.startClientY) > 4;
+    dragRef.current = { ...drag, moved: drag.moved || moved };
+    setPosition(clampPosition(nextX, nextY));
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    suppressClickRef.current = drag.moved;
+    dragRef.current = null;
+  }
+
+  function handleOrbClick() {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+
+    setOpen((current) => !current);
+  }
+
+  if (pathname !== "/today" || !position || typeof document === "undefined") {
     return null;
   }
 
-  return (
-    <div className="today-assistant" data-open={open ? "true" : "false"}>
+  return createPortal(
+    <div
+      className="today-assistant"
+      data-open={open ? "true" : "false"}
+      style={
+        open
+          ? undefined
+          : ({
+              "--assistant-x": `${position.x}px`,
+              "--assistant-y": `${position.y}px`,
+            } as CSSProperties)
+      }
+    >
       {open ? (
         <section className="assistant-sheet" aria-label="Today assistant">
           <div className="assistant-sheet-header">
@@ -110,11 +193,31 @@ export function TodayAssistantWidget() {
         </section>
       ) : null}
 
-      <button type="button" className="assistant-orb" aria-label="Open Today assistant" onClick={() => setOpen((current) => !current)}>
+      <button
+        type="button"
+        className="assistant-orb"
+        aria-label="Open Today assistant"
+        onClick={handleOrbClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <span className="assistant-orb-ring" />
         <Bot size={23} aria-hidden="true" />
         <Sparkles size={12} aria-hidden="true" className="assistant-orb-spark" />
       </button>
-    </div>
+    </div>,
+    document.body,
   );
+}
+
+function clampPosition(x: number, y: number) {
+  const maxX = window.innerWidth - buttonSize - edgeGap;
+  const maxY = window.innerHeight - buttonSize - edgeGap;
+
+  return {
+    x: Math.min(Math.max(edgeGap, x), maxX),
+    y: Math.min(Math.max(edgeGap, y), maxY),
+  };
 }

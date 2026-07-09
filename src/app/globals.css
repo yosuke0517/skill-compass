@@ -1005,20 +1005,22 @@ p {
 }
 
 .today-assistant {
-  bottom: calc(92px + env(safe-area-inset-bottom));
   height: 62px;
+  left: var(--assistant-x, auto);
   pointer-events: none;
   position: fixed;
-  right: max(18px, calc((100vw - 394px) / 2));
+  top: var(--assistant-y, auto);
   width: 62px;
   z-index: 60;
 }
 
 .today-assistant[data-open="true"] {
+  bottom: calc(92px + env(safe-area-inset-bottom));
   height: auto;
   left: 50%;
   max-width: 394px;
   right: auto;
+  top: auto;
   transform: translateX(-50%);
   width: calc(100vw - 36px);
 }
@@ -1038,12 +1040,18 @@ p {
     0 14px 30px rgb(13 91 213 / 34%),
     inset 0 -8px 16px rgb(3 64 177 / 24%);
   color: #ffffff;
+  display: inline-flex;
+  flex: 0 0 auto;
   height: 62px;
   margin-left: auto;
+  max-height: 62px;
+  max-width: 62px;
   min-height: 62px;
   min-width: 62px;
   padding: 0;
   position: relative;
+  touch-action: none;
+  user-select: none;
   width: 62px;
 }
 
