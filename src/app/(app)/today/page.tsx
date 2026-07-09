@@ -1,4 +1,5 @@
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
+import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 import { getTranslatedQuizCards } from "@/app/actions/translation";
 import { addMoreQuizQuestionsAction } from "@/app/actions/quiz";
@@ -54,6 +55,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           <QuizQuestionCard key={item.question.id} quizDayId={quiz.quizDayId} item={item} translation={translations[item.question.id]} />
         ))}
       </div>
+      <TodayAssistantWidget />
     </>
   );
 }

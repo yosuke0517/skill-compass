@@ -95,16 +95,19 @@ describe("management screen read models", () => {
     const data = buildSettingsData({
       MARKDOWN_EXPORT_DIR: "./exports/skill-compass",
       LLM_PROVIDER: "deterministic",
+      ASSISTANT_PROVIDER: "gemini",
       NOTE_WRITER: "filesystem",
       TRANSLATION_PROVIDER: "claude_cli",
       CLAUDE_CLI_COMMAND: "claude",
       CLAUDE_CLI_TIMEOUT_MS: 10000,
       GEMINI_TRANSLATION_MODEL: "gemini-2.5-flash-lite",
+      GEMINI_ASSISTANT_MODEL: "gemini-2.5-flash-lite",
     });
 
     expect(data).toEqual({
       providers: [
         { label: "LLM", value: "deterministic" },
+        { label: "Assistant", value: "gemini" },
         { label: "Translation", value: "claude_cli" },
         { label: "Notes", value: "filesystem" },
       ],
@@ -118,11 +121,13 @@ describe("management screen read models", () => {
     const data = buildSettingsData({
       MARKDOWN_EXPORT_DIR: "./exports/skill-compass",
       LLM_PROVIDER: "deterministic",
+      ASSISTANT_PROVIDER: "gemini",
       NOTE_WRITER: "filesystem",
       TRANSLATION_PROVIDER: "gemini",
       CLAUDE_CLI_COMMAND: "claude",
       CLAUDE_CLI_TIMEOUT_MS: 10000,
       GEMINI_TRANSLATION_MODEL: "gemini-2.5-flash-lite",
+      GEMINI_ASSISTANT_MODEL: "gemini-2.5-flash-lite",
     });
 
     expect(data.translationRuntime).toEqual({ label: "Gemini model", value: "gemini-2.5-flash-lite" });

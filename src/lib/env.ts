@@ -6,6 +6,7 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(32),
   MARKDOWN_EXPORT_DIR: z.string().default("./exports/skill-compass"),
   LLM_PROVIDER: z.enum(["deterministic"]).default("deterministic"),
+  ASSISTANT_PROVIDER: z.enum(["deterministic", "gemini"]).default("deterministic"),
   NOTE_WRITER: z.enum(["filesystem"]).default("filesystem"),
   TRANSLATION_PROVIDER: z
     .enum(["deterministic", "disabled", "claude_cli", "gemini"])
@@ -17,6 +18,7 @@ const envSchema = z.object({
   GEMINI_KEYCHAIN_SERVICE: z.string().optional(),
   GEMINI_KEYCHAIN_ACCOUNT: z.string().optional(),
   GEMINI_TRANSLATION_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
+  GEMINI_ASSISTANT_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

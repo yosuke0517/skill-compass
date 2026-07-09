@@ -9,6 +9,7 @@ describe("parseEnv", () => {
       SESSION_SECRET: "12345678901234567890123456789012",
       MARKDOWN_EXPORT_DIR: "./exports/skill-compass",
       LLM_PROVIDER: "deterministic",
+      ASSISTANT_PROVIDER: "gemini",
       NOTE_WRITER: "filesystem",
       TRANSLATION_PROVIDER: "deterministic",
       CLAUDE_CLI_COMMAND: "claude",
@@ -16,6 +17,7 @@ describe("parseEnv", () => {
     });
 
     expect(env.LLM_PROVIDER).toBe("deterministic");
+    expect(env.ASSISTANT_PROVIDER).toBe("gemini");
     expect(env.TRANSLATION_PROVIDER).toBe("deterministic");
     expect(env.CLAUDE_CLI_COMMAND).toBe("claude");
     expect(env.CLAUDE_CLI_TIMEOUT_MS).toBe(10000);
@@ -27,10 +29,12 @@ describe("parseEnv", () => {
       SKILL_COMPASS_PASSWORD: "local-password",
       SESSION_SECRET: "12345678901234567890123456789012",
       TRANSLATION_PROVIDER: "gemini",
+      ASSISTANT_PROVIDER: "gemini",
       GEMINI_API_KEY_SOURCE: "keychain",
       GEMINI_KEYCHAIN_SERVICE: "local-gemini-api-key",
       GEMINI_KEYCHAIN_ACCOUNT: "local-user",
       GEMINI_TRANSLATION_MODEL: "gemini-2.5-flash-lite",
+      GEMINI_ASSISTANT_MODEL: "gemini-2.5-flash-lite",
     });
 
     expect(env.TRANSLATION_PROVIDER).toBe("gemini");
@@ -38,6 +42,7 @@ describe("parseEnv", () => {
     expect(env.GEMINI_KEYCHAIN_SERVICE).toBe("local-gemini-api-key");
     expect(env.GEMINI_KEYCHAIN_ACCOUNT).toBe("local-user");
     expect(env.GEMINI_TRANSLATION_MODEL).toBe("gemini-2.5-flash-lite");
+    expect(env.GEMINI_ASSISTANT_MODEL).toBe("gemini-2.5-flash-lite");
   });
 
   it("rejects a short session secret", () => {

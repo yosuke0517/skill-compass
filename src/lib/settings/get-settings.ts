@@ -12,10 +12,11 @@ export async function getSettingsData(): Promise<SettingsData> {
   return buildSettingsData(getEnv());
 }
 
-export function buildSettingsData(env: Pick<AppEnv, "MARKDOWN_EXPORT_DIR" | "LLM_PROVIDER" | "NOTE_WRITER" | "TRANSLATION_PROVIDER" | "CLAUDE_CLI_COMMAND" | "CLAUDE_CLI_TIMEOUT_MS" | "GEMINI_TRANSLATION_MODEL">): SettingsData {
+export function buildSettingsData(env: Pick<AppEnv, "MARKDOWN_EXPORT_DIR" | "LLM_PROVIDER" | "ASSISTANT_PROVIDER" | "NOTE_WRITER" | "TRANSLATION_PROVIDER" | "CLAUDE_CLI_COMMAND" | "CLAUDE_CLI_TIMEOUT_MS" | "GEMINI_TRANSLATION_MODEL" | "GEMINI_ASSISTANT_MODEL">): SettingsData {
   return {
     providers: [
       { label: "LLM", value: env.LLM_PROVIDER },
+      { label: "Assistant", value: env.ASSISTANT_PROVIDER },
       { label: "Translation", value: env.TRANSLATION_PROVIDER },
       { label: "Notes", value: env.NOTE_WRITER },
     ],
