@@ -7,6 +7,11 @@ const envSchema = z.object({
   MARKDOWN_EXPORT_DIR: z.string().default("./exports/skill-compass"),
   LLM_PROVIDER: z.enum(["deterministic"]).default("deterministic"),
   NOTE_WRITER: z.enum(["filesystem"]).default("filesystem"),
+  TRANSLATION_PROVIDER: z
+    .enum(["deterministic", "disabled", "claude_cli"])
+    .default("deterministic"),
+  CLAUDE_CLI_COMMAND: z.string().min(1).default("claude"),
+  CLAUDE_CLI_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

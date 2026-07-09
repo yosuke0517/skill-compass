@@ -49,6 +49,23 @@ export const tags = mysqlTable(
   (table) => [index("tags_category_idx").on(table.categoryId)],
 );
 
+export const translationCache = mysqlTable(
+  "translation_cache",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    sourceHash: varchar("source_hash", { length: 64 }).notNull(),
+    sourceText: text("source_text").notNull(),
+    sourceLocale: varchar("source_locale", { length: 8 }).notNull(),
+    targetLocale: varchar("target_locale", { length: 8 }).notNull(),
+    purpose: varchar("purpose", { length: 64 }).notNull(),
+    translatedText: text("translated_text").notNull(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    lastUsedAt: timestamp("last_used_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("translation_cache_source_hash_idx").on(table.sourceHash)],
+);
+
 export const concepts = mysqlTable("concepts", {
   id: varchar("id", { length: 64 }).primaryKey(),
   title: varchar("title", { length: 160 }).notNull(),
