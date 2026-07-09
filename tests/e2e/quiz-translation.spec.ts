@@ -9,8 +9,9 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
   await expect(page).toHaveURL(/\/today/);
   await page.getByLabel("Translate to Japanese").first().click();
 
-  await expect(page.getByLabel("Japanese translation").first()).toBeVisible();
-  await expect(page.getByText(/日本語訳|API契約|リバースプロキシ/).first()).toBeVisible();
+  const translation = page.getByLabel("Japanese translation").first();
+  await expect(translation).toBeVisible();
+  await expect(translation).toContainText(/[ぁ-んァ-ン一-龯]/);
 
   const unanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) }).first();
   if ((await unanswered.count()) > 0) {

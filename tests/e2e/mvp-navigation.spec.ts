@@ -25,3 +25,19 @@ test("authenticated user can navigate all MVP management screens", async ({ page
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   await expect(page.getByText("Fixed password, signed 24 hour session")).toBeVisible();
 });
+
+test("primary navigation stays fixed while scrolling long screens", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav).toBeVisible();
+  const before = await nav.boundingBox();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const after = await nav.boundingBox();
+
+  expect(await nav.evaluate((element) => getComputedStyle(element).position)).toBe("fixed");
+  expect(after?.y).toBeCloseTo(before?.y ?? 0, 1);
+});

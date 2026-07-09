@@ -92,7 +92,7 @@ select:focus-visible {
 .app-frame {
   display: flex;
   flex-direction: column;
-  padding-bottom: 88px;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
 .login-panel {
@@ -439,18 +439,22 @@ p {
 
 .app-nav {
   align-items: center;
+  backdrop-filter: blur(16px);
   background: rgb(251 252 250 / 94%);
   border: 1px solid var(--border);
   border-radius: 22px;
-  bottom: 18px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
   box-shadow: 0 14px 30px rgb(23 38 34 / 10%);
   display: grid;
   gap: 2px;
   grid-template-columns: repeat(6, 1fr);
-  left: 18px;
+  left: 50%;
+  max-width: 394px;
   padding: 8px;
-  position: absolute;
-  right: 18px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: calc(100vw - 36px);
+  z-index: 20;
 }
 
 .app-nav a {
