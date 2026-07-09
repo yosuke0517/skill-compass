@@ -22,6 +22,7 @@ tmp/
 logs/
 exports/
 .evidence/
+.superpowers/
 
 # Private planning notes and raw specs.
 # Public specs should live under docs/specs/.
