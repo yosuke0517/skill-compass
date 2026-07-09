@@ -3,7 +3,6 @@
 import { CSSProperties, FormEvent, PointerEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bot, Send, Sparkles, X } from "lucide-react";
-import { usePathname } from "next/navigation";
 
 type Message = {
   role: "user" | "assistant";
@@ -147,7 +146,6 @@ type AssistantViewport = {
 };
 
 export function TodayAssistantWidget() {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -280,7 +278,7 @@ export function TodayAssistantWidget() {
     setOpen((current) => !current);
   }
 
-  if (pathname !== "/today" || !position || typeof document === "undefined") {
+  if (!position || typeof document === "undefined") {
     return null;
   }
 

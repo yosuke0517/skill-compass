@@ -1,5 +1,16 @@
 import { expect, test } from "@playwright/test";
 
+test("Today assistant only appears on the Today page", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+
+  await expect(page.getByLabel("Open Today assistant")).toBeHidden();
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(page.getByLabel("Open Today assistant")).toBeVisible();
+});
+
 test("user can ask the Today assistant from the floating button", async ({ page }) => {
   const requests: Array<{ message?: string; messages?: Array<{ role: string; text: string }> }> = [];
   await page.route("**/api/assistant/today", async (route) => {

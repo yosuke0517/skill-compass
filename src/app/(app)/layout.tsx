@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 import { logoutAction } from "@/app/actions/auth";
 import { AppNav } from "@/components/app-nav";
-import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 import { requireSession } from "@/lib/auth/session";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -31,7 +30,6 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         {children}
         <AppNav />
       </section>
-      <TodayAssistantWidget />
     </main>
   );
 }
