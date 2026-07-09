@@ -47,7 +47,17 @@ export async function translateText(
     return { status: "translated", translatedText: cached.translatedText, provider: cached.provider, cached: true };
   }
 
-  const result = await provider.translate({ ...input, glossary: input.glossary ?? translationGlossary });
+  let result;
+  try {
+    result = await provider.translate({ ...input, glossary: input.glossary ?? translationGlossary });
+  } catch {
+    return {
+      status: "unavailable",
+      provider: "unknown",
+      reason: "translation provider threw",
+    };
+  }
+
   if ("unavailable" in result) {
     return { status: "unavailable", provider: result.provider, reason: result.reason };
   }

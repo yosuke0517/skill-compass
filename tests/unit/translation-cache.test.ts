@@ -58,4 +58,40 @@ describe("translation cache", () => {
 
     expect(first.sourceHash).not.toBe(second.sourceHash);
   });
+
+  it("returns unavailable when the provider throws", async () => {
+    let saveCalls = 0;
+    const repo: TranslationRepository = {
+      async findBySourceHash() {
+        return null;
+      },
+      async saveTranslation() {
+        saveCalls += 1;
+      },
+      async touchCache() {},
+    };
+    const provider: TranslationProvider = {
+      async translate() {
+        throw new Error("provider exploded");
+      },
+    };
+
+    const result = await translateText(
+      {
+        sourceText: "API contract",
+        sourceLocale: "en",
+        targetLocale: "ja",
+        purpose: "quiz_prompt",
+      },
+      repo,
+      provider,
+    );
+
+    expect(result).toEqual({
+      status: "unavailable",
+      provider: "unknown",
+      reason: "translation provider threw",
+    });
+    expect(saveCalls).toBe(0);
+  });
 });

@@ -4,10 +4,10 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
+import { getTodayQuiz, type TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
 import { getTranslationProvider } from "@/lib/translation/provider";
-import { translateQuizCard, type TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
-import { createDrizzleTranslationRepository } from "@/lib/translation/translate-text";
+import { getCachedTranslatedQuizCard, translateQuizCard, type TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
+import { createDrizzleTranslationRepository, type TranslationRepository } from "@/lib/translation/translate-text";
 
 const TRANSLATED_QUIZ_COOKIE = "skill_compass_translated_quiz";
 
@@ -19,7 +19,7 @@ export async function translateQuizCardAction(formData: FormData) {
   const item = quiz.questions.find((entry) => entry.question.id === questionId);
   if (!item) redirect("/today");
 
-  const translated = await translateQuizCard(
+  await translateQuizCard(
     {
       question: item.question,
       feedback: item.answer?.feedback ?? null,
@@ -29,9 +29,8 @@ export async function translateQuizCardAction(formData: FormData) {
   );
 
   const cookieStore = await cookies();
-  const existing = parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
-  existing[questionId] = translated;
-  cookieStore.set(TRANSLATED_QUIZ_COOKIE, JSON.stringify(existing), {
+  const visibleQuestionIds = parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
+  cookieStore.set(TRANSLATED_QUIZ_COOKIE, JSON.stringify([...new Set([...visibleQuestionIds, questionId])]), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -43,53 +42,44 @@ export async function translateQuizCardAction(formData: FormData) {
   redirect("/today");
 }
 
-export async function getTranslatedQuizCards(): Promise<Record<string, TranslatedQuizCard>> {
+export async function getTranslatedQuizCards(
+  questions: TodayQuizQuestion[],
+  repo: TranslationRepository = createDrizzleTranslationRepository(),
+): Promise<Record<string, TranslatedQuizCard>> {
   const cookieStore = await cookies();
-  return parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
-}
+  const visibleQuestionIds = parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
+  if (visibleQuestionIds.length === 0) return {};
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+  const questionById = new Map(questions.map((item) => [item.question.id, item]));
+  const translations = await Promise.all(
+    visibleQuestionIds.map(async (questionId) => {
+      const item = questionById.get(questionId);
+      if (!item) return null;
 
-function isNullableString(value: unknown): value is string | null {
-  return typeof value === "string" || value === null;
-}
+      const translated = await getCachedTranslatedQuizCard(
+        {
+          question: item.question,
+          feedback: item.answer?.feedback ?? null,
+        },
+        repo,
+      );
 
-function isTranslatedQuizCard(value: unknown): value is Omit<TranslatedQuizCard, "questionId"> {
-  if (!isObject(value)) return false;
-  if (!("prompt" in value) || !("feedback" in value) || !("unavailable" in value) || !("choices" in value)) {
-    return false;
-  }
+      return [questionId, translated] as const;
+    }),
+  );
 
-  if (!isNullableString(value.prompt) || !isNullableString(value.feedback) || typeof value.unavailable !== "boolean") return false;
-  if (!Array.isArray(value.choices)) return false;
-
-  return value.choices.every(
-    (choice) =>
-      isObject(choice) &&
-      typeof choice.id === "string" &&
-      (typeof choice.label === "string" || choice.label === null),
+  return Object.fromEntries(
+    translations.filter((entry): entry is readonly [string, TranslatedQuizCard] => entry !== null),
   );
 }
 
-function parseTranslatedCookie(value: string | undefined): Record<string, TranslatedQuizCard> {
-  if (!value) return {};
+function parseTranslatedCookie(value: string | undefined): string[] {
+  if (!value) return [];
   try {
     const parsed = JSON.parse(value);
-    if (!isObject(parsed)) return {};
-
-    const translations: Record<string, TranslatedQuizCard> = {};
-    for (const [questionId, translation] of Object.entries(parsed)) {
-      if (!isTranslatedQuizCard(translation)) continue;
-      translations[questionId] = {
-        ...translation,
-        questionId,
-      };
-    }
-
-    return translations;
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((questionId): questionId is string => typeof questionId === "string" && questionId.length > 0))];
   } catch {
-    return {};
+    return [];
   }
 }

@@ -4,7 +4,7 @@ This document is the public-safe handoff log for continuing implementation after
 
 ## Current State
 
-- Workspace: `/Users/yosukemini/work/skill-compass`
+- Workspace: repository root (`skill-compass`)
 - Branch: `codex/skill-compass-mvp`
 - Product source: `docs/specs/skill-compass-lite-design.md`
 - Implementation plan: `docs/superpowers/plans/2026-07-08-skill-compass-mvp.md`

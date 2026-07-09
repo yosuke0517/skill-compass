@@ -3,7 +3,8 @@ import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 import { getTranslatedQuizCards } from "@/app/actions/translation";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const [{ error }, quiz, translations] = await Promise.all([searchParams, getTodayQuiz(), getTranslatedQuizCards()]);
+  const [{ error }, quiz] = await Promise.all([searchParams, getTodayQuiz()]);
+  const translations = await getTranslatedQuizCards(quiz.questions);
 
   return (
     <>

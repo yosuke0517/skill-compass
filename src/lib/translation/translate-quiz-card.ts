@@ -1,3 +1,5 @@
+import { createTranslationCacheKey } from "./cache-key";
+import { TRANSLATION_GLOSSARY_VERSION } from "./glossary";
 import { translateText, type TranslationRepository } from "./translate-text";
 import type { TranslationProvider } from "./types";
 
@@ -53,4 +55,45 @@ export async function translateQuizCard(
     feedback: feedback?.status === "translated" ? feedback.translatedText : null,
     unavailable: prompt.status === "unavailable" || choices.some((choice) => choice.label === null),
   };
+}
+
+export async function getCachedTranslatedQuizCard(
+  input: TranslateQuizCardInput,
+  repo: TranslationRepository,
+): Promise<TranslatedQuizCard> {
+  const [prompt, choices, feedback] = await Promise.all([
+    getCachedTranslation(input.question.prompt, "quiz_prompt", repo),
+    Promise.all(
+      input.question.choices.map(async (choice) => ({
+        id: choice.id,
+        label: await getCachedTranslation(choice.label, "quiz_choice", repo),
+      })),
+    ),
+    input.feedback ? getCachedTranslation(input.feedback, "quiz_feedback", repo) : Promise.resolve(null),
+  ]);
+
+  return {
+    questionId: input.question.id,
+    prompt,
+    choices,
+    feedback,
+    unavailable: prompt === null || choices.some((choice) => choice.label === null),
+  };
+}
+
+async function getCachedTranslation(
+  sourceText: string,
+  purpose: "quiz_prompt" | "quiz_choice" | "quiz_feedback",
+  repo: TranslationRepository,
+): Promise<string | null> {
+  const key = createTranslationCacheKey({
+    sourceText,
+    sourceLocale: "en",
+    targetLocale: "ja",
+    purpose,
+    glossaryVersion: TRANSLATION_GLOSSARY_VERSION,
+  });
+
+  const cached = await repo.findBySourceHash(key.sourceHash);
+  return cached?.translatedText ?? null;
 }
