@@ -25,6 +25,7 @@ This document is the public-safe handoff log for continuing implementation after
 - Task 7: added deterministic daily quiz selection.
 - Task 8: connected the authenticated dashboard to real database summaries.
 - Task 9: added the daily quiz page, answer submission, feedback, and score updates.
+- Task 9.5: added cache-first Japanese quiz card translation with optional Claude CLI provider.
 - Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
 
 ## Verification Snapshot
