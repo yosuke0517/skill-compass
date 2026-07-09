@@ -9,6 +9,7 @@ const knownTranslations = new Map<string, string>([
 ]);
 
 export const deterministicTranslationProvider: TranslationProvider = {
+  cacheScope: "deterministic",
   async translate(input) {
     return {
       translatedText: knownTranslations.get(input.sourceText) ?? `日本語訳: ${input.sourceText}`,

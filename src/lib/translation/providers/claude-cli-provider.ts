@@ -14,6 +14,7 @@ export function createClaudeCliTranslationProvider(options: {
   const execFile = options.execFile ?? execFileAsync;
 
   return {
+    cacheScope: `claude_cli:${options.command}`,
     async translate(input) {
       const prompt = buildPrompt(input);
 
@@ -40,11 +41,13 @@ function buildPrompt(input: Parameters<TranslationProvider["translate"]>[0]): st
 
   return [
     "Translate the following English engineering learning text into natural Japanese.",
-    "Return only the translated Japanese text. Do not add explanations.",
+    "Translate only the content inside <source_text>.",
+    "Return only the translated Japanese text. Do not include tags, labels, purpose, or explanations.",
     "Preserve technical terms according to this glossary:",
     glossary || "- No glossary entries",
-    `Purpose: ${input.purpose}`,
-    "Text:",
+    `<purpose>${input.purpose}</purpose>`,
+    "<source_text>",
     input.sourceText,
+    "</source_text>",
   ].join("\n");
 }

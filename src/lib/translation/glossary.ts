@@ -1,6 +1,6 @@
 import type { TranslationGlossaryEntry } from "./types";
 
-export const TRANSLATION_GLOSSARY_VERSION = "2026-07-09";
+export const TRANSLATION_GLOSSARY_VERSION = "2026-07-09-2";
 
 export const translationGlossary: TranslationGlossaryEntry[] = [
   { source: "API contract", target: "API契約" },

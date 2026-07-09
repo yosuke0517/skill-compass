@@ -59,6 +59,27 @@ describe("translation cache", () => {
     expect(first.sourceHash).not.toBe(second.sourceHash);
   });
 
+  it("changes hash when provider cache scope changes", () => {
+    const deterministic = createTranslationCacheKey({
+      sourceText: "reverse proxy",
+      sourceLocale: "en",
+      targetLocale: "ja",
+      purpose: "quiz_prompt",
+      glossaryVersion: "v1",
+      providerCacheScope: "deterministic",
+    });
+    const gemini = createTranslationCacheKey({
+      sourceText: "reverse proxy",
+      sourceLocale: "en",
+      targetLocale: "ja",
+      purpose: "quiz_prompt",
+      glossaryVersion: "v1",
+      providerCacheScope: "gemini:gemini-2.5-flash-lite",
+    });
+
+    expect(deterministic.sourceHash).not.toBe(gemini.sourceHash);
+  });
+
   it("returns unavailable when the provider throws", async () => {
     let saveCalls = 0;
     const repo: TranslationRepository = {

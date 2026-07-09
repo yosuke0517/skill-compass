@@ -45,11 +45,13 @@ export async function translateQuizCardAction(formData: FormData) {
 export async function getTranslatedQuizCards(
   questions: TodayQuizQuestion[],
   repo: TranslationRepository = createDrizzleTranslationRepository(),
+  providerCacheScope?: string,
 ): Promise<Record<string, TranslatedQuizCard>> {
   const cookieStore = await cookies();
   const visibleQuestionIds = parseTranslatedCookie(cookieStore.get(TRANSLATED_QUIZ_COOKIE)?.value);
   if (visibleQuestionIds.length === 0) return {};
 
+  const cacheScope = providerCacheScope ?? getTranslationProvider().cacheScope;
   const questionById = new Map(questions.map((item) => [item.question.id, item]));
   const translations = await Promise.all(
     visibleQuestionIds.map(async (questionId) => {
@@ -62,6 +64,7 @@ export async function getTranslatedQuizCards(
           feedback: item.answer?.feedback ?? null,
         },
         repo,
+        cacheScope,
       );
 
       return [questionId, translated] as const;

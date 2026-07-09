@@ -25,5 +25,6 @@ export type TranslationUnavailableResult = {
 };
 
 export interface TranslationProvider {
+  cacheScope?: string;
   translate(input: TranslationInput): Promise<TranslationResult | TranslationUnavailableResult>;
 }

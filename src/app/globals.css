@@ -788,6 +788,10 @@ p {
   margin-top: 16px;
 }
 
+.settings-stack {
+  gap: 18px;
+}
+
 .management-card {
   background: rgb(255 255 255 / 76%);
   border: 1px solid var(--border);

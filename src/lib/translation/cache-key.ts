@@ -7,6 +7,7 @@ export type TranslationCacheKeyInput = {
   targetLocale: "ja";
   purpose: TranslationPurpose;
   glossaryVersion: string;
+  providerCacheScope?: string;
 };
 
 export function createTranslationCacheKey(input: TranslationCacheKeyInput) {
@@ -18,6 +19,7 @@ export function createTranslationCacheKey(input: TranslationCacheKeyInput) {
         targetLocale: input.targetLocale,
         purpose: input.purpose,
         glossaryVersion: input.glossaryVersion,
+        providerCacheScope: input.providerCacheScope ?? "default",
       }),
     )
     .digest("hex");

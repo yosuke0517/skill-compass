@@ -60,16 +60,17 @@ export async function translateQuizCard(
 export async function getCachedTranslatedQuizCard(
   input: TranslateQuizCardInput,
   repo: TranslationRepository,
+  providerCacheScope?: string,
 ): Promise<TranslatedQuizCard> {
   const [prompt, choices, feedback] = await Promise.all([
-    getCachedTranslation(input.question.prompt, "quiz_prompt", repo),
+    getCachedTranslation(input.question.prompt, "quiz_prompt", repo, providerCacheScope),
     Promise.all(
       input.question.choices.map(async (choice) => ({
         id: choice.id,
-        label: await getCachedTranslation(choice.label, "quiz_choice", repo),
+        label: await getCachedTranslation(choice.label, "quiz_choice", repo, providerCacheScope),
       })),
     ),
-    input.feedback ? getCachedTranslation(input.feedback, "quiz_feedback", repo) : Promise.resolve(null),
+    input.feedback ? getCachedTranslation(input.feedback, "quiz_feedback", repo, providerCacheScope) : Promise.resolve(null),
   ]);
 
   return {
@@ -85,6 +86,7 @@ async function getCachedTranslation(
   sourceText: string,
   purpose: "quiz_prompt" | "quiz_choice" | "quiz_feedback",
   repo: TranslationRepository,
+  providerCacheScope?: string,
 ): Promise<string | null> {
   const key = createTranslationCacheKey({
     sourceText,
@@ -92,6 +94,7 @@ async function getCachedTranslation(
     targetLocale: "ja",
     purpose,
     glossaryVersion: TRANSLATION_GLOSSARY_VERSION,
+    providerCacheScope,
   });
 
   const cached = await repo.findBySourceHash(key.sourceHash);

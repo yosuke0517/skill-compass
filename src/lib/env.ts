@@ -8,10 +8,15 @@ const envSchema = z.object({
   LLM_PROVIDER: z.enum(["deterministic"]).default("deterministic"),
   NOTE_WRITER: z.enum(["filesystem"]).default("filesystem"),
   TRANSLATION_PROVIDER: z
-    .enum(["deterministic", "disabled", "claude_cli"])
+    .enum(["deterministic", "disabled", "claude_cli", "gemini"])
     .default("deterministic"),
   CLAUDE_CLI_COMMAND: z.string().min(1).default("claude"),
   CLAUDE_CLI_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY_SOURCE: z.enum(["env", "keychain"]).default("env"),
+  GEMINI_KEYCHAIN_SERVICE: z.string().optional(),
+  GEMINI_KEYCHAIN_ACCOUNT: z.string().optional(),
+  GEMINI_TRANSLATION_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

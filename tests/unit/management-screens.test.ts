@@ -99,6 +99,7 @@ describe("management screen read models", () => {
       TRANSLATION_PROVIDER: "claude_cli",
       CLAUDE_CLI_COMMAND: "claude",
       CLAUDE_CLI_TIMEOUT_MS: 10000,
+      GEMINI_TRANSLATION_MODEL: "gemini-2.5-flash-lite",
     });
 
     expect(data).toEqual({
@@ -109,7 +110,22 @@ describe("management screen read models", () => {
       ],
       exportDir: "./exports/skill-compass",
       sessionPolicy: "Fixed password, signed 24 hour session",
-      translationCommand: "claude",
+      translationRuntime: { label: "Claude CLI", value: "claude" },
     });
+  });
+
+  it("shows the Gemini translation model without exposing secrets", () => {
+    const data = buildSettingsData({
+      MARKDOWN_EXPORT_DIR: "./exports/skill-compass",
+      LLM_PROVIDER: "deterministic",
+      NOTE_WRITER: "filesystem",
+      TRANSLATION_PROVIDER: "gemini",
+      CLAUDE_CLI_COMMAND: "claude",
+      CLAUDE_CLI_TIMEOUT_MS: 10000,
+      GEMINI_TRANSLATION_MODEL: "gemini-2.5-flash-lite",
+    });
+
+    expect(data.translationRuntime).toEqual({ label: "Gemini model", value: "gemini-2.5-flash-lite" });
+    expect(JSON.stringify(data)).not.toContain("API_KEY");
   });
 });

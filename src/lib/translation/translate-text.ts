@@ -39,6 +39,7 @@ export async function translateText(
     targetLocale: input.targetLocale,
     purpose: input.purpose,
     glossaryVersion: TRANSLATION_GLOSSARY_VERSION,
+    providerCacheScope: provider.cacheScope,
   });
 
   const cached = await repo.findBySourceHash(key.sourceHash);

@@ -57,6 +57,7 @@ function createCacheRecord(sourceText: string, purpose: "quiz_prompt" | "quiz_ch
     targetLocale: "ja",
     purpose,
     glossaryVersion: TRANSLATION_GLOSSARY_VERSION,
+    providerCacheScope: "deterministic",
   });
 
   return [key.sourceHash, { translatedText, provider: "deterministic" }] as const;
@@ -104,7 +105,7 @@ describe("getTranslatedQuizCards", () => {
       createCacheRecord("Review the linked source.", "quiz_feedback", "リンク先のソースを見直してください。"),
     ]);
 
-    expect(await getTranslatedQuizCards(quizQuestions, repo)).toEqual({
+    expect(await getTranslatedQuizCards(quizQuestions, repo, "deterministic")).toEqual({
       q1: {
         questionId: "q1",
         prompt: "リバースプロキシは通常何をしますか。",
@@ -121,7 +122,7 @@ describe("getTranslatedQuizCards", () => {
   it("keeps a visible question unavailable when cached rows are missing", async () => {
     mockCookieValue.value = JSON.stringify(["q2"]);
 
-    expect(await getTranslatedQuizCards(quizQuestions, createRepo([]))).toEqual({
+    expect(await getTranslatedQuizCards(quizQuestions, createRepo([]), "deterministic")).toEqual({
       q2: {
         questionId: "q2",
         prompt: null,

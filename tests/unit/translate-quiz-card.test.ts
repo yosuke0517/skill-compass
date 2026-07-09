@@ -55,6 +55,7 @@ describe("translateQuizCard", () => {
           targetLocale: "ja",
           purpose: purpose as "quiz_prompt" | "quiz_choice" | "quiz_feedback",
           glossaryVersion: TRANSLATION_GLOSSARY_VERSION,
+          providerCacheScope: "gemini:gemini-2.5-flash-lite",
         });
 
         return [key.sourceHash, { translatedText, provider: "deterministic" }] as const;
@@ -84,6 +85,7 @@ describe("translateQuizCard", () => {
         feedback: "Review the linked source.",
       },
       repo,
+      "gemini:gemini-2.5-flash-lite",
     );
 
     expect(result).toEqual({
