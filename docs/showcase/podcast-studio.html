@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A public architecture showcase for the proposed Skill Compass Podcast Studio."
+    />
+    <title>Skill Compass - Podcast Studio Architecture</title>
+    <style>
+      :root {
+        --ink: #101915;
+        --muted: #5d6a64;
+        --line: #cbd5d0;
+        --paper: #ffffff;
+        --mist: #f2f6f4;
+        --green: #0d7d68;
+        --green-soft: #dff3ec;
+        --blue: #315f8d;
+        --blue-soft: #e5eef7;
+        --coral: #c75b45;
+        --coral-soft: #fae9e4;
+        --yellow: #b57a12;
+        --yellow-soft: #fff2ce;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.55;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .wrap {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+      }
+
+      .topbar .wrap {
+        min-height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .brand {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .toplinks {
+        display: flex;
+        gap: 20px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .intro {
+        padding: 54px 0 48px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow,
+      .label {
+        margin: 0 0 10px;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 820px;
+        margin-bottom: 18px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 76px;
+        font-weight: 500;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .lede {
+        max-width: 730px;
+        margin-bottom: 30px;
+        color: var(--muted);
+        font-size: 19px;
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .status {
+        min-height: 30px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status.proposed {
+        border-color: #d59b38;
+        background: var(--yellow-soft);
+        color: #6f4906;
+      }
+
+      section {
+        padding: 58px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      section.tint {
+        background: var(--mist);
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: 0.75fr 1.25fr;
+        gap: 48px;
+        margin-bottom: 34px;
+      }
+
+      h2 {
+        margin-bottom: 12px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 36px;
+        font-weight: 500;
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 16px;
+        letter-spacing: 0;
+      }
+
+      .section-copy {
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .experience-grid,
+      .principle-grid,
+      .access-grid,
+      .roadmap-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .experience-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .principle-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .access-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .roadmap-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .panel {
+        min-width: 0;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--paper);
+      }
+
+      .panel p:last-child {
+        margin-bottom: 0;
+      }
+
+      .panel-number {
+        display: block;
+        margin-bottom: 24px;
+        color: var(--green);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 28px;
+      }
+
+      .panel p,
+      .panel li {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .pipeline {
+        display: grid;
+        grid-template-columns: repeat(9, auto);
+        align-items: center;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 6px 0 16px;
+      }
+
+      .stage {
+        min-width: 144px;
+        min-height: 126px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--paper);
+      }
+
+      .stage.ready {
+        border: 2px solid var(--green);
+        background: var(--green-soft);
+      }
+
+      .stage small {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .arrow {
+        color: var(--green);
+        font-size: 24px;
+      }
+
+      .failure-note {
+        margin-top: 20px;
+        padding: 18px 20px;
+        border-left: 4px solid var(--coral);
+        background: var(--coral-soft);
+        color: #613024;
+      }
+
+      .source-map {
+        display: grid;
+        grid-template-columns: 0.9fr 1.35fr 0.9fr;
+        gap: 16px;
+        align-items: stretch;
+      }
+
+      .source-column {
+        display: grid;
+        gap: 10px;
+      }
+
+      .source-item {
+        padding: 13px 14px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--paper);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .source-item.primary {
+        border-color: #79baa9;
+        background: var(--green-soft);
+      }
+
+      .source-item.private {
+        border-color: #87a8c8;
+        background: var(--blue-soft);
+      }
+
+      .source-core {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 30px;
+        border: 2px solid var(--ink);
+        border-radius: 7px;
+        background: var(--ink);
+        color: var(--paper);
+        text-align: center;
+      }
+
+      .source-core p {
+        margin-bottom: 0;
+        color: #bdc9c3;
+      }
+
+      .oauth-flow {
+        display: grid;
+        grid-template-columns: 1fr 44px 1fr 44px 1fr;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .oauth-step {
+        min-height: 150px;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--paper);
+      }
+
+      .scope-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      code,
+      .scope {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+      }
+
+      .scope {
+        padding: 5px 8px;
+        border: 1px solid #aebdb6;
+        border-radius: 4px;
+        background: var(--mist);
+      }
+
+      .plan.free {
+        border-top: 5px solid var(--muted);
+      }
+
+      .plan.pro {
+        border-top: 5px solid var(--blue);
+      }
+
+      .plan.admin {
+        border-top: 5px solid var(--green);
+      }
+
+      ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .provider-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--paper);
+      }
+
+      .provider-table th,
+      .provider-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .provider-table th {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+
+      .provider-table td:first-child {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .roadmap-item {
+        position: relative;
+        padding-top: 44px;
+      }
+
+      .roadmap-item::before {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: calc(100% - 20px);
+        height: 1px;
+        background: var(--line);
+        content: "";
+      }
+
+      .roadmap-item::after {
+        position: absolute;
+        top: 15px;
+        left: 20px;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+      }
+
+      .todo {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px 24px;
+      }
+
+      .todo-item {
+        display: flex;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .todo-box {
+        width: 17px;
+        height: 17px;
+        flex: 0 0 17px;
+        border: 1px solid var(--muted);
+        border-radius: 3px;
+      }
+
+      footer {
+        padding: 34px 0 50px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .footer-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      @media (max-width: 900px) {
+        .experience-grid,
+        .roadmap-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .principle-grid,
+        .access-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .source-map,
+        .oauth-flow {
+          grid-template-columns: 1fr;
+        }
+
+        .oauth-flow .arrow {
+          transform: rotate(90deg);
+          text-align: center;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .wrap {
+          width: min(100% - 24px, 1180px);
+        }
+
+        .toplinks {
+          display: none;
+        }
+
+        .intro,
+        section {
+          padding: 38px 0;
+        }
+
+        h1 {
+          font-size: 46px;
+        }
+
+        .lede {
+          font-size: 17px;
+        }
+
+        .section-head,
+        .experience-grid,
+        .roadmap-grid,
+        .todo {
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+
+        .section-head {
+          margin-bottom: 24px;
+        }
+
+        .footer-row {
+          flex-direction: column;
+        }
+      }
+
+      @media print {
+        .topbar {
+          display: none;
+        }
+
+        section,
+        .panel,
+        .stage {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap">
+        <div class="brand">SKILL COMPASS / DESIGN SHOWCASE</div>
+        <nav class="toplinks" aria-label="Document sections">
+          <a href="#pipeline">Pipeline</a>
+          <a href="#oauth">OAuth</a>
+          <a href="#access">Access</a>
+          <a href="#roadmap">Roadmap</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="intro">
+        <div class="wrap">
+          <p class="eyebrow">Post-MVP architecture proposal</p>
+          <h1>Podcast Studio</h1>
+          <p class="lede">
+            A private two-speaker engineering briefing built from trusted Sources, current news,
+            optional personal feeds, and a minimal view of the user's day.
+          </p>
+          <div class="status-row">
+            <span class="status proposed">Status: Proposed</span>
+            <span class="status">Mobile-first product</span>
+            <span class="status">Desktop administration</span>
+            <span class="status">Public-safe design</span>
+          </div>
+        </div>
+      </div>
+
+      <section>
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Product loop</p>
+              <h2>From signal to a walk-ready briefing</h2>
+            </div>
+            <p class="section-copy">
+              The experience separates collection cadence from episode cadence. At the user's
+              chosen time, all due inputs become one concise Japanese briefing. English is an
+              optional administrator-generated edition.
+            </p>
+          </div>
+          <div class="experience-grid">
+            <article class="panel">
+              <span class="panel-number">01</span>
+              <h3>Collect</h3>
+              <p>Trusted Sources, news, optional Calendar events, and explicitly enabled social inputs.</p>
+            </article>
+            <article class="panel">
+              <span class="panel-number">02</span>
+              <h3>Ground</h3>
+              <p>Primary sources anchor claims while news and social posts remain attributed context.</p>
+            </article>
+            <article class="panel">
+              <span class="panel-number">03</span>
+              <h3>Generate</h3>
+              <p>A text model writes the dialogue; a separate two-speaker TTS provider performs it.</p>
+            </article>
+            <article class="panel">
+              <span class="panel-number">04</span>
+              <h3>Listen</h3>
+              <p>Play in Skill Compass, download the episode, or enable a private delivery experiment.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint" id="pipeline">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Durable workflow</p>
+              <h2>MySQL-backed jobs, resumable by stage</h2>
+            </div>
+            <p class="section-copy">
+              Web requests enqueue work and return. A worker claims a leased job, persists each
+              completed stage, and resumes from the failed boundary. The queue is deliberately
+              small, observable, and replaceable by a managed service later.
+            </p>
+          </div>
+          <div class="pipeline" aria-label="Podcast generation state machine">
+            <div class="stage"><strong>Queued</strong><small>Manual or scheduled trigger</small></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="stage"><strong>Collecting</strong><small>Sources, news, X, Calendar</small></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="stage"><strong>Scripting</strong><small>Citations and two-speaker dialogue</small></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="stage"><strong>Synthesizing</strong><small>Japanese audio and optional English</small></div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="stage ready"><strong>Ready</strong><small>Play, download, private delivery</small></div>
+          </div>
+          <div class="failure-note">
+            <strong>Failure isolation:</strong> if TTS fails, the collected snapshot and script remain.
+            Only speech synthesis retries. Idempotency keys prevent duplicate daily episodes.
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Source policy</p>
+              <h2>Trust first, personalization by consent</h2>
+            </div>
+            <p class="section-copy">
+              Public material and private material enter through different boundaries. Calendar,
+              home timeline, and bookmarks are off until the user connects the provider and enables
+              each input.
+            </p>
+          </div>
+          <div class="source-map">
+            <div class="source-column">
+              <div class="source-item primary">Official docs and specifications</div>
+              <div class="source-item primary">Release notes and maintainer posts</div>
+              <div class="source-item">News and community analysis</div>
+              <div class="source-item">Public X accounts and keywords</div>
+            </div>
+            <div class="source-core">
+              <p class="label" style="color: #7ed2bd">Bounded source snapshot</p>
+              <h3 style="font-size: 23px">Evidence-aware script input</h3>
+              <p>Deduplicated, attributed, privacy-minimized, and capped by budget.</p>
+            </div>
+            <div class="source-column">
+              <div class="source-item private">Calendar: time + title by default</div>
+              <div class="source-item private">Personal home timeline: Pro opt-in</div>
+              <div class="source-item private">Bookmarks: Pro opt-in</div>
+              <div class="source-item private">Explicit exclusions and post limits</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint" id="oauth">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Connection model</p>
+              <h2>OAuth without password sharing</h2>
+            </div>
+            <p class="section-copy">
+              Users approve access on the provider's own screen. Read scopes and publishing scopes
+              are separate consent steps. Tokens are encrypted at rest and never displayed again.
+            </p>
+          </div>
+          <div class="oauth-flow">
+            <div class="oauth-step">
+              <span class="panel-number">01</span>
+              <h3>Connect</h3>
+              <p>Settings sends the user to the provider with state and PKCE protection.</p>
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="oauth-step">
+              <span class="panel-number">02</span>
+              <h3>Consent</h3>
+              <p>The user grants only the scopes required for the selected feature.</p>
+            </div>
+            <div class="arrow" aria-hidden="true">→</div>
+            <div class="oauth-step">
+              <span class="panel-number">03</span>
+              <h3>Operate</h3>
+              <p>Encrypted tokens refresh in the background and stop on revoke or entitlement loss.</p>
+            </div>
+          </div>
+          <div class="scope-row" aria-label="Example scopes">
+            <span class="scope">tweet.read</span>
+            <span class="scope">users.read</span>
+            <span class="scope">bookmark.read</span>
+            <span class="scope">offline.access</span>
+            <span class="scope">tweet.write (admin step-up)</span>
+            <span class="scope">media.write (admin step-up)</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="access">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Access control</p>
+              <h2>Roles answer who. Entitlements answer what.</h2>
+            </div>
+            <p class="section-copy">
+              Commercial plans and administrative authority are independent. Plan defaults can be
+              overridden per user without inventing a new role for every product tier.
+            </p>
+          </div>
+          <div class="access-grid">
+            <article class="panel plan free">
+              <h3>Free</h3>
+              <ul>
+                <li>View designated samples</li>
+                <li>Explore the learning product</li>
+                <li>No private generation</li>
+              </ul>
+            </article>
+            <article class="panel plan pro">
+              <h3>Pro</h3>
+              <ul>
+                <li>Generate and download briefings</li>
+                <li>Connect Calendar</li>
+                <li>Opt into personal X sources</li>
+              </ul>
+            </article>
+            <article class="panel plan admin">
+              <h3>Admin</h3>
+              <ul>
+                <li>Manage plans and overrides</li>
+                <li>Generate an English edition</li>
+                <li>Review and publish an X audiogram</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Replaceable boundaries</p>
+              <h2>Keep provider choices outside product logic</h2>
+            </div>
+            <p class="section-copy">
+              Core episode state transitions depend on narrow interfaces. Model names, storage
+              vendors, and queue infrastructure remain configuration choices.
+            </p>
+          </div>
+          <div style="overflow-x: auto">
+            <table class="provider-table">
+              <thead>
+                <tr><th>Boundary</th><th>Initial direction</th><th>Future option</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>ContentCollector</td><td>Sources, news, Calendar, X</td><td>Additional feeds and social providers</td></tr>
+                <tr><td>ScriptGenerator</td><td>Configurable Gemini text model</td><td>Any structured text provider</td></tr>
+                <tr><td>SpeechSynthesizer</td><td>Gemini multi-speaker TTS</td><td>Alternative TTS services</td></tr>
+                <tr><td>AudioStorage</td><td>Local development storage</td><td>R2, S3, or compatible object storage</td></tr>
+                <tr><td>JobQueue</td><td>MySQL leases and retries</td><td>Managed queue such as SQS</td></tr>
+                <tr><td>SocialPublisher</td><td>Administrator-approved X posts</td><td>Additional social destinations</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Delivery</p>
+              <h2>Build the private value before public distribution</h2>
+            </div>
+            <p class="section-copy">
+              The sequence keeps each release useful while delaying the riskiest integrations until
+              the private generation loop is observable and stable.
+            </p>
+          </div>
+          <div class="roadmap-grid">
+            <article class="panel roadmap-item"><h3>1. Access</h3><p>Roles, plans, entitlements, desktop administration.</p></article>
+            <article class="panel roadmap-item"><h3>2. Core</h3><p>Manual jobs, scripts, audio, playback, download.</p></article>
+            <article class="panel roadmap-item"><h3>3. Schedule</h3><p>Source cadence, automatic briefings, Calendar.</p></article>
+            <article class="panel roadmap-item"><h3>4. Personal</h3><p>Pro timeline and bookmarks with cost limits.</p></article>
+            <article class="panel roadmap-item"><h3>5. Background</h3><p>Player hardening and authenticated RSS beta.</p></article>
+            <article class="panel roadmap-item"><h3>6. Publish</h3><p>English edition, audiogram, review, X posting.</p></article>
+            <article class="panel roadmap-item"><h3>7. Operate</h3><p>Retention, legal hold, break-glass, audit review.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <p class="label">Operator handoff</p>
+              <h2>Setup work is explicit, never hidden in code</h2>
+            </div>
+            <p class="section-copy">
+              Real credentials and account values stay outside Git. Implementation checkpoints call
+              out the exact external configuration required before live verification.
+            </p>
+          </div>
+          <div class="todo">
+            <div class="todo-item"><span class="todo-box"></span><span>Gemini API key and spending limit</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>Application encryption secret</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>Google Calendar API and OAuth callback</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>X OAuth scopes, callback, credits, and budget</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>Production audio storage</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>Scheduler and worker runtime</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>HTTPS endpoint for private delivery testing</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>iPhone background and RSS compatibility checks</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap footer-row">
+        <span>Skill Compass Podcast Studio / Public architecture showcase</span>
+        <a href="../specs/skill-compass-podcast-studio-design.md">Read the canonical Markdown design</a>
+      </div>
+    </footer>
+  </body>
+</html>

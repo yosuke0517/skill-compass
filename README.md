@@ -7,3 +7,5 @@ It combines adaptive quizzes, skill tracking, source-backed learning, and Markdo
 See the public design brief:
 
 - [Skill Compass Lite Design](docs/specs/skill-compass-lite-design.md)
+- [Podcast Studio Design](docs/specs/skill-compass-podcast-studio-design.md) (proposed)
+- [Podcast Studio Architecture Showcase](docs/showcase/podcast-studio.html)

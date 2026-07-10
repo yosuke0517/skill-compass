@@ -270,6 +270,17 @@ Test coverage should include:
 - quiz E2E flow
 - scheduled job behavior with mocked LLM responses
 
+## Future Capability: Podcast Studio
+
+After the Lite MVP, Skill Compass may turn source-backed learning material into a private two-speaker audio briefing. The proposed Podcast Studio combines trusted Sources with current news, optional personal social inputs, and a minimal view of the user's calendar.
+
+The design uses a durable job pipeline for resumable script and audio generation, separates roles from plan entitlements, keeps external integrations behind replaceable providers, and requires explicit approval before social publishing.
+
+See the public proposal and visual overview:
+
+- [Podcast Studio Design](skill-compass-podcast-studio-design.md)
+- [Podcast Studio Architecture Showcase](../showcase/podcast-studio.html)
+
 ## Public Repository Boundary
 
 This document is intentionally public-safe. It describes product and technical design without including:
@@ -280,4 +291,3 @@ This document is intentionally public-safe. It describes product and technical d
 - credentials
 - unpublished operational logs
 - sensitive business context
-

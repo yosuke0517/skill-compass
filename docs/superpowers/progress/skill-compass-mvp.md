@@ -53,6 +53,10 @@ Task 11: add replaceable Markdown note writer and export flow.
 - Task 12: add scheduled job abstractions and CLI commands.
 - Task 13: finalize docs, safety checks, and public repo hygiene.
 
+## Post-MVP Roadmap
+
+- Podcast Studio (proposed): generate private two-speaker briefings from trusted Sources, news, optional Calendar events, and optional personal social inputs. The public-safe design is documented in `docs/specs/skill-compass-podcast-studio-design.md`.
+
 ## Commit Trail
 
 - `b0774ab` docs: add skill compass mvp implementation plan
