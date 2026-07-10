@@ -1,7 +1,6 @@
 "use client";
 
 import { CSSProperties, FormEvent, PointerEvent, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Bot, Send, Sparkles, X } from "lucide-react";
 
 type Message = {
@@ -278,10 +277,6 @@ export function TodayAssistantWidget() {
     setOpen((current) => !current);
   }
 
-  if (typeof document === "undefined") {
-    return null;
-  }
-
   const hostStyle: CSSProperties = open
     ? {
         bottom: "calc(92px + env(safe-area-inset-bottom))",
@@ -333,7 +328,7 @@ export function TodayAssistantWidget() {
     width: buttonSize,
   };
 
-  return createPortal(
+  return (
     <div className="today-assistant" data-open={open ? "true" : "false"} style={hostStyle}>
       {open ? (
         <section className="assistant-sheet" aria-label="Today assistant" style={sheetStyle}>
@@ -407,8 +402,7 @@ export function TodayAssistantWidget() {
           <Sparkles size={12} aria-hidden="true" className="assistant-orb-spark" />
         </button>
       ) : null}
-    </div>,
-    document.body,
+    </div>
   );
 }
 
