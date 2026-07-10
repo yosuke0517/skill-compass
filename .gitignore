@@ -23,6 +23,7 @@ logs/
 exports/
 .evidence/
 .superpowers/
+.worktrees/
 
 # Private planning notes and raw specs.
 # Public specs should live under docs/specs/.
