@@ -1,11 +1,12 @@
 # Skill Compass
 
-Skill Compass is a personal engineering growth app for developers working in an AI-assisted era.
+Skill Compassは、AI支援時代のエンジニアに向けた個人用の成長支援アプリです。
 
-It combines adaptive quizzes, skill tracking, source-backed learning, and Markdown knowledge export so engineering growth becomes visible and reviewable over time.
+適応型クイズ、スキル追跡、出典に基づく学習、Markdownによる知識exportを組み合わせ、エンジニアとしての成長を可視化し、継続的に振り返れるようにします。
 
-See the public design brief:
+公開設計資料:
 
-- [Skill Compass Lite Design](docs/specs/skill-compass-lite-design.md)
-- [Podcast Studio Design](docs/specs/skill-compass-podcast-studio-design.md) (proposed)
-- [Podcast Studio Architecture Showcase](docs/showcase/podcast-studio.html)
+- [ドキュメント方針](docs/README.md)
+- [Skill Compass Lite設計](docs/specs/skill-compass-lite-design.md)
+- [Podcast Studio設計](docs/specs/skill-compass-podcast-studio-design.md)（提案段階）
+- [Podcast Studioアーキテクチャショーケース](docs/showcase/podcast-studio.html)

@@ -1,5 +1,7 @@
 # Skill Compass MVP Implementation Plan
 
+> この文書は既存の実装履歴を保つため、英語の原文を維持するlegacy implementation planです。新規ドキュメントには日本語ポリシーを適用します。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the public-safe Skill Compass Lite MVP: a self-hosted personal engineering growth app with dashboard-first skill tracking, daily quizzes, sources, concepts, settings, deterministic scoring, and portable Markdown exports.

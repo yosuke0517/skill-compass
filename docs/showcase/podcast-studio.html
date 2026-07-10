@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="A public architecture showcase for the proposed Skill Compass Podcast Studio."
+      content="提案中のSkill Compass Podcast Studioを紹介する公開アーキテクチャショーケース。"
     />
-    <title>Skill Compass - Podcast Studio Architecture</title>
+    <title>Skill Compass - Podcast Studioアーキテクチャ</title>
     <style>
       :root {
         --ink: #101915;
@@ -529,12 +529,12 @@
   <body>
     <header class="topbar">
       <div class="wrap">
-        <div class="brand">SKILL COMPASS / DESIGN SHOWCASE</div>
-        <nav class="toplinks" aria-label="Document sections">
+        <div class="brand">SKILL COMPASS / 設計ショーケース</div>
+        <nav class="toplinks" aria-label="ドキュメント内ナビゲーション">
           <a href="#pipeline">Pipeline</a>
           <a href="#oauth">OAuth</a>
-          <a href="#access">Access</a>
-          <a href="#roadmap">Roadmap</a>
+          <a href="#access">アクセス</a>
+          <a href="#roadmap">ロードマップ</a>
         </nav>
       </div>
     </header>
@@ -542,17 +542,17 @@
     <main>
       <div class="intro">
         <div class="wrap">
-          <p class="eyebrow">Post-MVP architecture proposal</p>
+          <p class="eyebrow">MVP後のアーキテクチャ提案</p>
           <h1>Podcast Studio</h1>
           <p class="lede">
-            A private two-speaker engineering briefing built from trusted Sources, current news,
-            optional personal feeds, and a minimal view of the user's day.
+            信頼できるSources、最新ニュース、任意の個人feed、今日の予定から作る、
+            非公開の2人会話形式エンジニアリングブリーフィング。
           </p>
           <div class="status-row">
-            <span class="status proposed">Status: Proposed</span>
-            <span class="status">Mobile-first product</span>
-            <span class="status">Desktop administration</span>
-            <span class="status">Public-safe design</span>
+            <span class="status proposed">ステータス: 提案段階</span>
+            <span class="status">モバイルファースト</span>
+            <span class="status">PC管理画面</span>
+            <span class="status">公開可能な設計</span>
           </div>
         </div>
       </div>
@@ -561,35 +561,35 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Product loop</p>
-              <h2>From signal to a walk-ready briefing</h2>
+              <p class="label">プロダクトループ</p>
+              <h2>情報を、散歩中に聴けるブリーフィングへ</h2>
             </div>
             <p class="section-copy">
-              The experience separates collection cadence from episode cadence. At the user's
-              chosen time, all due inputs become one concise Japanese briefing. English is an
-              optional administrator-generated edition.
+              情報収集の頻度とエピソード生成の頻度を分離する。ユーザーが指定した時刻に、
+              対象となる入力を1本の簡潔な日本語ブリーフィングへまとめる。adminは任意で
+              英語版も追加生成できる。
             </p>
           </div>
           <div class="experience-grid">
             <article class="panel">
               <span class="panel-number">01</span>
-              <h3>Collect</h3>
-              <p>Trusted Sources, news, optional Calendar events, and explicitly enabled social inputs.</p>
+              <h3>収集</h3>
+              <p>信頼できるSources、ニュース、任意のCalendar予定、明示的に有効化したSNS情報。</p>
             </article>
             <article class="panel">
               <span class="panel-number">02</span>
-              <h3>Ground</h3>
-              <p>Primary sources anchor claims while news and social posts remain attributed context.</p>
+              <h3>根拠付け</h3>
+              <p>一次情報を事実の基準とし、ニュースとSNS投稿は出典付きの背景情報として扱う。</p>
             </article>
             <article class="panel">
               <span class="panel-number">03</span>
-              <h3>Generate</h3>
-              <p>A text model writes the dialogue; a separate two-speaker TTS provider performs it.</p>
+              <h3>生成</h3>
+              <p>テキストmodelが会話を作り、独立した2人話者TTS Providerが音声化する。</p>
             </article>
             <article class="panel">
               <span class="panel-number">04</span>
-              <h3>Listen</h3>
-              <p>Play in Skill Compass, download the episode, or enable a private delivery experiment.</p>
+              <h3>再生</h3>
+              <p>Skill Compassで再生、download、または非公開配信のbetaを利用する。</p>
             </article>
           </div>
         </div>
@@ -599,29 +599,29 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Durable workflow</p>
-              <h2>MySQL-backed jobs, resumable by stage</h2>
+              <p class="label">永続workflow</p>
+              <h2>MySQL-backed jobで、段階ごとに再開</h2>
             </div>
             <p class="section-copy">
-              Web requests enqueue work and return. A worker claims a leased job, persists each
-              completed stage, and resumes from the failed boundary. The queue is deliberately
-              small, observable, and replaceable by a managed service later.
+              Web requestはjobをenqueueして応答する。workerはlease付きjobをclaimし、完了した
+              段階を保存して、失敗地点から再開する。queueは意図的に小さく観測可能に保ち、
+              将来managed serviceへ差し替えられる。
             </p>
           </div>
-          <div class="pipeline" aria-label="Podcast generation state machine">
-            <div class="stage"><strong>Queued</strong><small>Manual or scheduled trigger</small></div>
+          <div class="pipeline" aria-label="Podcast生成state machine">
+            <div class="stage"><strong>Queued</strong><small>手動またはscheduled trigger</small></div>
             <div class="arrow" aria-hidden="true">→</div>
             <div class="stage"><strong>Collecting</strong><small>Sources, news, X, Calendar</small></div>
             <div class="arrow" aria-hidden="true">→</div>
-            <div class="stage"><strong>Scripting</strong><small>Citations and two-speaker dialogue</small></div>
+            <div class="stage"><strong>Scripting</strong><small>出典付き2人会話台本</small></div>
             <div class="arrow" aria-hidden="true">→</div>
-            <div class="stage"><strong>Synthesizing</strong><small>Japanese audio and optional English</small></div>
+            <div class="stage"><strong>Synthesizing</strong><small>日本語音声と任意の英語版</small></div>
             <div class="arrow" aria-hidden="true">→</div>
-            <div class="stage ready"><strong>Ready</strong><small>Play, download, private delivery</small></div>
+            <div class="stage ready"><strong>Ready</strong><small>再生、download、非公開配信</small></div>
           </div>
           <div class="failure-note">
-            <strong>Failure isolation:</strong> if TTS fails, the collected snapshot and script remain.
-            Only speech synthesis retries. Idempotency keys prevent duplicate daily episodes.
+            <strong>失敗の分離:</strong> TTSが失敗しても、収集済みsnapshotと台本は残る。
+            音声合成だけを再試行し、idempotency keyで同日の重複episodeを防ぐ。
           </div>
         </div>
       </section>
@@ -630,32 +630,31 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Source policy</p>
-              <h2>Trust first, personalization by consent</h2>
+              <p class="label">Sourceポリシー</p>
+              <h2>信頼性を優先し、同意に基づいて個人化</h2>
             </div>
             <p class="section-copy">
-              Public material and private material enter through different boundaries. Calendar,
-              home timeline, and bookmarks are off until the user connects the provider and enables
-              each input.
+              公開情報と非公開情報は異なる境界から取り込む。Calendar、home timeline、bookmarkは、
+              ユーザーがProviderを接続し、各入力を有効化するまでOFFにする。
             </p>
           </div>
           <div class="source-map">
             <div class="source-column">
-              <div class="source-item primary">Official docs and specifications</div>
-              <div class="source-item primary">Release notes and maintainer posts</div>
-              <div class="source-item">News and community analysis</div>
-              <div class="source-item">Public X accounts and keywords</div>
+              <div class="source-item primary">公式documentと仕様</div>
+              <div class="source-item primary">release noteとmaintainer投稿</div>
+              <div class="source-item">ニュースとcommunity分析</div>
+              <div class="source-item">公開Xアカウントとkeyword</div>
             </div>
             <div class="source-core">
-              <p class="label" style="color: #7ed2bd">Bounded source snapshot</p>
-              <h3 style="font-size: 23px">Evidence-aware script input</h3>
-              <p>Deduplicated, attributed, privacy-minimized, and capped by budget.</p>
+              <p class="label" style="color: #7ed2bd">上限付きSource snapshot</p>
+              <h3 style="font-size: 23px">根拠を保持する台本入力</h3>
+              <p>重複除去、出典付与、privacy最小化、予算上限を適用。</p>
             </div>
             <div class="source-column">
-              <div class="source-item private">Calendar: time + title by default</div>
-              <div class="source-item private">Personal home timeline: Pro opt-in</div>
-              <div class="source-item private">Bookmarks: Pro opt-in</div>
-              <div class="source-item private">Explicit exclusions and post limits</div>
+              <div class="source-item private">Calendar: defaultは時刻とタイトル</div>
+              <div class="source-item private">個人home timeline: Pro opt-in</div>
+              <div class="source-item private">bookmark: Pro opt-in</div>
+              <div class="source-item private">明示的な除外条件と取得上限</div>
             </div>
           </div>
         </div>
@@ -665,40 +664,40 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Connection model</p>
-              <h2>OAuth without password sharing</h2>
+              <p class="label">接続モデル</p>
+              <h2>passwordを共有しないOAuth連携</h2>
             </div>
             <p class="section-copy">
-              Users approve access on the provider's own screen. Read scopes and publishing scopes
-              are separate consent steps. Tokens are encrypted at rest and never displayed again.
+              ユーザーはProvider自身の画面でアクセスを許可する。読み取りscopeと投稿scopeは
+              別の同意stepとし、tokenは暗号化して保存し、再表示しない。
             </p>
           </div>
           <div class="oauth-flow">
             <div class="oauth-step">
               <span class="panel-number">01</span>
-              <h3>Connect</h3>
-              <p>Settings sends the user to the provider with state and PKCE protection.</p>
+              <h3>接続</h3>
+              <p>SettingsからstateとPKCEで保護されたProvider画面へ移動する。</p>
             </div>
             <div class="arrow" aria-hidden="true">→</div>
             <div class="oauth-step">
               <span class="panel-number">02</span>
-              <h3>Consent</h3>
-              <p>The user grants only the scopes required for the selected feature.</p>
+              <h3>同意</h3>
+              <p>選択した機能に必要なscopeだけをユーザーが許可する。</p>
             </div>
             <div class="arrow" aria-hidden="true">→</div>
             <div class="oauth-step">
               <span class="panel-number">03</span>
-              <h3>Operate</h3>
-              <p>Encrypted tokens refresh in the background and stop on revoke or entitlement loss.</p>
+              <h3>利用</h3>
+              <p>暗号化tokenをbackgroundで更新し、失効またはentitlement喪失時に停止する。</p>
             </div>
           </div>
-          <div class="scope-row" aria-label="Example scopes">
+          <div class="scope-row" aria-label="scopeの例">
             <span class="scope">tweet.read</span>
             <span class="scope">users.read</span>
             <span class="scope">bookmark.read</span>
             <span class="scope">offline.access</span>
-            <span class="scope">tweet.write (admin step-up)</span>
-            <span class="scope">media.write (admin step-up)</span>
+            <span class="scope">tweet.write（admin追加承認）</span>
+            <span class="scope">media.write（admin追加承認）</span>
           </div>
         </div>
       </section>
@@ -707,37 +706,37 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Access control</p>
-              <h2>Roles answer who. Entitlements answer what.</h2>
+              <p class="label">アクセス制御</p>
+              <h2>roleは「誰か」、entitlementは「何ができるか」</h2>
             </div>
             <p class="section-copy">
-              Commercial plans and administrative authority are independent. Plan defaults can be
-              overridden per user without inventing a new role for every product tier.
+              商用planと管理権限を分離する。product tierごとにroleを増やさず、plan defaultを
+              user単位で上書きできる。
             </p>
           </div>
           <div class="access-grid">
             <article class="panel plan free">
               <h3>Free</h3>
               <ul>
-                <li>View designated samples</li>
-                <li>Explore the learning product</li>
-                <li>No private generation</li>
+                <li>指定sampleの表示と再生</li>
+                <li>学習productの体験</li>
+                <li>非公開生成は利用不可</li>
               </ul>
             </article>
             <article class="panel plan pro">
               <h3>Pro</h3>
               <ul>
-                <li>Generate and download briefings</li>
-                <li>Connect Calendar</li>
-                <li>Opt into personal X sources</li>
+                <li>briefingの生成とdownload</li>
+                <li>Calendar連携</li>
+                <li>個人X Sourceのopt-in</li>
               </ul>
             </article>
             <article class="panel plan admin">
               <h3>Admin</h3>
               <ul>
-                <li>Manage plans and overrides</li>
-                <li>Generate an English edition</li>
-                <li>Review and publish an X audiogram</li>
+                <li>planと個別overrideの管理</li>
+                <li>英語版の生成</li>
+                <li>X audiogramの確認と投稿</li>
               </ul>
             </article>
           </div>
@@ -748,26 +747,26 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Replaceable boundaries</p>
-              <h2>Keep provider choices outside product logic</h2>
+              <p class="label">差し替え可能な境界</p>
+              <h2>Provider選択をproduct logicから分離</h2>
             </div>
             <p class="section-copy">
-              Core episode state transitions depend on narrow interfaces. Model names, storage
-              vendors, and queue infrastructure remain configuration choices.
+              episodeの状態遷移は小さなinterfaceだけに依存する。model名、storage vendor、
+              queue infrastructureは設定で選択可能にする。
             </p>
           </div>
           <div style="overflow-x: auto">
             <table class="provider-table">
               <thead>
-                <tr><th>Boundary</th><th>Initial direction</th><th>Future option</th></tr>
+                <tr><th>境界</th><th>初期方針</th><th>将来の選択肢</th></tr>
               </thead>
               <tbody>
-                <tr><td>ContentCollector</td><td>Sources, news, Calendar, X</td><td>Additional feeds and social providers</td></tr>
-                <tr><td>ScriptGenerator</td><td>Configurable Gemini text model</td><td>Any structured text provider</td></tr>
-                <tr><td>SpeechSynthesizer</td><td>Gemini multi-speaker TTS</td><td>Alternative TTS services</td></tr>
-                <tr><td>AudioStorage</td><td>Local development storage</td><td>R2, S3, or compatible object storage</td></tr>
-                <tr><td>JobQueue</td><td>MySQL leases and retries</td><td>Managed queue such as SQS</td></tr>
-                <tr><td>SocialPublisher</td><td>Administrator-approved X posts</td><td>Additional social destinations</td></tr>
+                <tr><td>ContentCollector</td><td>Sources、news、Calendar、X</td><td>追加feedとSNS Provider</td></tr>
+                <tr><td>ScriptGenerator</td><td>設定可能なGemini text model</td><td>構造化textを返す任意Provider</td></tr>
+                <tr><td>SpeechSynthesizer</td><td>Gemini multi-speaker TTS</td><td>別のTTS service</td></tr>
+                <tr><td>AudioStorage</td><td>local開発storage</td><td>R2、S3、互換object storage</td></tr>
+                <tr><td>JobQueue</td><td>MySQL leaseとretry</td><td>SQSなどのmanaged queue</td></tr>
+                <tr><td>SocialPublisher</td><td>admin承認済みX投稿</td><td>追加のSNS投稿先</td></tr>
               </tbody>
             </table>
           </div>
@@ -779,21 +778,21 @@
           <div class="section-head">
             <div>
               <p class="label">Delivery</p>
-              <h2>Build the private value before public distribution</h2>
+              <h2>外部公開より先に、非公開の価値を作る</h2>
             </div>
             <p class="section-copy">
-              The sequence keeps each release useful while delaying the riskiest integrations until
-              the private generation loop is observable and stable.
+              各releaseを単独で有用に保ちながら、riskの高い外部連携は非公開生成loopが
+              観測可能かつ安定するまで後ろへ置く。
             </p>
           </div>
           <div class="roadmap-grid">
-            <article class="panel roadmap-item"><h3>1. Access</h3><p>Roles, plans, entitlements, desktop administration.</p></article>
-            <article class="panel roadmap-item"><h3>2. Core</h3><p>Manual jobs, scripts, audio, playback, download.</p></article>
-            <article class="panel roadmap-item"><h3>3. Schedule</h3><p>Source cadence, automatic briefings, Calendar.</p></article>
-            <article class="panel roadmap-item"><h3>4. Personal</h3><p>Pro timeline and bookmarks with cost limits.</p></article>
-            <article class="panel roadmap-item"><h3>5. Background</h3><p>Player hardening and authenticated RSS beta.</p></article>
-            <article class="panel roadmap-item"><h3>6. Publish</h3><p>English edition, audiogram, review, X posting.</p></article>
-            <article class="panel roadmap-item"><h3>7. Operate</h3><p>Retention, legal hold, break-glass, audit review.</p></article>
+            <article class="panel roadmap-item"><h3>1. Access</h3><p>role、plan、entitlement、PC管理画面。</p></article>
+            <article class="panel roadmap-item"><h3>2. Core</h3><p>手動job、台本、音声、再生、download。</p></article>
+            <article class="panel roadmap-item"><h3>3. Schedule</h3><p>Source取得間隔、自動briefing、Calendar。</p></article>
+            <article class="panel roadmap-item"><h3>4. Personal</h3><p>予算上限付きPro timelineとbookmark。</p></article>
+            <article class="panel roadmap-item"><h3>5. Background</h3><p>player強化と認証付きRSS beta。</p></article>
+            <article class="panel roadmap-item"><h3>6. Publish</h3><p>英語版、audiogram、確認、X投稿。</p></article>
+            <article class="panel roadmap-item"><h3>7. Operate</h3><p>保持、legal hold、break-glass、audit。</p></article>
           </div>
         </div>
       </section>
@@ -802,23 +801,23 @@
         <div class="wrap">
           <div class="section-head">
             <div>
-              <p class="label">Operator handoff</p>
-              <h2>Setup work is explicit, never hidden in code</h2>
+              <p class="label">Operator引き継ぎ</p>
+              <h2>設定作業を明示し、codeの裏に隠さない</h2>
             </div>
             <p class="section-copy">
-              Real credentials and account values stay outside Git. Implementation checkpoints call
-              out the exact external configuration required before live verification.
+              実際の認証情報とaccount値はGitの外に置く。実装checkpointでは、live検証前に
+              必要な外部設定を具体的に案内する。
             </p>
           </div>
           <div class="todo">
-            <div class="todo-item"><span class="todo-box"></span><span>Gemini API key and spending limit</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>Application encryption secret</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>Google Calendar API and OAuth callback</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>X OAuth scopes, callback, credits, and budget</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>Production audio storage</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>Scheduler and worker runtime</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>HTTPS endpoint for private delivery testing</span></div>
-            <div class="todo-item"><span class="todo-box"></span><span>iPhone background and RSS compatibility checks</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>Gemini API keyと利用上限</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>application暗号化Secret</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>Google Calendar APIとOAuth callback</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>X OAuth scope、callback、credit、予算</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>本番audio storage</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>schedulerとworker runtime</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>非公開配信検証用HTTPS endpoint</span></div>
+            <div class="todo-item"><span class="todo-box"></span><span>iPhone background再生とRSS互換性確認</span></div>
           </div>
         </div>
       </section>
@@ -826,8 +825,8 @@
 
     <footer>
       <div class="wrap footer-row">
-        <span>Skill Compass Podcast Studio / Public architecture showcase</span>
-        <a href="../specs/skill-compass-podcast-studio-design.md">Read the canonical Markdown design</a>
+        <span>Skill Compass Podcast Studio / 公開アーキテクチャショーケース</span>
+        <a href="../specs/skill-compass-podcast-studio-design.md">正本のMarkdown設計を読む</a>
       </div>
     </footer>
   </body>

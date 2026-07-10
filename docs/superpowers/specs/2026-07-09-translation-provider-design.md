@@ -1,22 +1,22 @@
-# LLM Translation Provider Design
+# LLM翻訳Provider設計
 
-## Goal
+## 目的
 
-Add a Japanese translation aid for Skill Compass quiz cards without making the public repository depend on one private runtime, one vendor API, or committed credentials.
+public repositoryを特定のprivate runtime、vendor API、commit済み認証情報へ依存させず、Skill Compassのquiz cardへ日本語翻訳支援を追加する。
 
-The first scope is Task 9.5: translate Today quiz card content on demand. The default reading experience stays English-first, and Japanese appears only when the user asks for it.
+最初のscopeはTask 9.5とし、Today quiz cardの内容を必要に応じて翻訳する。標準の読解体験は英語優先のままとし、ユーザーが要求した場合だけ日本語を表示する。
 
-## User Experience
+## ユーザー体験
 
-- Each Today quiz card gets a compact translation button.
-- Pressing it reveals Japanese translation for the question prompt, choices, and any answer feedback already shown.
-- The translated panel stays inside the card so the user can compare English and Japanese without leaving the quiz.
-- English remains the canonical source text.
-- Missing translation should degrade softly with a short unavailable message rather than blocking quiz answering.
+- Todayの各quiz cardへcompactな翻訳buttonを配置する。
+- buttonを押すと、question prompt、choice、表示済みanswer feedbackの日本語訳を表示する。
+- 翻訳panelはcard内に置き、quizから離れず英語と日本語を比較できるようにする。
+- 英語をcanonical source textとする。
+- 翻訳を取得できない場合もquiz回答を妨げず、短いunavailable messageへfallbackする。
 
 ## Provider Architecture
 
-Create a replaceable translation provider boundary:
+差し替え可能な翻訳Provider境界を作る。
 
 ```ts
 export type TranslationInput = {
@@ -37,41 +37,41 @@ export interface TranslationProvider {
 }
 ```
 
-Initial providers:
+初期Provider:
 
-- `claude_cli`: calls a local `claude -p` compatible command.
-- `deterministic`: public-safe fallback used in tests and unsupported environments.
-- `disabled`: returns an unavailable result without calling an external model.
+- `claude_cli`: localの`claude -p`互換commandを呼び出す。
+- `deterministic`: testと未対応環境で使う公開可能なfallback。
+- `disabled`: 外部modelを呼ばず、利用不可の結果を返す。
 
-Provider selection comes from environment variables. `.env.example` may list variable names and non-secret examples only.
+Provider選択には環境変数を使う。`.env.example`には変数名と秘密でない例だけを記載する。
 
 ## Claude CLI Provider
 
-The `claude_cli` provider may run a local command such as:
+`claude_cli` Providerは、以下のようなlocal commandを実行できる。
 
 ```bash
 claude -p "<prompt>"
 ```
 
-The command name is configurable with `CLAUDE_CLI_COMMAND`, defaulting to `claude`. The repo must not include local credentials, shell profiles, private paths, usage logs, billing details, or implementation details from any private project.
+command名は`CLAUDE_CLI_COMMAND`で変更可能とし、defaultは`claude`とする。repositoryにはlocal認証情報、shell profile、private path、利用log、billing detail、private projectの実装詳細を含めない。
 
-The provider prompt should:
+Provider promptには以下を要求する。
 
-- translate to natural Japanese
-- preserve technical terms from the glossary
-- return plain text only
-- avoid adding explanations
+- 自然な日本語へ翻訳する。
+- glossaryの技術用語を維持する。
+- plain textだけを返す。
+- 説明を追加しない。
 
-If the command fails, times out, or returns an empty string, the app records the failure and returns a soft unavailable state.
+commandの失敗、timeout、空文字列の場合、failureを記録してsoft unavailable stateを返す。
 
 ## Cache
 
-Add a `translation_cache` table.
+`translation_cache` tableを追加する。
 
-Fields:
+field:
 
-- `id`: deterministic hash id
-- `sourceHash`: unique hash of source text, source locale, target locale, purpose, and glossary version
+- `id`: 決定論的なhash ID
+- `sourceHash`: source text、source locale、target locale、purpose、glossary versionの一意hash
 - `sourceText`
 - `sourceLocale`
 - `targetLocale`
@@ -81,19 +81,19 @@ Fields:
 - `createdAt`
 - `lastUsedAt`
 
-Cache behavior:
+cache behavior:
 
-1. Check cache before calling a provider.
-2. Return cached text when `sourceHash` matches.
-3. Call provider only on cache miss.
-4. Save successful translations.
-5. Do not save secrets, prompts containing private context, or local command output logs.
+1. Provider呼び出し前にcacheを確認する。
+2. `sourceHash`が一致した場合、cache済みtextを返す。
+3. cache missの場合だけProviderを呼ぶ。
+4. 成功した翻訳を保存する。
+5. Secret、private contextを含むprompt、local command output logは保存しない。
 
 ## Glossary
 
-Start with a public-safe project glossary for stable engineering terms.
+安定したengineering termを対象に、公開可能なproject glossaryから始める。
 
-Examples:
+例:
 
 - `API contract` -> `API契約`
 - `reverse proxy` -> `リバースプロキシ`
@@ -101,48 +101,48 @@ Examples:
 - `design token` -> `デザイントークン`
 - `source` -> `出典`
 
-The glossary gets a version string. Changing the glossary version invalidates old cache keys without deleting old cache rows.
+glossaryにはversion stringを設定する。versionを変更すると、既存cache rowを削除せずに古いcache keyを無効化できる。
 
 ## Server Flow
 
-1. User opens Today quiz.
-2. Card renders English source content.
-3. User presses translate.
-4. Server action receives quiz day id, question id, and content purpose.
-5. Service checks cache.
-6. Service calls provider on miss.
-7. Successful translation is cached.
-8. Page revalidates and shows translated panel.
+1. ユーザーがToday quizを開く。
+2. cardが英語のsource contentを表示する。
+3. ユーザーが翻訳buttonを押す。
+4. server actionがquiz day ID、question ID、content purposeを受け取る。
+5. serviceがcacheを確認する。
+6. cache missの場合はProviderを呼ぶ。
+7. 成功した翻訳をcacheへ保存する。
+8. pageをrevalidateし、翻訳panelを表示する。
 
 ## Safety
 
-- No API keys, auth tokens, private paths, private project details, raw internal specs, or local usage logs are committed.
-- The CLI command is optional and configured through environment variables.
-- Deployment can set `TRANSLATION_PROVIDER=disabled` or use a future API provider.
-- Tests use deterministic provider behavior.
-- Translation is a learning aid only; scoring and correctness remain based on original English quiz data.
+- API key、auth token、private path、private project detail、raw internal spec、local usage logをcommitしない。
+- CLI commandは任意機能とし、環境変数で設定する。
+- deploymentでは`TRANSLATION_PROVIDER=disabled`または将来のAPI Providerを指定できる。
+- testではdeterministic Providerを使用する。
+- 翻訳は学習支援に限定し、scoringとcorrectnessは英語のquiz dataを基準にする。
 
 ## Testing
 
-Unit tests:
+Unit test:
 
-- cache hit does not call provider
-- cache miss calls provider and stores result
-- provider failure returns unavailable state
-- glossary version changes cache hash
+- cache hitではProviderを呼ばない。
+- cache missではProviderを呼び、結果を保存する。
+- Provider failureはunavailable stateを返す。
+- glossary version変更でcache hashが変わる。
 
 E2E test:
 
-- logged-in user opens Today
-- clicks translate on one quiz card
-- sees Japanese translation panel
-- can still submit an answer
+- login済みuserがTodayを開く。
+- 1つのquiz cardで翻訳を押す。
+- 日本語translation panelが表示される。
+- そのままanswerをsubmitできる。
 
-## Out Of Scope
+## 対象外
 
-- Full-page localization
-- Browser language negotiation
-- User-editable glossary UI
-- Streaming translation
-- API-provider billing controls
-- Translating source documents
+- page全体のlocalization
+- browser language negotiation
+- user編集可能なglossary UI
+- streaming translation
+- API Providerのbilling control
+- Source documentの翻訳

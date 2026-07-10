@@ -1,16 +1,16 @@
-# Database User Authentication Design
+# Database User Authentication設計
 
-## Goal
+## 目的
 
-Replace the MVP fixed-password login with database-backed user authentication that is safe to publish in a public repository and can grow into invite-only registration.
+MVPの固定password loginを、public repositoryへ安全に掲載でき、将来の招待制登録へ拡張できるdatabase-backed user authenticationへ置き換える。
 
-## Decisions
+## 決定事項
 
-- Store users in MySQL, not in environment variables.
-- Store password hashes, not encrypted or plaintext passwords.
-- Use salted `scrypt` hashes via Node.js `crypto` to avoid adding a native password-hashing dependency for the lite MVP.
-- Keep the existing 24 hour signed session cookie, but include user identity claims for future account-aware features.
-- Add invite-ready database tables now, while leaving invite acceptance UI/API for a later task.
+- userは環境変数ではなくMySQLへ保存する。
+- 暗号化passwordやplaintext passwordではなくpassword hashを保存する。
+- Lite MVPではnative password-hashing dependencyを増やさず、Node.js `crypto`のsalt付き`scrypt` hashを使用する。
+- 既存の署名付き24時間session cookieを維持し、将来のuser-aware機能に備えてuser identity claimを含める。
+- 招待受諾UI/APIは後続Taskとし、invite対応のdatabase tableだけを先に追加する。
 
 ## Data Model
 
@@ -20,7 +20,7 @@ Replace the MVP fixed-password login with database-backed user authentication th
   - `display_name`
   - `password_hash`
   - `status`
-  - timestamps
+  - timestamp
 - `invites`
   - `id`
   - `email`
@@ -32,18 +32,18 @@ Replace the MVP fixed-password login with database-backed user authentication th
 
 ## Login Flow
 
-1. The login form submits `email` and `password`.
-2. The server normalizes the email and loads an active user from the database.
-3. The submitted password is verified against `users.password_hash`.
-4. On success, the app sets the existing signed 24 hour session cookie.
-5. On failure, the login page shows a generic error so it does not reveal whether the email exists.
+1. login formが`email`と`password`をsubmitする。
+2. serverがemailをnormalizeし、databaseからactive userを取得する。
+3. 入力されたpasswordを`users.password_hash`に対してverifyする。
+4. 成功時は既存の署名付き24時間session cookieを設定する。
+5. 失敗時はemailの存在を推測できないgeneric errorを表示する。
 
-## Public Repo Safety
+## public repositoryの安全性
 
-The repository may contain schema, hashing code, tests, and a public-safe local seed account. It must not contain real passwords, private user emails, invite tokens, API keys, operational domains, or local machine details.
+repositoryにはschema、hashing code、test、公開可能なlocal seed accountを含められる。実password、private user email、invite token、API key、運用domain、local machine固有情報は含めない。
 
-## Later Work
+## 後続Task
 
-- Invite creation and acceptance flows.
-- Password reset or rotation flow.
-- User-aware ownership for quiz progress and settings.
+- invite作成と受諾flow
+- password resetまたはrotation flow
+- quiz progressとsettingsのuser-aware ownership

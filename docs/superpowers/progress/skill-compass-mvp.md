@@ -1,39 +1,41 @@
-# Skill Compass MVP Progress
+# Skill Compass MVP進捗
 
-This document is the public-safe handoff log for continuing implementation after context compaction. Do not add credentials, private local details, raw internal specs, vault details, API keys, social media operations, or unpublished operational context.
+この文書は、コンテキスト圧縮後も実装を継続できるようにする、公開可能な引き継ぎ記録である。認証情報、個人のローカル環境、非公開のraw spec、API key、SNS運用情報、未公開の運用コンテキストは記載しない。
 
-## Current State
+## 現在の状態
 
-- Workspace: repository root (`skill-compass`)
+- Workspace: repository root（`skill-compass`）
 - Branch: `codex/skill-compass-mvp`
-- Product source: `docs/specs/skill-compass-lite-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-07-08-skill-compass-mvp.md`
+- プロダクト仕様: `docs/specs/skill-compass-lite-design.md`
+- 実装計画: `docs/superpowers/plans/2026-07-08-skill-compass-mvp.md`
 - Package manager: pnpm
-- App stack: Next.js App Router, TypeScript, MySQL, Drizzle ORM, Docker Compose
-- Auth: database user login with salted password hash and signed 24 hour session
-- UI direction: mobile-first dashboard shell; desktop centers the mobile app surface
+- App stack: Next.js App Router、TypeScript、MySQL、Drizzle ORM、Docker Compose
+- Auth: salt付きpassword hashを使うDB user loginと、署名付き24時間session
+- UI方針: mobile-first dashboard shell。desktopではmobile app surfaceを中央に配置
 
-## Completed Work
+## 完了済み
 
-- Task 1: scaffolded Next.js app and tooling.
-- Task 2: added Docker Compose, Drizzle config, environment validation, and database client.
-- Task 3: added Drizzle schema, initial migration, and public-safe seed data.
-- Package manager migration: switched from npm lockfile to pnpm workspace and lockfile.
-- Task 4: added authentication, session helpers, login action, protected app proxy, and login E2E coverage.
-- Task 5: added deterministic scoring rules and self-vs-measured gap calculation.
-- Task 6: added replaceable LLM evaluation provider and answer evaluation orchestration.
-- Task 7: added deterministic daily quiz selection.
-- Task 8: connected the authenticated dashboard to real database summaries.
-- Task 9: added the daily quiz page, answer submission, feedback, and score updates.
-- Task 9.5: added cache-first Japanese quiz card translation with optional Claude CLI provider.
-- Task 10: added skills, concepts, sources, and settings management screens.
-- Mobile UI polish: refreshed login and dashboard placeholder screens for a modern mobile-first presentation.
-- Auth update: replaced fixed env password login with database-backed user password hashes and invite-ready tables.
-- History archive: added `/history` for browsing answered Today quiz records by year, month, and day.
+- Task 1: Next.js appとtoolingをscaffold。
+- Task 2: Docker Compose、Drizzle config、環境変数validation、database clientを追加。
+- Task 3: Drizzle schema、初期migration、公開可能なseed dataを追加。
+- Package manager移行: npm lockfileからpnpm workspaceとlockfileへ移行。
+- Task 4: authentication、session helper、login action、保護app proxy、login E2Eを追加。
+- Task 5: 決定論的なscoring ruleとself-vs-measured gap計算を追加。
+- Task 6: 差し替え可能なLLM評価Providerとanswer evaluation orchestrationを追加。
+- Task 7: 決定論的なdaily quiz選択を追加。
+- Task 8: 認証済みdashboardを実DB summaryへ接続。
+- Task 9: daily quiz page、answer submission、feedback、score updateを追加。
+- Task 9.5: cache-firstの日本語quiz card翻訳と、任意のClaude CLI Providerを追加。
+- Task 10: Skills、Concepts、Sources、Settingsの管理画面を追加。
+- Mobile UI改善: loginとdashboard placeholderをmobile-firstの外観へ更新。
+- Auth更新: 固定環境変数passwordから、DB user password hashと招待対応tableへ移行。
+- 履歴archive: `/history`で回答済みToday quizを年、月、日ごとに閲覧可能にした。
+- Mobile navigation: Dash、Today、Archive、Settingsの4項目へ整理。
+- Today assistant: Gemini対応、会話履歴、mobile Safari向け固定表示とdrag移動を追加。
 
-## Verification Snapshot
+## 検証snapshot
 
-Last known full verification passed after Task 10:
+Task 10完了時点のfull verification:
 
 ```bash
 pnpm test
@@ -42,34 +44,34 @@ pnpm lint
 pnpm build
 ```
 
-Docker Desktop was running and the local MySQL service was healthy. Seed data was applied successfully with public-safe starter content.
+Docker Desktop上のlocal MySQLが正常に起動し、公開可能なstarter contentのseed適用を確認済み。
 
-## Current Task
+## 現在のTask
 
-Task 11: add replaceable Markdown note writer and export flow.
+Task 11: 差し替え可能なMarkdown note writerとexport flowを追加する。
 
-## Next Tasks
+## 次のTask
 
-- Task 12: add scheduled job abstractions and CLI commands.
-- Task 13: finalize docs, safety checks, and public repo hygiene.
+- Task 12: scheduled jobの抽象とCLI commandを追加する。
+- Task 13: document、safety check、public repository hygieneを仕上げる。
 
-## Post-MVP Roadmap
+## MVP後のroadmap
 
-- Podcast Studio (proposed): generate private two-speaker briefings from trusted Sources, news, optional Calendar events, and optional personal social inputs. The public-safe design is documented in `docs/specs/skill-compass-podcast-studio-design.md`.
+- Podcast Studio（提案段階）: 信頼できるSources、ニュース、任意のCalendar予定、任意の個人SNS情報から、非公開の2人会話形式ブリーフィングを生成する。公開可能な設計は`docs/specs/skill-compass-podcast-studio-design.md`に記載する。
 
-## Commit Trail
+## 主要commit
 
-- `b0774ab` docs: add skill compass mvp implementation plan
-- `1c2c6ea` chore: scaffold skill compass app
-- `88ace4b` chore: add local database configuration
-- `e8e3653` feat: add skill compass data model
-- `b73a066` chore: switch package manager to pnpm
-- `945fa4d` feat: add fixed password authentication
-- `b107900` feat: add deterministic scoring rules
-- `6737f2f` style: polish mobile-first app shell
-- feat: add replaceable answer evaluation provider
-- `597040a` feat: add daily quiz selection
-- `8163956` feat: add dashboard-first app shell
-- `450a0a0` feat: add daily quiz flow
-- `0caa9c1` fix: harden quiz translation state
-- Current commit: feat: add MVP management screens
+- `b0774ab` MVP実装計画
+- `1c2c6ea` app scaffold
+- `88ace4b` local database設定
+- `e8e3653` Skill Compass data model
+- `b73a066` pnpm移行
+- `945fa4d` 固定password authentication
+- `b107900` 決定論的scoring rule
+- `597040a` daily quiz selection
+- `8163956` dashboard-first app shell
+- `450a0a0` daily quiz flow
+- `010e640` quiz履歴archive
+- `59ca3c3` database user authentication
+- `7dc3fa8` mobile Safari向けToday assistant表示修正
+- `bef3bbf` Podcast Studio設計とHTML showcase

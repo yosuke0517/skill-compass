@@ -1,40 +1,40 @@
-# Skill Compass Lite Design
+# Skill Compass Lite設計
 
-Status: public design brief
+ステータス: 公開可能な設計概要
 
-## Purpose
+## 目的
 
-Skill Compass is a personal engineering growth app for developers working in an AI-assisted era. It helps users practice fundamentals, catch up with modern engineering topics, identify weak spots, and track the gap between self-perceived skill and measured performance.
+Skill Compassは、AI支援時代のエンジニアに向けた個人用の成長支援アプリである。基礎の練習、現代的な技術トピックへのcatch-up、弱点の特定、自己評価と実測値の差の追跡を支援する。
 
-The app is designed around a simple loop:
+アプリは次の単純なloopを中心に設計する。
 
-1. Review current skill state.
-2. Answer a short adaptive quiz.
-3. Get immediate feedback.
-4. Update measured skill scores.
-5. Save durable learning notes for future review.
+1. 現在のskill状態を確認する。
+2. 短い適応型quizへ回答する。
+3. すぐにfeedbackを受け取る。
+4. 実測skill scoreを更新する。
+5. 将来の復習に使えるlearning noteを保存する。
 
 ## Core Product
 
-The MVP is a standalone web application with:
+MVPは独立したWeb applicationとして提供し、以下を含む。
 
-- A dashboard-first experience.
-- Five visible skill axes:
+- dashboard-firstの体験
+- 画面に表示する5つのskill軸
   - Frontend
   - Backend
   - Infrastructure
   - SQL
   - LLM
-- Internal tracking for subskills and concrete concepts.
-- Daily 5-question quizzes.
-- Weekly summaries.
-- Monthly self-assessment reviews.
-- Source-backed question generation.
-- Markdown-based knowledge export.
+- subskillと具体的なconceptの内部追跡
+- 1日5問のquiz
+- 週次summary
+- 月次self-assessment review
+- Sourceに基づくquestion生成
+- Markdown形式のknowledge export
 
 ## Skill Model
 
-The product separates broad skill areas from concrete learning targets.
+広いskill領域と具体的な学習対象を分離する。
 
 ```txt
 Category: Frontend
@@ -52,114 +52,114 @@ Category: Infrastructure
     Concept: DNS
 ```
 
-- `Category` is the public dashboard axis.
-- `Tag` is a broader subskill used for scoring and quiz balancing.
-- `Concept` is a concrete thing the user can misunderstand, review, or master.
+- `Category`はdashboardに表示する大分類。
+- `Tag`はscoringとquiz balanceに使うsubskill。
+- `Concept`は、ユーザーが誤解、復習、習得できる具体的な対象。
 
-Concepts may relate to multiple tags, so the data model should support many-to-many relationships.
+Conceptは複数のTagと関係する可能性があるため、data modelはmany-to-many relationshipへ対応する。
 
-Examples:
+例:
 
-- `MCP` can relate to LLM workflows, frontend implementation, and developer tooling.
-- `API contract` can relate to backend design, frontend integration, and testing.
-- `index design` can relate to SQL and backend performance.
+- `MCP`はLLM workflow、frontend implementation、developer toolingに関連する。
+- `API contract`はbackend design、frontend integration、testingに関連する。
+- `index design`はSQLとbackend performanceに関連する。
 
-## Difficulty Model
+## 難易度モデル
 
-Difficulty uses three levels.
+難易度は3段階とする。
 
 - `beginner`
-  - Explains terms, roles, and basic distinctions.
-  - Example: identifying the difference between NAT, DNS, and a reverse proxy.
+  - 用語、役割、基本的な違いを説明できる。
+  - 例: NAT、DNS、reverse proxyの違いを識別する。
 - `intermediate`
-  - Applies concepts in realistic engineering decisions.
-  - Example: choosing a testing strategy or explaining a database indexing tradeoff.
+  - 現実的なengineering判断へconceptを適用できる。
+  - 例: testing strategyを選択し、database indexのtrade-offを説明する。
 - `advanced`
-  - Understands recent specifications and current best practices.
-  - Can compare options, explain tradeoffs, and guide a team or LLM toward a correct implementation.
+  - 新しい仕様と現在のbest practiceを理解する。
+  - 選択肢を比較し、trade-offを説明し、teamやLLMを正しい実装へ導ける。
 
 ## Daily Quiz Flow
 
-Each day contains five questions.
+1日分は5問で構成する。
 
-Suggested mix:
+推奨する内訳:
 
-- 2 weakness reinforcement questions.
-- 1 strength extension question.
-- 1 latest technology catch-up question.
-- 1 balancing question from underrepresented skills or large self-assessment gaps.
+- 弱点を補強するquestionを2問
+- 強みを伸ばすquestionを1問
+- 最新技術へのcatch-up questionを1問
+- 出題の少ないskill、またはself-assessment gapが大きい領域から1問
 
-Each answer includes:
+各回答には以下を含める。
 
-- a 4-choice selection
-- a confidence score
-- short free-text reasoning
+- 4択の回答
+- confidence score
+- 短い自由記述のreasoning
 
-After submission, the app evaluates:
+回答後、アプリは以下を評価する。
 
-- correctness
-- reasoning quality
-- misunderstood concepts
-- next review timing
-- score updates
+- 正誤
+- reasoningの品質
+- 誤解しているconcept
+- 次回review時期
+- score update
 
-## Score Updates
+## Score Update
 
-The app should not fully delegate scoring to an LLM. LLM feedback can provide structured evaluation metadata, but final score changes should be deterministic application behavior.
+scoring全体をLLMへ委譲しない。LLM feedbackは構造化された評価metadataを返せるが、最終的なscore変更は決定論的なapplication ruleで行う。
 
-Example rules:
+rule例:
 
-- Correct, high confidence, good reasoning: increase score.
-- Correct, low confidence: small increase and keep as review candidate.
-- Incorrect, reasoning close: small penalty or neutral update.
-- Incorrect with a major misconception: larger penalty and earlier review.
-- Repeated correct answers extend the review interval.
+- 正解、高confidence、良いreasoning: scoreを増やす。
+- 正解、低confidence: 小さく増やし、review候補として残す。
+- 不正解だがreasoningが近い: 小さな減点または変更なし。
+- 重大な誤解を伴う不正解: 大きく減点し、早めにreviewする。
+- 正解を繰り返した場合: review intervalを延ばす。
 
-Scores are tracked at category, tag, and concept levels. Category scores shown in the dashboard are derived from lower-level scores.
+scoreはCategory、Tag、Concept単位で追跡する。dashboardに表示するCategory scoreは、下位scoreから算出する。
 
 ## Self-Assessment
 
-The app tracks both measured performance and self-perceived skill.
+実測performanceと自己認識の両方を追跡する。
 
-Onboarding includes:
+onboardingでは以下を行う。
 
-1. Self-rating across the five categories.
-2. Optional tag-level self-rating.
-3. Diagnostic quiz.
-4. Gap calculation between self-rating and measured performance.
+1. 5つのCategoryを自己評価する。
+2. 任意でTag単位の自己評価を行う。
+3. diagnostic quizへ回答する。
+4. 自己評価と実測performanceのgapを計算する。
 
-Monthly reviews ask the user to update self-assessments and reflect on:
+月次reviewではself-assessmentを更新し、以下を振り返る。
 
-- underconfidence
-- overconfidence
-- areas improving faster than expected
-- areas that need focused practice
+- 過小評価している領域
+- 過大評価している領域
+- 想定より早く成長している領域
+- 集中的な練習が必要な領域
 
-## Source Strategy
+## Source方針
 
-Questions should be grounded in sources.
+questionはSourceに基づいて生成する。
 
-The app supports:
+アプリは以下をサポートする。
 
-- fixed trusted sources
-- user-added URLs
-- source trust tiers
-- official verification status
+- 固定された信頼できるSource
+- ユーザーが追加するURL
+- Sourceの信頼度Tier
+- 公式確認status
 
-Suggested trust tiers:
+推奨する信頼度Tier:
 
-- Tier 1: official documentation, release notes, specifications, RFCs
-- Tier 2: official blogs and maintainer-authored material
-- Tier 3: community articles and technical blogs
-- Tier 4: social posts or unverified commentary
+- Tier 1: 公式documentation、release note、specification、RFC
+- Tier 2: 公式blog、maintainerによる資料
+- Tier 3: community article、technical blog
+- Tier 4: social post、未検証のcommentary
 
-Community articles are useful for discovery and practical framing, but factual quiz answers should be backed by official or high-trust sources whenever possible.
+community articleは発見と実践的な説明に有用だが、quizの正解根拠は可能な限り公式または信頼度の高いSourceで確認する。
 
 ## Knowledge Export
 
-The app exports learning artifacts as Markdown so they remain portable and easy to read.
+learning artifactをMarkdownとしてexportし、portableで読みやすい状態を保つ。
 
-Suggested structure:
+推奨構造:
 
 ```txt
 Skill Compass/
@@ -170,96 +170,94 @@ Skill Compass/
   sources/
 ```
 
-Daily logs include:
+Daily logには以下を含める。
 
-- answered questions
-- correctness
+- 回答したquestion
+- 正誤
 - confidence
 - reasoning
 - feedback
-- score changes
-- next review dates
+- score change
+- 次回review日
 
-Concept notes include:
+Concept noteには以下を含める。
 
-- current understanding
-- common misunderstandings
-- related concepts
+- 現在の理解
+- よくある誤解
+- 関連concept
 - quiz history
-- sources
+- Source
 
-Weekly logs include:
+Weekly logには以下を含める。
 
-- score changes
-- weak points
-- strong points
-- next week focus
+- score change
+- 弱点
+- 強み
+- 翌週のfocus
 
-Monthly logs include:
+Monthly logには以下を含める。
 
 - self-vs-measured gap
 - reflection
-- next month focus
+- 翌月のfocus
 
-## MVP Screens
+## MVP画面
 
-Required screens:
+必要な画面:
 
 - Login
 - Dashboard
-- Today's quiz
+- Today's Quiz
 - Skills
 - Concepts
 - Sources
 - Settings
 
-Dashboard should show:
+Dashboardには以下を表示する。
 
-- five-axis radar chart
-- today's quiz progress
+- 5軸のradar chart
+- 今日のquiz進捗
 - streak
-- weekly accuracy
-- top weak points
-- improving tags
+- 週次accuracy
+- 上位の弱点
+- 改善中のTag
 - self-vs-measured skill gap
-- weekly/monthly review prompts
+- 週次、月次review prompt
 
-## Technical Direction
+## 技術方針
 
-The intended MVP stack is:
+MVPの想定stack:
 
 - Next.js App Router
 - TypeScript
 - MySQL
 - Drizzle ORM
-- Docker Compose for local deployment
-- A pluggable LLM provider interface
-- A pluggable Markdown note writer
-- Scheduled jobs implemented as application-level commands
+- local deployment用のDocker Compose
+- 差し替え可能なLLM Provider interface
+- 差し替え可能なMarkdown note writer
+- application-level commandとして実装するscheduled job
 
-Scheduled jobs should be portable. A local scheduler can run them during self-hosting, while cloud schedulers can run the same commands later.
+scheduled jobはportableにする。self-host時はlocal schedulerから実行し、将来は同じcommandをcloud schedulerから実行できるようにする。
 
-Jobs include:
+jobには以下を含める。
 
 - daily quiz preparation
-- source ingestion
+- Source ingestion
 - weekly summary
 - monthly self-assessment prompt
 - Markdown export sync
 
-## Error Handling
+## エラー処理
 
-Key failure behavior:
+- question生成に失敗した場合、既存questionを再利用する。
+- answer evaluationに失敗した場合、answerを保存して後から再試行する。
+- Source取得に失敗した場合、失敗statusを付け、未検証の事実を断定しない。
+- Markdown exportに失敗してもDB stateを維持し、exportだけを再試行する。
+- 利用上限へ到達した場合、新しい生成を停止し、既存questionまたは単純なscoringへfallbackする。
 
-- If question generation fails, reuse existing questions.
-- If answer evaluation fails, save the answer and retry evaluation later.
-- If source fetching fails, mark the source as failed and avoid unverified factual claims.
-- If Markdown export fails, keep database state and retry export.
-- If usage limits are reached, stop new generation and fall back to existing questions or simple scoring.
+## テスト方針
 
-## Testing Strategy
-
-Test coverage should include:
+以下をtest対象とする。
 
 - scoring logic
 - quiz selection logic
@@ -268,26 +266,26 @@ Test coverage should include:
 - database integration
 - authentication
 - quiz E2E flow
-- scheduled job behavior with mocked LLM responses
+- mock LLM responseを使うscheduled job behavior
 
-## Future Capability: Podcast Studio
+## 将来機能: Podcast Studio
 
-After the Lite MVP, Skill Compass may turn source-backed learning material into a private two-speaker audio briefing. The proposed Podcast Studio combines trusted Sources with current news, optional personal social inputs, and a minimal view of the user's calendar.
+Lite MVP後に、Sourceに基づく学習内容から非公開の2人会話形式audio briefingを生成できるようにする。提案中のPodcast Studioは、信頼できるSources、最新ニュース、任意の個人SNS情報、ユーザーのCalendar予定を組み合わせる。
 
-The design uses a durable job pipeline for resumable script and audio generation, separates roles from plan entitlements, keeps external integrations behind replaceable providers, and requires explicit approval before social publishing.
+再開可能なscript、audio生成のための永続job pipelineを採用し、roleとplan entitlementを分離する。外部連携は差し替え可能なProviderの背後へ置き、SNS投稿前には明示的な承認を必須にする。
 
-See the public proposal and visual overview:
+公開設計とvisual overview:
 
-- [Podcast Studio Design](skill-compass-podcast-studio-design.md)
-- [Podcast Studio Architecture Showcase](../showcase/podcast-studio.html)
+- [Podcast Studio設計](skill-compass-podcast-studio-design.md)
+- [Podcast Studioアーキテクチャショーケース](../showcase/podcast-studio.html)
 
-## Public Repository Boundary
+## public repositoryの境界
 
-This document is intentionally public-safe. It describes product and technical design without including:
+この文書はpublic repositoryへ掲載できる情報だけで構成する。以下は含めない。
 
-- private local paths
-- private project names
-- personal automation details
-- credentials
-- unpublished operational logs
-- sensitive business context
+- 個人のlocal path
+- 非公開project名
+- 個人用automationの詳細
+- 認証情報
+- 未公開の運用log
+- 機微なbusiness context

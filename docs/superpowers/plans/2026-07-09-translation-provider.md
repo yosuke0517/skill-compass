@@ -1,5 +1,7 @@
 # Translation Provider Implementation Plan
 
+> この文書は既存の実装履歴を保つため、英語の原文を維持するlegacy implementation planです。新規ドキュメントには日本語ポリシーを適用します。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add an on-demand Japanese translation aid for Today quiz cards using a replaceable provider, cache, and optional local `claude -p` adapter.
