@@ -355,6 +355,8 @@ CIでは本番認証情報や実際のSNS投稿を使用しない。
 6. admin publishing: 英語版、audiogram、確認、X投稿。
 7. Retention and operations: legal hold、break-glass、audit review。
 
+Phase 1の詳細な実装手順は[Podcast Studio Phase 1: Access基盤 実装計画](../superpowers/plans/2026-07-10-podcast-studio-access-foundation.md)に記載する。
+
 ## Operator設定チェックリスト
 
 実装時には、source codeだけでは完了できない設定作業を明示する。
