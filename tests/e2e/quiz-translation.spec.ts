@@ -36,6 +36,8 @@ test("translation controls move with the active card", async ({ page }) => {
 
   const navigator = page.getByLabel("Quiz questions");
   const card = navigator.locator('.quiz-card[aria-current="step"]');
+  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  test.skip(total <= 1, "Translation card navigation requires more than one seeded question.");
   const firstQuestionId = await card.getByRole("heading").getAttribute("id");
   await page.getByRole("button", { name: "Next question" }).click();
 

@@ -843,35 +843,46 @@ p {
   font-weight: 700;
 }
 
-.add-questions-card {
+.add-questions-card,
+.add-questions-action {
   align-items: center;
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 8px;
   display: flex;
   gap: 14px;
   justify-content: space-between;
-  margin: 0 0 14px;
+  margin: 0;
   padding: 14px;
 }
 
-.add-questions-card div {
+.add-questions-action {
+  position: sticky;
+  bottom: calc(94px + env(safe-area-inset-bottom));
+  z-index: 12;
+}
+
+.add-questions-card div,
+.add-questions-action div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.add-questions-card strong {
+.add-questions-card strong,
+.add-questions-action strong {
   color: var(--foreground);
   font-size: 1rem;
 }
 
-.add-questions-card span {
+.add-questions-card span,
+.add-questions-action span {
   color: var(--muted);
   font-size: 0.84rem;
 }
 
-.add-questions-card button {
+.add-questions-card button,
+.add-questions-action button {
   flex: 0 0 auto;
   min-height: 42px;
   padding: 0 16px;

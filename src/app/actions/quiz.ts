@@ -13,7 +13,7 @@ export async function submitQuizAnswerAction(formData: FormData) {
   const confidence = Number(formData.get("confidence") ?? 3);
   const reasoning = String(formData.get("reasoning") ?? "").trim();
 
-  if (!quizDayId || !questionId || !selectedChoiceId || reasoning.length === 0) {
+  if (!quizDayId || !questionId || !selectedChoiceId) {
     redirect("/today?error=missing-answer");
   }
 

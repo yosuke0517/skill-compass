@@ -33,6 +33,12 @@
 - Mobile navigation: Dash、Today、Archive、Settingsの4項目へ整理。
 - Today assistant: Gemini対応、会話履歴、mobile Safari向け固定表示とdrag移動を追加。
 
+### Task 4 review follow-up (2026-07-12)
+
+- Today quizの追加問題アクションは、footerとsafe-areaを避けるsticky spacingを使用する。
+- quiz card navigation、translation、Today assistantのE2Eは、必要なseed question数を満たさない場合に理由を表示してskipする。
+- Reasoningは任意入力であり、空値でもanswer submit actionから保存層へ渡されることをunit testで確認する。
+
 ## 検証snapshot
 
 Task 10完了時点のfull verification:

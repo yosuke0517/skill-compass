@@ -32,6 +32,9 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   await expect(openButton).toBeVisible();
   await expect(page.locator(".quiz-card-navigator .today-assistant")).toHaveCount(1);
   const activeCard = page.locator('.quiz-card[aria-current="step"]');
+  await expect(page.locator(".quiz-card-navigator .quiz-card")).toHaveCount(1);
+  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  test.skip(total <= 1, "Today assistant question navigation requires more than one seeded question.");
   const initialQuestionId = await activeCard.locator("h2").getAttribute("id");
   await expect(page.getByRole("button", { name: "Next question" })).toBeEnabled();
   await page.getByRole("button", { name: "Next question" }).click();
