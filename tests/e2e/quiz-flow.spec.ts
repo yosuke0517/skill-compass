@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ viewport: { width: 390, height: 844 } });
+
 test("today keeps one card focused while navigating and revisiting unanswered questions", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
@@ -22,11 +24,25 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   const firstQuestion = await cards.getByRole("heading").innerText();
 
   await next.click();
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
   await expect(cards).toHaveCount(1);
   await expect(cards.getByRole("heading")).toBeFocused();
   await expect(previous).toBeEnabled();
 
-  let activeQuestionNumber = 2;
+  await navigator.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+  await expect(previous).toBeDisabled();
+
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+
+  await page.getByText(`2 / ${total}`, { exact: true }).click();
+  await navigator.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 300 });
+  await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 200, clientY: 310 });
+  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+
+  let activeQuestionNumber = 3;
   while (activeQuestionNumber < total && (await cards.getByRole("heading").innerText()) === firstQuestion) {
     await next.click();
     activeQuestionNumber += 1;
@@ -40,6 +56,12 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(cards).toHaveCount(1);
   await expect(cards.getByRole("heading")).not.toHaveText(distinctQuestion);
   await expect(cards.getByRole("heading")).toBeFocused();
+
+  while (activeQuestionNumber < total) {
+    await next.click();
+    activeQuestionNumber += 1;
+  }
+  await expect(next).toBeDisabled();
 
   const unansweredIndicator = navigator.locator(".quiz-card-indicators .unanswered").first();
   await expect(unansweredIndicator).toBeVisible();

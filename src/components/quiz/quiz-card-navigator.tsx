@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type PointerEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
@@ -8,7 +8,7 @@ import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 
-import { getClampedQuestionIndex, getNextQuestionIndex } from "./quiz-card-navigation";
+import { getClampedQuestionIndex } from "./quiz-card-navigation";
 import { QuizQuestionCard } from "./quiz-question-card";
 
 type QuizCardNavigatorProps = {
@@ -21,6 +21,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
   const [selectedIndex, setSelectedIndex] = useState(0);
   const activeIndex = getClampedQuestionIndex(selectedIndex, questions.length);
   const previousActiveIndex = useRef(activeIndex);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
@@ -40,12 +41,52 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
     return <p className="form-error">No quiz questions are available.</p>;
   }
 
-  function move(direction: "next" | "previous") {
-    setSelectedIndex((currentIndex) => getNextQuestionIndex(currentIndex, questions.length, direction));
+  function goTo(index: number) {
+    setSelectedIndex(getClampedQuestionIndex(index, questions.length));
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.target instanceof HTMLElement && event.target.matches("input, textarea, select, [contenteditable=true]")) return;
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      goTo(activeIndex - 1);
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      goTo(activeIndex + 1);
+    }
+  }
+
+  function handlePointerDown(event: PointerEvent<HTMLElement>) {
+    pointerStart.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLElement>) {
+    const start = pointerStart.current;
+    pointerStart.current = null;
+
+    if (!start) return;
+
+    const horizontalDistance = event.clientX - start.x;
+    const verticalDistance = event.clientY - start.y;
+
+    if (Math.abs(horizontalDistance) <= 56 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) return;
+
+    goTo(activeIndex + (horizontalDistance < 0 ? 1 : -1));
   }
 
   return (
-    <section className="quiz-card-navigator" aria-label="Quiz questions">
+    <section
+      className="quiz-card-navigator"
+      aria-label="Quiz questions"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => { pointerStart.current = null; }}
+    >
       <div className="quiz-card-navigation-status" aria-live="polite">
         <strong>{activeIndex + 1} / {questions.length}</strong>
         <span>Question {activeIndex + 1} of {questions.length}</span>
@@ -74,11 +115,11 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
       />
 
       <nav className="quiz-card-controls" aria-label="Question navigation">
-        <button type="button" aria-label="Previous question" disabled={activeIndex === 0} onClick={() => move("previous")}>
+        <button type="button" aria-label="Previous question" disabled={activeIndex === 0} onClick={() => goTo(activeIndex - 1)}>
           <ChevronLeft size={18} aria-hidden="true" />
           Previous
         </button>
-        <button type="button" aria-label="Next question" disabled={activeIndex === questions.length - 1} onClick={() => move("next")}>
+        <button type="button" aria-label="Next question" disabled={activeIndex === questions.length - 1} onClick={() => goTo(activeIndex + 1)}>
           Next
           <ChevronRight size={18} aria-hidden="true" />
         </button>
