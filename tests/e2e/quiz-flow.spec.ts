@@ -22,20 +22,34 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(navigator).toHaveCSS("touch-action", "pan-y");
   const getActiveCardLayout = () => activeCard.evaluate((card) => {
     const bounds = card.getBoundingClientRect();
+    const bottomMost = [...card.querySelectorAll<HTMLElement>(
+      'button, input, textarea, select, a, label, p, li, [contenteditable="true"], [role="button"], [role="textbox"]',
+    )]
+      .map((element) => ({ element, bounds: element.getBoundingClientRect() }))
+      .filter(({ element, bounds }) => {
+        const style = window.getComputedStyle(element);
+        return style.visibility !== "hidden" && style.display !== "none" && bounds.width > 0 && bounds.height > 0;
+      })
+      .sort((a, b) => b.bounds.bottom - a.bounds.bottom)[0];
     return {
       top: bounds.top,
       bottom: bounds.bottom,
+      height: bounds.height,
       left: bounds.left,
       right: bounds.right,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
       documentWidth: document.documentElement.scrollWidth,
+      bottomMostContentBottom: bottomMost?.bounds.bottom ?? null,
+      bottomMostContentTop: bottomMost?.bounds.top ?? null,
     };
   });
 
-  await activeCard.scrollIntoViewIfNeeded();
-  let cardLayout = await getActiveCardLayout();
+  await activeCard.evaluate((card) => card.scrollIntoView({ block: "start" }));
+  const cardStartLayout = await getActiveCardLayout();
+  let cardLayout = cardStartLayout;
   await expect(activeCard.getByRole("heading")).toBeVisible();
+  expect(cardStartLayout.height).toBeGreaterThan(cardStartLayout.viewportHeight);
   expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
   expect(cardLayout.bottom).toBeGreaterThan(0);
   expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
@@ -44,9 +58,13 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
 
   await activeCard.evaluate((card) => card.scrollIntoView({ block: "end" }));
   cardLayout = await getActiveCardLayout();
-  await expect(activeCard.getByRole("heading")).toBeVisible();
   expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
   expect(cardLayout.bottom).toBeGreaterThan(0);
+  expect(cardLayout.bottom).toBeLessThanOrEqual(cardLayout.viewportHeight + 1);
+  expect(cardLayout.bottomMostContentBottom).not.toBeNull();
+  expect(cardLayout.bottomMostContentTop).toBeLessThan(cardLayout.viewportHeight);
+  expect(cardLayout.bottomMostContentBottom).toBeGreaterThan(0);
+  expect(cardLayout.bottomMostContentBottom).toBeLessThanOrEqual(cardLayout.viewportHeight + 1);
   expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
   expect(Math.floor(cardLayout.right)).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
