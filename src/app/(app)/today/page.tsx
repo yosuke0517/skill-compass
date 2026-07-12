@@ -1,5 +1,5 @@
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
-import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
+import { QuizCardNavigator } from "@/components/quiz/quiz-card-navigator";
 import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 import { getTranslatedQuizCards } from "@/app/actions/translation";
 import { addMoreQuizQuestionsAction } from "@/app/actions/quiz";
@@ -28,7 +28,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         <span>{quiz.quizDate}</span>
       </section>
 
-      {error === "missing-answer" ? <p className="form-error">Choose an answer and add reasoning.</p> : null}
+      {error === "missing-answer" ? <p className="form-error">Choose an answer.</p> : null}
 
       {canAddMore ? (
         <form action={addMoreQuizQuestionsAction} className="add-questions-card">
@@ -50,11 +50,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         </section>
       ) : null}
 
-      <div className="quiz-stack">
-        {quiz.questions.map((item) => (
-          <QuizQuestionCard key={item.question.id} quizDayId={quiz.quizDayId} item={item} translation={translations[item.question.id]} />
-        ))}
-      </div>
+      <QuizCardNavigator quizDayId={quiz.quizDayId} questions={quiz.questions} translations={translations} />
       <TodayAssistantWidget />
     </>
   );

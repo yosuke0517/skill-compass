@@ -1,5 +1,21 @@
 import { expect, test } from "@playwright/test";
 
+test("today shows one quiz card with navigation controls", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const cards = page.locator(".quiz-card");
+  await expect(cards).toHaveCount(1);
+
+  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Previous question" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next question" })).toBeVisible();
+});
+
 test("user can answer a daily quiz question", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
@@ -16,7 +32,6 @@ test("user can answer a daily quiz question", async ({ page }) => {
   if (unansweredCount > 0) {
     await firstUnanswered.locator('input[name="selectedChoiceId"]').first().check();
     await firstUnanswered.locator('input[name="confidence"][value="4"]').check();
-    await firstUnanswered.locator('textarea[name="reasoning"]').fill("I compared the available choices with the source.");
     await firstUnanswered.getByRole("button", { name: "Submit answer" }).click();
   }
 
@@ -36,12 +51,18 @@ test("user can add more questions after completing the current set", async ({ pa
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
 
-  for (let index = 0; index < 8; index += 1) {
+  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+
+  for (let questionIndex = 0; questionIndex < total; questionIndex += 1) {
     const addButton = page.getByRole("button", { name: "Add 5" });
     if ((await addButton.count()) > 0) break;
 
-    const unanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) }).first();
-    if ((await unanswered.count()) === 0) break;
+    for (let index = 0; index < questionIndex; index += 1) {
+      await page.getByRole("button", { name: "Next question" }).click();
+    }
+
+    const unanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) });
+    if ((await unanswered.count()) === 0) continue;
 
     await unanswered.locator('input[name="selectedChoiceId"]').first().check();
     await unanswered.locator('textarea[name="reasoning"]').fill("I am finishing the current set before adding more practice.");
@@ -59,6 +80,7 @@ test("user can add more questions after completing the current set", async ({ pa
     return;
   }
 
+  expect(await addButton.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
   await addButton.click();
   await expect
     .poll(async () => {

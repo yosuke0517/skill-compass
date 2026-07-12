@@ -14,6 +14,7 @@ type QuizQuestionCardProps = {
   quizDayId: string;
   item: TodayQuizQuestion;
   translation?: TranslatedQuizCard;
+  isActive?: boolean;
 };
 
 const reasonLabels: Record<string, string> = {
@@ -24,7 +25,7 @@ const reasonLabels: Record<string, string> = {
   fallback: "Fallback",
 };
 
-export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionCardProps) {
+export function QuizQuestionCard({ quizDayId, item, translation, isActive = false }: QuizQuestionCardProps) {
   const answered = item.answer !== null;
   const correctChoice = item.question.choices.find((choice) => choice.correct);
   const [currentTranslation, setCurrentTranslation] = useState<TranslatedQuizCard | undefined>(translation);
@@ -56,7 +57,7 @@ export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionC
   }
 
   return (
-    <article className={`quiz-card${answered ? " answered" : ""}`}>
+    <article className={`quiz-card${answered ? " answered" : ""}`} aria-current={isActive ? "step" : undefined}>
       <div className="quiz-card-header">
         <div className="quiz-card-meta">
           <span>#{item.slot}</span>
@@ -74,7 +75,7 @@ export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionC
           <Languages size={17} aria-hidden="true" />
         </button>
       </div>
-      <h2>{item.question.prompt}</h2>
+      <h2 id={`quiz-question-${item.question.id}`} tabIndex={-1}>{item.question.prompt}</h2>
       {isTranslating ? (
         <div className="translation-loading" aria-label="Translation loading" aria-live="polite">
           <span />
@@ -142,8 +143,8 @@ export function QuizQuestionCard({ quizDayId, item, translation }: QuizQuestionC
           <ConfidenceInput />
 
           <label className="reasoning-field">
-            <span>Reasoning</span>
-            <textarea name="reasoning" rows={3} required placeholder="Why does this answer fit the source?" />
+            <span>Reasoning <small>(optional)</small></span>
+            <textarea name="reasoning" rows={3} placeholder="Why does this answer fit the source?" />
           </label>
 
           <button type="submit">Submit answer</button>

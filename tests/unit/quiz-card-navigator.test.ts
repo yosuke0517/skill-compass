@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFirstUnansweredIndex, getNextQuestionIndex } from "@/components/quiz/quiz-card-navigator";
+import { getFirstUnansweredIndex, getNextQuestionIndex } from "@/components/quiz/quiz-card-navigation";
 
 type QuestionRecord = { answer: object | null };
 
