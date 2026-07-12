@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { getFirstUnansweredIndex, getNextQuestionIndex } from "@/components/quiz/quiz-card-navigation";
+import { getClampedQuestionIndex, getFirstUnansweredIndex, getNextQuestionIndex } from "@/components/quiz/quiz-card-navigation";
 
 type QuestionRecord = { answer: object | null };
 
 describe("quiz card navigator", () => {
+  describe("getClampedQuestionIndex", () => {
+    it("clamps a stored selection to the last available question", () => {
+      expect(getClampedQuestionIndex(4, 2)).toBe(1);
+      expect(getClampedQuestionIndex(1, 0)).toBe(0);
+    });
+  });
+
   describe("getNextQuestionIndex", () => {
     it("moves to the next question without exceeding the last index", () => {
       expect(getNextQuestionIndex(1, 3, "next")).toBe(2);

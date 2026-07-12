@@ -4,11 +4,17 @@ export type QuizCardQuestionRecord = {
   answer: object | null;
 };
 
+export function getClampedQuestionIndex(index: number, total: number): number {
+  if (total <= 0) return 0;
+
+  return Math.min(Math.max(index, 0), total - 1);
+}
+
 export function getNextQuestionIndex(currentIndex: number, total: number, direction: QuizCardNavigationDirection): number {
   if (total <= 0) return 0;
 
   const lastIndex = total - 1;
-  const boundedCurrentIndex = Math.min(Math.max(currentIndex, 0), lastIndex);
+  const boundedCurrentIndex = getClampedQuestionIndex(currentIndex, total);
 
   return direction === "next"
     ? Math.min(boundedCurrentIndex + 1, lastIndex)

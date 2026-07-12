@@ -8,7 +8,7 @@ import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 
-import { getNextQuestionIndex } from "./quiz-card-navigation";
+import { getClampedQuestionIndex, getNextQuestionIndex } from "./quiz-card-navigation";
 import { QuizQuestionCard } from "./quiz-question-card";
 
 type QuizCardNavigatorProps = {
@@ -19,11 +19,15 @@ type QuizCardNavigatorProps = {
 
 export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCardNavigatorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const activeIndex = Math.min(selectedIndex, Math.max(questions.length - 1, 0));
+  const activeIndex = getClampedQuestionIndex(selectedIndex, questions.length);
   const previousActiveIndex = useRef(activeIndex);
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
+
+  if (selectedIndex !== activeIndex) {
+    setSelectedIndex(activeIndex);
+  }
 
   useEffect(() => {
     if (activeIndex !== previousActiveIndex.current && activeQuestion) {

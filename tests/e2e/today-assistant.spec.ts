@@ -31,6 +31,13 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   const openButton = page.getByLabel("Open Today assistant");
   await expect(openButton).toBeVisible();
   await expect(page.locator(".quiz-card-navigator .today-assistant")).toHaveCount(1);
+  const activeCard = page.locator('.quiz-card[aria-current="step"]');
+  const initialQuestionId = await activeCard.locator("h2").getAttribute("id");
+  await expect(page.getByRole("button", { name: "Next question" })).toBeEnabled();
+  await page.getByRole("button", { name: "Next question" }).click();
+  await expect(activeCard.locator("h2")).not.toHaveAttribute("id", initialQuestionId ?? "");
+  const displayedQuestionId = (await activeCard.locator("h2").getAttribute("id"))?.replace("quiz-question-", "");
+  expect(displayedQuestionId).toEqual(expect.any(String));
   await openButton.click();
 
   const sheet = page.getByRole("region", { name: "Today assistant" });
@@ -63,7 +70,7 @@ test("user can ask the Today assistant from the floating button", async ({ page 
 
   await expect(page.getByText("API契約の互換性を見る問題です")).toBeVisible();
   expect(requests[0]?.message).toBe("この問題を説明して");
-  expect(requests[0]?.questionId).toEqual(expect.any(String));
+  expect(requests[0]?.questionId).toBe(displayedQuestionId);
   expect(requests[0]?.messages?.at(-1)).toEqual({ role: "user", text: "この問題を説明して" });
   expect(requests[0]?.messages?.some((message) => message.role === "assistant")).toBe(true);
 });
