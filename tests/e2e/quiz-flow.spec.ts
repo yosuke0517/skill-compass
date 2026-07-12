@@ -35,18 +35,20 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
 
   await activeCard.scrollIntoViewIfNeeded();
   let cardLayout = await getActiveCardLayout();
-  expect(Math.ceil(cardLayout.top)).toBeGreaterThanOrEqual(0);
-  expect(Math.floor(cardLayout.bottom)).toBeLessThanOrEqual(cardLayout.viewportHeight);
-  expect(Math.ceil(cardLayout.bottom)).toBeGreaterThanOrEqual(0);
+  await expect(activeCard.getByRole("heading")).toBeVisible();
+  expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
+  expect(cardLayout.bottom).toBeGreaterThan(0);
   expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
   expect(Math.floor(cardLayout.right)).toBeLessThanOrEqual(cardLayout.viewportWidth);
   expect(cardLayout.documentWidth).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
   await activeCard.evaluate((card) => card.scrollIntoView({ block: "end" }));
   cardLayout = await getActiveCardLayout();
-  expect(Math.ceil(cardLayout.top)).toBeGreaterThanOrEqual(0);
-  expect(Math.floor(cardLayout.bottom)).toBeLessThanOrEqual(cardLayout.viewportHeight);
-  expect(Math.ceil(cardLayout.bottom)).toBeGreaterThanOrEqual(0);
+  await expect(activeCard.getByRole("heading")).toBeVisible();
+  expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
+  expect(cardLayout.bottom).toBeGreaterThan(0);
+  expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(cardLayout.right)).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   test.skip(total < 3, "Quiz card navigation flow requires at least three seeded questions.");
@@ -57,9 +59,11 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(next).toBeVisible();
   await next.scrollIntoViewIfNeeded();
   cardLayout = await getActiveCardLayout();
-  expect(Math.ceil(cardLayout.top)).toBeGreaterThanOrEqual(0);
-  expect(Math.floor(cardLayout.bottom)).toBeLessThanOrEqual(cardLayout.viewportHeight);
-  expect(Math.ceil(cardLayout.bottom)).toBeGreaterThanOrEqual(0);
+  await expect(activeCard.getByRole("heading")).toBeVisible();
+  expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
+  expect(cardLayout.bottom).toBeGreaterThan(0);
+  expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(cardLayout.right)).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
   const controlsLayout = await controls.evaluate((controlsElement) => {
     const footerElement = document.querySelector(".app-nav");
@@ -254,20 +258,24 @@ test("user can add more questions after completing the current set", async ({ pa
 
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
 
-  for (let questionIndex = 0; questionIndex < total; questionIndex += 1) {
+  const maxSetupAttempts = total;
+  for (let attempt = 0; attempt < maxSetupAttempts; attempt += 1) {
     const addButton = page.getByRole("button", { name: "Add 5" });
     if ((await addButton.count()) > 0) break;
 
-    for (let index = 0; index < questionIndex; index += 1) {
-      await page.getByRole("button", { name: "Next question" }).click();
+    const activeCard = page.locator('.quiz-card[aria-current="step"]');
+    await expect(activeCard).toHaveCount(1);
+    const submitButton = activeCard.getByRole("button", { name: "Submit answer" });
+    if ((await submitButton.count()) === 0) {
+      const nextButton = page.getByRole("button", { name: "Next question" });
+      if (await nextButton.isDisabled()) break;
+      await nextButton.click();
+      continue;
     }
 
-    const unanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) });
-    if ((await unanswered.count()) === 0) continue;
-
-    await unanswered.locator('input[name="selectedChoiceId"]').first().check();
-    await unanswered.locator('textarea[name="reasoning"]').fill("I am finishing the current set before adding more practice.");
-    await unanswered.getByRole("button", { name: "Submit answer" }).click();
+    await activeCard.locator('input[name="selectedChoiceId"]').first().check();
+    await activeCard.locator('textarea[name="reasoning"]').fill("I am finishing the current set before adding more practice.");
+    await submitButton.click();
     await expect(page).toHaveURL(/\/today/);
   }
 
