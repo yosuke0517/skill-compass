@@ -169,12 +169,15 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
       <ol className="quiz-card-indicators" aria-label="Question status">
         {questions.map((question, index) => (
           <li key={question.question.id} aria-current={index === activeIndex ? "step" : undefined}>
-            <span
+            <button
+              type="button"
               className={question.answer === null ? "unanswered" : "answered"}
-              aria-label={`Question ${index + 1}: ${question.answer === null ? "unanswered" : "answered"}`}
+              aria-label={`Go to question ${index + 1}, ${question.answer === null ? "unanswered" : "answered"}`}
+              title={`Go to question ${index + 1}`}
+              onClick={() => goTo(index)}
             >
               {index + 1}
-            </span>
+            </button>
           </li>
         ))}
       </ol>

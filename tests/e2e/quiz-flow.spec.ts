@@ -101,6 +101,9 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(cards.getByRole("heading")).toBeFocused();
   await expect(previous).toBeEnabled();
 
+  await navigator.getByRole("button", { name: "Go to question 1" }).click();
+  await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+
   await navigator.focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
