@@ -11,21 +11,36 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
 
   const navigator = page.getByLabel("Quiz questions");
   const cards = navigator.locator(".quiz-card");
+  const activeCard = navigator.locator('.quiz-card[aria-current="step"]');
+  const controls = page.getByRole("navigation", { name: "Question navigation" });
+  const footer = page.getByRole("navigation", { name: "Primary" });
   await expect(cards).toHaveCount(1);
+  await expect(activeCard).toHaveCount(1);
+  await expect(activeCard).toBeVisible();
+  await expect(controls).toBeVisible();
+  await expect(footer).toBeVisible();
   await expect(navigator).toHaveCSS("touch-action", "pan-y");
+  await activeCard.scrollIntoViewIfNeeded();
 
-  const cardLayout = await cards.evaluate((card) => {
+  const cardLayout = await activeCard.evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return {
+      top: bounds.top,
       left: bounds.left,
       right: bounds.right,
       viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
       documentWidth: document.documentElement.scrollWidth,
     };
   });
-  expect(cardLayout.left).toBeGreaterThanOrEqual(0);
-  expect(cardLayout.right).toBeLessThanOrEqual(cardLayout.viewportWidth);
+  expect(cardLayout.top).toBeGreaterThanOrEqual(-1);
+  expect(cardLayout.left).toBeGreaterThanOrEqual(-1);
+  expect(cardLayout.right).toBeLessThanOrEqual(cardLayout.viewportWidth + 1);
   expect(cardLayout.documentWidth).toBeLessThanOrEqual(cardLayout.viewportWidth);
+
+  await activeCard.evaluate((card) => card.scrollIntoView({ block: "end" }));
+  const cardBottom = await activeCard.evaluate((card) => card.getBoundingClientRect().bottom);
+  expect(cardBottom).toBeLessThanOrEqual(cardLayout.viewportHeight + 1);
 
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   test.skip(total < 3, "Quiz card navigation flow requires at least three seeded questions.");
@@ -36,14 +51,12 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(next).toBeVisible();
   await next.scrollIntoViewIfNeeded();
 
-  const controlsLayout = await page.evaluate(() => {
-    const controls = document.querySelector(".quiz-card-controls");
-    const footer = document.querySelector(".app-nav");
-    if (!controls || !footer) throw new Error("Quiz controls or fixed footer not found");
-
+  const controlsLayout = await controls.evaluate((controlsElement) => {
+    const footerElement = document.querySelector(".app-nav");
+    if (!footerElement) throw new Error("Fixed footer not found");
     return {
-      controlsBottom: controls.getBoundingClientRect().bottom,
-      footerTop: footer.getBoundingClientRect().top,
+      controlsBottom: controlsElement.getBoundingClientRect().bottom,
+      footerTop: footerElement.getBoundingClientRect().top,
     };
   });
   expect(controlsLayout.controlsBottom).toBeLessThanOrEqual(controlsLayout.footerTop);
@@ -251,24 +264,38 @@ test("user can add more questions after completing the current set", async ({ pa
   const beforeText = await page.locator(".today-quiz-summary strong").innerText();
   const beforeTotal = Number(beforeText.split("/")[1]?.trim());
   const addButton = page.getByRole("button", { name: "Add 5" });
-
-  if ((await addButton.count()) === 0) {
-    const unansweredCount = await page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) }).count();
-    expect(beforeTotal >= 30 || unansweredCount > 0).toBe(true);
-    return;
-  }
+  const addAction = page.locator(".add-questions-action");
+  const controls = page.getByRole("navigation", { name: "Question navigation" });
+  const footer = page.getByRole("navigation", { name: "Primary" });
+  await expect(addAction).toHaveCount(1);
+  await expect(addAction).toBeVisible();
+  await expect(addButton).toHaveCount(1);
+  await expect(addButton).toBeVisible();
+  await expect(controls).toBeVisible();
+  await expect(footer).toBeVisible();
 
   const placement = await addButton.evaluate((element) => {
     const action = element.closest(".add-questions-action");
     const controls = document.querySelector(".quiz-card-controls");
     const footer = document.querySelector(".app-nav");
+    if (!action || !controls || !footer) throw new Error("Add action, quiz controls, or fixed footer not found");
+    const actionBounds = action.getBoundingClientRect();
+    const buttonBounds = element.getBoundingClientRect();
     return {
-      actionPosition: action ? getComputedStyle(action).position : "",
-      actionBottom: action?.getBoundingClientRect().bottom ?? 0,
-      controlsTop: controls?.getBoundingClientRect().top ?? 0,
-      footerTop: footer?.getBoundingClientRect().top ?? 0,
+      actionTop: actionBounds.top,
+      actionBottom: actionBounds.bottom,
+      buttonTop: buttonBounds.top,
+      buttonBottom: buttonBounds.bottom,
+      viewportHeight: window.innerHeight,
+      actionPosition: getComputedStyle(action).position,
+      controlsTop: controls.getBoundingClientRect().top,
+      footerTop: footer.getBoundingClientRect().top,
     };
   });
+  expect(placement.actionTop).toBeGreaterThanOrEqual(-1);
+  expect(placement.actionBottom).toBeLessThanOrEqual(placement.viewportHeight + 1);
+  expect(placement.buttonTop).toBeGreaterThanOrEqual(-1);
+  expect(placement.buttonBottom).toBeLessThanOrEqual(placement.viewportHeight + 1);
   expect(placement.actionPosition).toBe("sticky");
   expect(placement.actionBottom).toBeLessThanOrEqual(placement.controlsTop);
   expect(placement.actionBottom).toBeLessThanOrEqual(placement.footerTop);
