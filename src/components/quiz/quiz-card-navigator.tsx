@@ -179,15 +179,16 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
         ))}
       </ol>
 
-      <QuizQuestionCard
-        key={activeQuestion.question.id}
-        quizDayId={quizDayId}
-        item={activeQuestion}
-        translation={translations[activeQuestion.question.id]}
-        isActive
-        activeCardFocusRef={activeCardFocusRef}
-        onAnswerSubmit={handleAnswerSubmit}
-      />
+      <div className="quiz-card-slot">
+        <QuizQuestionCard
+          quizDayId={quizDayId}
+          item={activeQuestion}
+          translation={translations[activeQuestion.question.id]}
+          isActive
+          activeCardFocusRef={activeCardFocusRef}
+          onAnswerSubmit={handleAnswerSubmit}
+        />
+      </div>
 
       {navigatorAction}
 

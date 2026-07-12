@@ -37,8 +37,12 @@ export function QuizQuestionCard({
 }: QuizQuestionCardProps) {
   const answered = item.answer !== null;
   const correctChoice = item.question.choices.find((choice) => choice.correct);
-  const [currentTranslation, setCurrentTranslation] = useState<TranslatedQuizCard | undefined>(translation);
+  const [translationState, setTranslationState] = useState({
+    questionId: item.question.id,
+    value: translation,
+  });
   const [isTranslating, startTranslating] = useTransition();
+  const currentTranslation = translationState.questionId === item.question.id ? translationState.value : translation;
 
   function handleTranslate() {
     startTranslating(async () => {
@@ -52,14 +56,17 @@ export function QuizQuestionCard({
           throw new Error("translation request failed");
         }
         const translated = (await response.json()) as TranslatedQuizCard;
-        setCurrentTranslation(translated);
+        setTranslationState({ questionId: item.question.id, value: translated });
       } catch {
-        setCurrentTranslation({
+        setTranslationState({
           questionId: item.question.id,
-          prompt: null,
-          choices: item.question.choices.map((choice) => ({ id: choice.id, label: null })),
-          feedback: null,
-          unavailable: true,
+          value: {
+            questionId: item.question.id,
+            prompt: null,
+            choices: item.question.choices.map((choice) => ({ id: choice.id, label: null })),
+            feedback: null,
+            unavailable: true,
+          },
         });
       }
     });

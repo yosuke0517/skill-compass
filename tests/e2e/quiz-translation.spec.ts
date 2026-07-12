@@ -20,10 +20,20 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
 
   const unanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) }).first();
   if ((await unanswered.count()) > 0) {
+    const submittedQuestionId = await unanswered.getByRole("heading").getAttribute("id");
     await unanswered.locator('input[name="selectedChoiceId"]').first().check();
     await unanswered.locator('textarea[name="reasoning"]').fill("I checked the translated aid and compared it with the English prompt.");
     await unanswered.getByRole("button", { name: "Submit answer" }).click();
-    await expect(page.locator(".answer-feedback").first()).toBeVisible();
+    await expect(page).toHaveURL(/\/today/);
+    const activeAfterSubmit = page.locator('.quiz-card[aria-current="step"]');
+    for (let index = 0; index < 30; index += 1) {
+      if (await activeAfterSubmit.getByRole("heading").getAttribute("id") === submittedQuestionId) break;
+      const previous = page.getByRole("button", { name: "Previous question" });
+      if (await previous.isDisabled()) break;
+      await previous.click();
+    }
+    await expect(activeAfterSubmit.getByRole("heading")).toHaveAttribute("id", submittedQuestionId ?? "");
+    await expect(activeAfterSubmit.locator(".answer-feedback")).toBeVisible();
   }
 });
 
