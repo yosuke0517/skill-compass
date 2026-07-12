@@ -49,7 +49,10 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])")) return;
+    if (
+      event.target instanceof HTMLElement
+      && (event.target.isContentEditable || event.target.closest("input, textarea, select"))
+    ) return;
 
     if (event.key === "ArrowLeft") {
       event.preventDefault();

@@ -38,6 +38,20 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await page.keyboard.press("ArrowRight");
   await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
+  await page.evaluate(() => {
+    const navigator = document.querySelector<HTMLElement>(".quiz-card-navigator");
+    if (!navigator) throw new Error("quiz navigator not found");
+    const editor = document.createElement("div");
+    editor.contentEditable = "true";
+    editor.innerHTML = '<span contenteditable="false" tabindex="0">Non-editable child</span>';
+    navigator.append(editor);
+    editor.querySelector<HTMLElement>("span")?.focus();
+  });
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+
   await page.getByText(`2 / ${total}`, { exact: true }).click();
   await navigator.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 300 });
   await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 356, clientY: 300 });
