@@ -22,6 +22,55 @@
       "when": 1783612785452,
       "tag": "0003_user_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1783659000000,
+      "tag": "0004_access_control",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1783662000000,
+      "tag": "0005_podcast_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1783665000000,
+      "tag": "0006_podcast_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1783668000000,
+      "tag": "0007_podcast_script",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1783671000000,
+      "tag": "0008_podcast_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1783674000000,
+      "tag": "0009_podcast_audio_chunks",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1783677000000,
+      "tag": "0010_podcast_chat",
+      "breakpoints": true
     }
   ]
 }

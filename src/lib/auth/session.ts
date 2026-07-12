@@ -24,15 +24,15 @@ function sessionKey(secret: string): Uint8Array {
 export async function createSessionToken(
   secret = getEnv().SESSION_SECRET,
   now = new Date(),
-  user?: { id: string; email: string },
+  user: { id: string; email: string },
 ) {
   const issuedAt = Math.floor(now.getTime() / 1000);
   const expiresAt = new Date(now.getTime() + SESSION_DURATION_SECONDS * 1000);
   const expiresAtSeconds = Math.floor(expiresAt.getTime() / 1000);
   const token = await new SignJWT({
     purpose: "skill-compass-session",
-    userId: user?.id,
-    email: user?.email,
+    userId: user.id,
+    email: user.email,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt(issuedAt)
@@ -51,7 +51,12 @@ export async function verifySessionToken(
 
   try {
     const { payload } = await jwtVerify(token, sessionKey(secret), { currentDate: now });
-    if (payload.purpose !== "skill-compass-session" || typeof payload.exp !== "number") {
+    if (
+      payload.purpose !== "skill-compass-session" ||
+      typeof payload.exp !== "number" ||
+      typeof payload.userId !== "string" ||
+      typeof payload.email !== "string"
+    ) {
       return { authenticated: false };
     }
 

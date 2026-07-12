@@ -1,10 +1,14 @@
 import { db } from "@/db/client";
+import { eq } from "drizzle-orm";
 import {
   categories,
   conceptSources,
   concepts,
   conceptTags,
+  entitlements,
+  planEntitlements,
   questions,
+  type QuestionChoice,
   scores,
   selfAssessments,
   sources,
@@ -180,6 +184,68 @@ const conceptSourceRows = [
   { conceptId: "concept_mcp", sourceId: "source_model_context_protocol_docs" },
 ];
 
+const entitlementRows = [
+  { id: "podcast.sample.view", description: "Podcast sampleを表示する" },
+  { id: "podcast.generate", description: "個人Podcastを生成する" },
+  { id: "podcast.download", description: "Podcast音声をdownloadする" },
+  { id: "podcast.chat", description: "Podcast内容について質問する" },
+  { id: "calendar.connect", description: "Google Calendarを接続する" },
+  { id: "x.personal_sources", description: "個人X Sourceを利用する" },
+  { id: "podcast.english.generate", description: "英語版Podcastを生成する" },
+  { id: "x.publish", description: "承認済みPodcastをXへ投稿する" },
+  { id: "integration.manage", description: "外部連携設定を管理する" },
+  { id: "access.manage", description: "role、plan、entitlementを管理する" },
+] as const;
+
+const freeEntitlementIds = ["podcast.sample.view"] as const;
+const proEntitlementIds = [
+  "podcast.sample.view",
+  "podcast.generate",
+  "podcast.download",
+  "podcast.chat",
+  "calendar.connect",
+  "x.personal_sources",
+] as const;
+
+const extraChoicesByConceptId: Record<string, QuestionChoice[]> = {
+  concept_satisfies_operator: [
+    { id: "a", label: "It preserves the expression's inferred type while checking it against a target shape.", correct: true },
+    { id: "b", label: "It converts a compile-time type into a runtime validator automatically.", correct: false },
+    { id: "c", label: "It makes every property optional after the compatibility check.", correct: false },
+    { id: "d", label: "It disables excess property checks for object literals.", correct: false },
+  ],
+  concept_design_token: [
+    { id: "a", label: "It replaces the need for component states and variants.", correct: false },
+    { id: "b", label: "It stores a reusable design decision with a stable semantic name.", correct: true },
+    { id: "c", label: "It requires every screen to use a single color value.", correct: false },
+    { id: "d", label: "It generates database migrations from visual changes.", correct: false },
+  ],
+  concept_api_contract: [
+    { id: "a", label: "Adding a required request field without a client migration path.", correct: true },
+    { id: "b", label: "Adding an optional response field that clients can ignore.", correct: false },
+    { id: "c", label: "Documenting an existing error response.", correct: false },
+    { id: "d", label: "Adding a new endpoint without changing existing responses.", correct: false },
+  ],
+  concept_reverse_proxy: [
+    { id: "a", label: "It compiles browser code before the request reaches the server.", correct: false },
+    { id: "b", label: "It assigns a private IP address to every client.", correct: false },
+    { id: "c", label: "It receives client requests and routes them to upstream services.", correct: true },
+    { id: "d", label: "It replaces DNS records with database queries.", correct: false },
+  ],
+  concept_index_design: [
+    { id: "a", label: "It removes the need to inspect query plans.", correct: false },
+    { id: "b", label: "It guarantees every query will use the same access path.", correct: false },
+    { id: "c", label: "It makes writes faster because no extra structure is maintained.", correct: false },
+    { id: "d", label: "It can reduce read work while increasing write and storage overhead.", correct: true },
+  ],
+  concept_mcp: [
+    { id: "a", label: "It defines how clients discover and call tools or context providers.", correct: true },
+    { id: "b", label: "It grants an LLM unrestricted access to every connected system.", correct: false },
+    { id: "c", label: "It guarantees that a model's output is factually correct.", correct: false },
+    { id: "d", label: "It stores private application data in model weights.", correct: false },
+  ],
+};
+
 const extraPracticeQuestionRows = Array.from({ length: 24 }, (_, index) => {
   const concept = conceptRows[index % conceptRows.length];
   const sourceId =
@@ -199,14 +265,9 @@ const extraPracticeQuestionRows = Array.from({ length: 24 }, (_, index) => {
       | "beginner"
       | "intermediate"
       | "advanced",
-    prompt: `Which practice habit best improves understanding of ${concept.title}?`,
-    choices: [
-      { id: "a", label: "Compare the concept against a concrete source and explain the tradeoff.", correct: true },
-      { id: "b", label: "Memorize the term without checking where it applies.", correct: false },
-      { id: "c", label: "Skip examples and only read unrelated summaries.", correct: false },
-      { id: "d", label: "Assume the concept has the same meaning in every system.", correct: false },
-    ],
-    rationale: "Grounding a concept in a trusted source and explaining tradeoffs improves durable understanding.",
+    prompt: `Which statement best describes ${concept.title}?`,
+    choices: extraChoicesByConceptId[concept.id],
+    rationale: `The correct statement captures a practical property of ${concept.title}.`,
   };
 });
 
@@ -394,14 +455,32 @@ const questionRows = [
 async function main() {
   await db
     .insert(users)
-    .ignore()
     .values({
       id: "user_local",
       email: "local@example.com",
       displayName: "Local User",
       passwordHash: await hashPassword("local-password"),
       status: "active",
-    });
+      role: "admin",
+      plan: "pro",
+    })
+    .onDuplicateKeyUpdate({ set: { role: "admin", plan: "pro", status: "active" } });
+
+  await db.insert(users).ignore().values({
+    id: "user_member",
+    email: "member@example.com",
+    displayName: "Local Member",
+    passwordHash: await hashPassword("local-password"),
+    status: "active",
+    role: "normal",
+    plan: "free",
+  });
+
+  await db.insert(entitlements).ignore().values([...entitlementRows]);
+  await db.insert(planEntitlements).ignore().values([
+    ...freeEntitlementIds.map((entitlementId) => ({ planId: "free", entitlementId, enabled: true })),
+    ...proEntitlementIds.map((entitlementId) => ({ planId: "pro", entitlementId, enabled: true })),
+  ]);
 
   await db.insert(categories).ignore().values(categoryRows);
   await db.insert(tags).ignore().values(tagRows);
@@ -410,6 +489,20 @@ async function main() {
   await db.insert(sources).ignore().values(sourceRows);
   await db.insert(conceptSources).ignore().values(conceptSourceRows);
   await db.insert(questions).ignore().values(questionRows);
+  await Promise.all(
+    questionRows.map((question) =>
+      db
+        .update(questions)
+        .set({
+          conceptId: question.conceptId,
+          sourceId: question.sourceId,
+          difficulty: question.difficulty,
+          prompt: question.prompt,
+          rationale: question.rationale,
+        })
+        .where(eq(questions.id, question.id)),
+    ),
+  );
 
   await db
     .insert(scores)

@@ -28,5 +28,7 @@ export const config = {
     "/concepts/:path*",
     "/sources/:path*",
     "/settings/:path*",
+    "/admin/:path*",
+    "/api/podcast/:path*",
   ],
 };

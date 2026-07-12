@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ viewport: { width: 390, height: 844 } });
+
 test("authenticated user can navigate all MVP management screens", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
@@ -38,6 +40,12 @@ test("primary navigation stays fixed while scrolling long screens", async ({ pag
 
   const nav = page.getByRole("navigation", { name: "Primary" });
   await expect(nav).toBeVisible();
+  await expect(nav.locator("a")).toHaveCount(5);
+  const navItems = await nav.locator("a").evaluateAll((links) => links.map((link) => {
+    const box = link.getBoundingClientRect();
+    return { bottom: box.bottom, top: box.top };
+  }));
+  expect(new Set(navItems.map((item) => Math.round(item.top))).size).toBe(1);
   const before = await nav.boundingBox();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const after = await nav.boundingBox();

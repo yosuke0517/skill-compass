@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Brain, Compass } from "lucide-react";
+import { ArrowRight, BookOpen, Brain, Compass, ShieldCheck } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { getSettingsData } from "@/lib/settings/get-settings";
+import { requireCurrentUser } from "@/lib/access/current-user";
 
 export default async function SettingsPage() {
-  const data = await getSettingsData();
+  const [data, currentUser] = await Promise.all([getSettingsData(), requireCurrentUser()]);
 
   return (
     <>
@@ -46,6 +47,16 @@ export default async function SettingsPage() {
               </span>
               <ArrowRight size={16} aria-hidden="true" />
             </Link>
+            {currentUser.role === "admin" ? (
+              <Link href="/admin/access">
+                <ShieldCheck size={18} aria-hidden="true" />
+                <span>
+                  <strong>Access control</strong>
+                  <small>Users, plans, and entitlements</small>
+                </span>
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            ) : null}
           </div>
         </section>
 

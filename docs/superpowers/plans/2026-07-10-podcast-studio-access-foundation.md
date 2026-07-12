@@ -70,7 +70,7 @@
 - Consumes: 既存の`users` tableとDrizzle MySQL schema pattern。
 - Produces: `users.role`、`users.plan`、`entitlements`、`planEntitlements`、`userEntitlementOverrides`、`auditLogs`。
 
-- [ ] **Step 1: schema shape testを追加する**
+- [x] **Step 1: schema shape testを追加する**
 
 `tests/unit/schema-shape.test.ts`のimportへaccess tableを追加し、次のtestを追加する。
 
@@ -93,7 +93,7 @@ it("defines extensible access control tables", () => {
 });
 ```
 
-- [ ] **Step 2: testがfailすることを確認する**
+- [x] **Step 2: testがfailすることを確認する**
 
 Run:
 
@@ -103,7 +103,7 @@ pnpm test -- tests/unit/schema-shape.test.ts
 
 Expected: `entitlements`などが`@/db/schema`からexportされていないためFAIL。
 
-- [ ] **Step 3: schemaへaccess tableを追加する**
+- [x] **Step 3: schemaへaccess tableを追加する**
 
 `src/db/schema.ts`へ以下の定数とtableを追加する。roleとplanは`mysqlEnum`にしない。
 
@@ -175,7 +175,7 @@ plan: varchar("plan", { length: 32 }).default("free").notNull(),
 
 relationは`users`からoverrideとaudit、各join tableからparentへ辿れるように定義する。
 
-- [ ] **Step 4: migrationを追加する**
+- [x] **Step 4: migrationを追加する**
 
 `drizzle/0004_access_control.sql`へ、schemaと同じcolumn、primary key、foreign key、indexを作るSQLを書く。
 
@@ -238,7 +238,7 @@ CREATE INDEX `audit_logs_target_idx` ON `audit_logs` (`target_type`,`target_id`)
 }
 ```
 
-- [ ] **Step 5: public-safe seedを追加する**
+- [x] **Step 5: public-safe seedを追加する**
 
 `src/db/seed.ts`へ以下のcatalogを追加する。
 
@@ -298,7 +298,7 @@ await db.insert(planEntitlements).ignore().values([
 ]);
 ```
 
-- [ ] **Step 6: schema testとmigration適用を確認する**
+- [x] **Step 6: schema testとmigration適用を確認する**
 
 Run:
 
@@ -334,7 +334,7 @@ git commit -m "feat: add access control data model"
 - Consumes: `users`、`planEntitlements`、`userEntitlementOverrides`、`requireSession()`。
 - Produces: `RoleId`、`PlanId`、`EntitlementId`、`CurrentUserAccess`、`resolveEntitlements()`、`requireCurrentUser()`、`requireAdmin()`。
 
-- [ ] **Step 1: resolverのfailing testを書く**
+- [x] **Step 1: resolverのfailing testを書く**
 
 `tests/unit/access-control.test.ts`を作成する。
 
@@ -371,13 +371,13 @@ describe("resolveEntitlements", () => {
 });
 ```
 
-- [ ] **Step 2: testがfailすることを確認する**
+- [x] **Step 2: testがfailすることを確認する**
 
 Run: `pnpm test -- tests/unit/access-control.test.ts`
 
 Expected: moduleが存在しないためFAIL。
 
-- [ ] **Step 3: catalogとtypeを実装する**
+- [x] **Step 3: catalogとtypeを実装する**
 
 `src/lib/access/catalog.ts`:
 
@@ -428,7 +428,7 @@ export type CurrentUserAccess = {
 };
 ```
 
-- [ ] **Step 4: pure resolverを実装する**
+- [x] **Step 4: pure resolverを実装する**
 
 `src/lib/access/resolve-entitlements.ts`:
 
@@ -456,7 +456,7 @@ export function resolveEntitlements(input: {
 }
 ```
 
-- [ ] **Step 5: authenticated sessionでuser identityを必須にする**
+- [x] **Step 5: authenticated sessionでuser identityを必須にする**
 
 `createSessionToken()`の`user`引数を必須にし、`verifySessionToken()`は`userId`と`email`がstringでないtokenをunauthenticatedとして扱う。`tests/unit/auth.test.ts`のsession testは次のuserを渡す。
 
@@ -475,7 +475,7 @@ expect(verified).toMatchObject({
 });
 ```
 
-- [ ] **Step 6: current user server境界を実装する**
+- [x] **Step 6: current user server境界を実装する**
 
 `src/lib/access/current-user.ts`は`requireSession()`で得た`userId`からactive user、plan default、overrideを読み、catalogに含まれないDB値を拒否する。
 
@@ -521,7 +521,7 @@ export async function requireAdmin(): Promise<CurrentUserAccess> {
 }
 ```
 
-- [ ] **Step 7: accessとauth testを通す**
+- [x] **Step 7: accessとauth testを通す**
 
 Run:
 
@@ -551,7 +551,7 @@ git commit -m "feat: resolve user entitlements"
 - Consumes: access catalog、`users`、`entitlements`、`planEntitlements`、`userEntitlementOverrides`、`auditLogs`。
 - Produces: `AccessControlData`、`buildAccessControlData()`、`getAccessControlData()`。
 
-- [ ] **Step 1: read modelのfailing testを書く**
+- [x] **Step 1: read modelのfailing testを書く**
 
 `tests/unit/admin-access-control.test.ts`:
 
@@ -585,13 +585,13 @@ describe("admin access read model", () => {
 });
 ```
 
-- [ ] **Step 2: testがfailすることを確認する**
+- [x] **Step 2: testがfailすることを確認する**
 
 Run: `pnpm test -- tests/unit/admin-access-control.test.ts`
 
 Expected: moduleが存在しないためFAIL。
 
-- [ ] **Step 3: read model typeとbuilderを実装する**
+- [x] **Step 3: read model typeとbuilderを実装する**
 
 `src/lib/admin/access-control.ts`で次のpublic typeをexportする。
 
@@ -625,11 +625,11 @@ export type AccessControlData = {
 
 `buildAccessControlData()`はcatalog順を安定化し、selected userの各capabilityについてadmin固定grant、user override、plan defaultの順でsourceを決める。`override_deny`もUI表示のためrowを残す。
 
-- [ ] **Step 4: DB query wrapperを実装する**
+- [x] **Step 4: DB query wrapperを実装する**
 
 `getAccessControlData(selectedUserId?: string)`は`requireAdmin()`を最初に呼び、5つのtableを`Promise.all()`で読む。selected IDがない場合はactor自身を選択し、auditは新しい順に50件まで返す。
 
-- [ ] **Step 5: testとtypecheckを通す**
+- [x] **Step 5: testとtypecheckを通す**
 
 Run:
 
@@ -660,7 +660,7 @@ git commit -m "feat: add admin access read model"
 - Consumes: `requireAdmin()`、access catalog、access control table。
 - Produces: `updateUserRoleAndPlanAction()`、`updatePlanEntitlementAction()`、`updateUserEntitlementAction()`、`canDemoteAdmin()`。
 
-- [ ] **Step 1: last-admin ruleのfailing testを書く**
+- [x] **Step 1: last-admin ruleのfailing testを書く**
 
 `tests/unit/access-control.test.ts`へ追加する。
 
@@ -674,13 +674,13 @@ it("prevents demoting the final active admin", () => {
 });
 ```
 
-- [ ] **Step 2: testがfailすることを確認する**
+- [x] **Step 2: testがfailすることを確認する**
 
 Run: `pnpm test -- tests/unit/access-control.test.ts`
 
 Expected: `canDemoteAdmin`が存在しないためFAIL。
 
-- [ ] **Step 3: validationとlast-admin ruleを実装する**
+- [x] **Step 3: validationとlast-admin ruleを実装する**
 
 `src/lib/access/guards.ts`へ、Server Actionから独立したpure helperを追加する。
 
@@ -698,7 +698,7 @@ export function canDemoteAdmin(input: {
 
 FormDataから読むrole、plan、entitlementは`ROLE_IDS`、`PLAN_IDS`、`ENTITLEMENT_IDS`のmembershipで検証し、不正値は`/admin/access?error=invalid-input`へredirectする。
 
-- [ ] **Step 4: user roleとplanのmutationを実装する**
+- [x] **Step 4: user roleとplanのmutationを実装する**
 
 `updateUserRoleAndPlanAction(formData)`はadmin actorを取得し、transaction内でtarget userとactive admin数を読み、last-admin ruleを確認して`users.role`と`users.plan`を更新する。同じtransactionでaudit rowを追加する。
 
@@ -717,11 +717,11 @@ file先頭で`import { randomUUID } from "node:crypto";`を追加する。
 
 成功後は`revalidatePath("/admin/access")`し、`/admin/access?user=<id>&saved=user`へredirectする。
 
-- [ ] **Step 5: plan default mutationを実装する**
+- [x] **Step 5: plan default mutationを実装する**
 
 `updatePlanEntitlementAction(formData)`は`planId`、`entitlementId`、checkboxの`enabled`を検証し、`planEntitlements`をupsertする。`access.manage`をplan defaultへ含めてもadmin固定grantの意味は変わらない。audit actionは`access.plan-entitlement.updated`とする。
 
-- [ ] **Step 6: user override mutationを実装する**
+- [x] **Step 6: user override mutationを実装する**
 
 `updateUserEntitlementAction(formData)`は`mode`を`inherit | allow | deny`から検証する。
 
@@ -731,7 +731,7 @@ file先頭で`import { randomUUID } from "node:crypto";`を追加する。
 
 admin userに対する`access.manage`の`deny`は保存せず、`/admin/access?error=admin-fixed-entitlement`へredirectする。audit actionは`access.user-entitlement.updated`とし、metadataには`mode`だけを保存する。
 
-- [ ] **Step 7: testとtypecheckを通す**
+- [x] **Step 7: testとtypecheckを通す**
 
 Run:
 
@@ -765,7 +765,7 @@ git commit -m "feat: add audited access mutations"
 - Consumes: `requireAdmin()`、`getAccessControlData()`、Task 4のServer Actions。
 - Produces: `/admin/access`の日本語3ペイン管理画面。
 
-- [ ] **Step 1: admin UIのfailing E2Eを書く**
+- [x] **Step 1: admin UIのfailing E2Eを書く**
 
 `tests/e2e/admin-access.spec.ts`:
 
@@ -786,13 +786,13 @@ test("admin can open the desktop access control workspace", async ({ page }) => 
 });
 ```
 
-- [ ] **Step 2: E2Eがfailすることを確認する**
+- [x] **Step 2: E2Eがfailすることを確認する**
 
 Run: `pnpm test:e2e -- tests/e2e/admin-access.spec.ts`
 
 Expected: `/admin/access`が404のためFAIL。
 
-- [ ] **Step 3: admin layoutとshellを実装する**
+- [x] **Step 3: admin layoutとshellを実装する**
 
 `src/app/(admin)/admin/layout.tsx`は`requireAdmin()`を呼び、`AdminShell`へactorとchildrenを渡す。
 
@@ -805,7 +805,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
 `AdminShell`は日本語で、header、左navigation、main contentを持つ。左navigationはAccessだけactiveにし、Plans、Users、Integrations、Auditは同じ`/admin/access`内のsection anchorへlinkする。Settingsへ戻るlinkとlogout formを含める。
 
-- [ ] **Step 4: Access pageを実装する**
+- [x] **Step 4: Access pageを実装する**
 
 pageはNext.js 16のasync `searchParams`から`user`、`error`、`saved`を読み、`getAccessControlData(userId)`を呼ぶ。
 
@@ -821,7 +821,7 @@ export default async function AdminAccessPage({
 }
 ```
 
-- [ ] **Step 5: 3ペインviewを実装する**
+- [x] **Step 5: 3ペインviewを実装する**
 
 `AccessControlView`は次の3領域を同じpage section内に並べる。
 
@@ -831,7 +831,7 @@ export default async function AdminAccessPage({
 
 plan default matrixとrecent auditは、3ペイン下のfull-width sectionとして表示する。form controlはcheckbox、select、buttonを使い、既存のcard内へ別cardを入れない。
 
-- [ ] **Step 6: responsive CSSを追加する**
+- [x] **Step 6: responsive CSSを追加する**
 
 `src/app/globals.css`へ`.admin-shell`、`.admin-sidebar`、`.admin-workspace`、`.admin-user-list`、`.admin-detail`、`.admin-access-grid`を追加する。
 
@@ -841,7 +841,7 @@ plan default matrixとrecent auditは、3ペイン下のfull-width sectionとし
 - body textとcontrolがoverflowしないよう`min-width: 0`を設定する。
 - admin shellはmobile app幅へ制限しない。
 
-- [ ] **Step 7: E2Eとvisual checkを通す**
+- [x] **Step 7: E2Eとvisual checkを通す**
 
 Run:
 

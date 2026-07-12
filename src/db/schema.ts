@@ -23,6 +23,8 @@ export const jobStatusValues = ["pending", "running", "succeeded", "failed"] as 
 export const scoreSubjectTypeValues = ["category", "tag", "concept"] as const;
 export const selfAssessmentSubjectTypeValues = ["category", "tag"] as const;
 export const userStatusValues = ["active", "invited", "disabled"] as const;
+export const userRoleValues = ["admin", "normal"] as const;
+export const userPlanValues = ["free", "pro"] as const;
 
 export const sourceTrustTierEnum = {
   enumValues: sourceTrustTierValues,
@@ -75,6 +77,8 @@ export const users = mysqlTable(
     displayName: varchar("display_name", { length: 120 }),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     status: mysqlEnum("status", userStatusValues).default("active").notNull(),
+    role: varchar("role", { length: 32 }).default("normal").notNull(),
+    plan: varchar("plan", { length: 32 }).default("free").notNull(),
     createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
     updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
   },
@@ -96,6 +100,184 @@ export const invites = mysqlTable(
     uniqueIndex("invites_token_hash_idx").on(table.tokenHash),
     index("invites_email_idx").on(table.email),
   ],
+);
+
+export const entitlements = mysqlTable("entitlements", {
+  id: varchar("id", { length: 96 }).primaryKey(),
+  description: varchar("description", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const planEntitlements = mysqlTable(
+  "plan_entitlements",
+  {
+    planId: varchar("plan_id", { length: 32 }).notNull(),
+    entitlementId: varchar("entitlement_id", { length: 96 })
+      .notNull()
+      .references(() => entitlements.id),
+    enabled: boolean("enabled").default(true).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.planId, table.entitlementId] })],
+);
+
+export const userEntitlementOverrides = mysqlTable(
+  "user_entitlement_overrides",
+  {
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
+    entitlementId: varchar("entitlement_id", { length: 96 })
+      .notNull()
+      .references(() => entitlements.id),
+    enabled: boolean("enabled").notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.entitlementId] })],
+);
+
+export type AuditMetadata = Record<string, string | number | boolean | null>;
+
+export const auditLogs = mysqlTable(
+  "audit_logs",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    actorUserId: varchar("actor_user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
+    action: varchar("action", { length: 96 }).notNull(),
+    targetType: varchar("target_type", { length: 48 }).notNull(),
+    targetId: varchar("target_id", { length: 96 }).notNull(),
+    metadata: json("metadata").$type<AuditMetadata>().notNull(),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  },
+  (table) => [
+    index("audit_logs_actor_idx").on(table.actorUserId),
+    index("audit_logs_target_idx").on(table.targetType, table.targetId),
+  ],
+);
+
+export const podcastFrequencyValues = ["daily", "weekdays", "weekly", "manual"] as const;
+export const podcastLanguageValues = ["ja", "en"] as const;
+export const podcastSourceFrequencyValues = ["daily", "every_3_days", "weekly", "every_14_days", "monthly"] as const;
+
+export const podcastSettings = mysqlTable(
+  "podcast_settings",
+  {
+    userId: varchar("user_id", { length: 64 }).primaryKey().references(() => users.id),
+    generationFrequency: varchar("generation_frequency", { length: 32 }).default("daily").notNull(),
+    timezone: varchar("timezone", { length: 64 }).default("Asia/Tokyo").notNull(),
+    durationMinutes: int("duration_minutes").default(10).notNull(),
+    language: varchar("language", { length: 8 }).default("ja").notNull(),
+    useSources: boolean("use_sources").default(true).notNull(),
+    includeNews: boolean("include_news").default(true).notNull(),
+    includeCalendar: boolean("include_calendar").default(false).notNull(),
+    includeXPublic: boolean("include_x_public").default(false).notNull(),
+    includeXPersonal: boolean("include_x_personal").default(false).notNull(),
+    calendarReadMode: varchar("calendar_read_mode", { length: 32 }).default("time_title").notNull(),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+);
+
+export const sourcePodcastSettings = mysqlTable(
+  "source_podcast_settings",
+  {
+    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
+    sourceId: varchar("source_id", { length: 64 }).notNull().references(() => sources.id),
+    enabled: boolean("enabled").default(true).notNull(),
+    frequency: varchar("frequency", { length: 32 }).default("daily").notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.sourceId] })],
+);
+
+export const podcastEpisodeStatusValues = ["queued", "collecting", "scripting", "synthesizing", "ready", "failed"] as const;
+export const podcastJobStatusValues = ["queued", "running", "succeeded", "failed"] as const;
+
+export const podcastEpisodes = mysqlTable(
+  "podcast_episodes",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
+    localDate: date("local_date").notNull(),
+    title: varchar("title", { length: 240 }).notNull(),
+    language: varchar("language", { length: 8 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    sourceSnapshot: json("source_snapshot").$type<Array<{ id: string; title: string; url: string }>>().notNull(),
+    script: json("script").$type<{ language: "ja" | "en"; speakers: Array<{ speaker: "host_a" | "host_b"; text: string }> } | null>(),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [index("podcast_episodes_user_idx").on(table.userId, table.localDate)],
+);
+
+export const podcastJobs = mysqlTable(
+  "podcast_jobs",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
+    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
+    kind: varchar("kind", { length: 48 }).notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    attempts: int("attempts").default(0).notNull(),
+    idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
+    nextRunAt: datetime("next_run_at").notNull(),
+    leaseOwner: varchar("lease_owner", { length: 96 }),
+    leaseExpiresAt: datetime("lease_expires_at"),
+    errorCode: varchar("error_code", { length: 96 }),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("podcast_jobs_idempotency_idx").on(table.idempotencyKey), index("podcast_jobs_claim_idx").on(table.status, table.nextRunAt)],
+);
+
+export const podcastAssets = mysqlTable(
+  "podcast_assets",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
+    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
+    language: varchar("language", { length: 8 }).notNull(),
+    storageProvider: varchar("storage_provider", { length: 32 }).notNull(),
+    storageKey: varchar("storage_key", { length: 1024 }).notNull(),
+    mediaType: varchar("media_type", { length: 96 }).notNull(),
+    sizeBytes: int("size_bytes").notNull(),
+    durationSeconds: int("duration_seconds"),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  },
+  (table) => [index("podcast_assets_episode_idx").on(table.episodeId)],
+);
+
+export const podcastAudioChunks = mysqlTable(
+  "podcast_audio_chunks",
+  {
+    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
+    chunkIndex: int("chunk_index").notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    storageProvider: varchar("storage_provider", { length: 32 }),
+    storageKey: varchar("storage_key", { length: 1024 }),
+    mediaType: varchar("media_type", { length: 96 }),
+    sizeBytes: int("size_bytes"),
+    attempts: int("attempts").default(0).notNull(),
+    errorCode: varchar("error_code", { length: 96 }),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.episodeId, table.chunkIndex] })],
+);
+
+export const podcastChatMessages = mysqlTable(
+  "podcast_chat_messages",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
+    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
+    role: varchar("role", { length: 16 }).notNull(),
+    text: text("text").notNull(),
+    provider: varchar("provider", { length: 32 }),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  },
+  (table) => [index("podcast_chat_messages_episode_idx").on(table.episodeId, table.createdAt)],
 );
 
 export const concepts = mysqlTable("concepts", {

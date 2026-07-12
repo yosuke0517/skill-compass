@@ -29,14 +29,17 @@ describe("password hashes", () => {
 describe("session tokens", () => {
   it("creates a signed token that expires in 24 hours", async () => {
     const now = new Date("2026-07-08T00:00:00.000Z");
-    const session = await createSessionToken("12345678901234567890123456789012", now);
+    const session = await createSessionToken("12345678901234567890123456789012", now, {
+      id: "user_test",
+      email: "test@example.com",
+    });
     const verified = await verifySessionToken(
       session.token,
       "12345678901234567890123456789012",
       now,
     );
 
-    expect(verified.authenticated).toBe(true);
+    expect(verified).toMatchObject({ authenticated: true, userId: "user_test", email: "test@example.com" });
     expect(session.expiresAt.toISOString()).toBe("2026-07-09T00:00:00.000Z");
   });
 });
