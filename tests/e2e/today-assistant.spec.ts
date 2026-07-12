@@ -12,7 +12,7 @@ test("Today assistant only appears on the Today page", async ({ page }) => {
 });
 
 test("user can ask the Today assistant from the floating button", async ({ page }) => {
-  const requests: Array<{ message?: string; messages?: Array<{ role: string; text: string }> }> = [];
+  const requests: Array<{ message?: string; messages?: Array<{ role: string; text: string }>; questionId?: string }> = [];
   await page.route("**/api/assistant/today", async (route) => {
     requests.push(route.request().postDataJSON());
     await route.fulfill({
@@ -30,6 +30,7 @@ test("user can ask the Today assistant from the floating button", async ({ page 
 
   const openButton = page.getByLabel("Open Today assistant");
   await expect(openButton).toBeVisible();
+  await expect(page.locator(".quiz-card-navigator .today-assistant")).toHaveCount(1);
   await openButton.click();
 
   const sheet = page.getByRole("region", { name: "Today assistant" });
@@ -62,6 +63,7 @@ test("user can ask the Today assistant from the floating button", async ({ page 
 
   await expect(page.getByText("API契約の互換性を見る問題です")).toBeVisible();
   expect(requests[0]?.message).toBe("この問題を説明して");
+  expect(requests[0]?.questionId).toEqual(expect.any(String));
   expect(requests[0]?.messages?.at(-1)).toEqual({ role: "user", text: "この問題を説明して" });
   expect(requests[0]?.messages?.some((message) => message.role === "assistant")).toBe(true);
 });

@@ -8,17 +8,27 @@ import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 const maxMessageLength = 1200;
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { message?: unknown; messages?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { message?: unknown; messages?: unknown; questionId?: unknown } | null;
   const message = typeof body?.message === "string" ? body.message.trim() : "";
+  const questionId = typeof body?.questionId === "string" ? body.questionId : "";
   const conversation = parseConversation(body?.messages);
 
   if (!message) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
 
+  if (!questionId) {
+    return NextResponse.json({ error: "questionId is required" }, { status: 400 });
+  }
+
   const quiz = await getTodayQuiz();
+  const activeQuestion = quiz.questions.find((item) => item.question.id === questionId);
+  if (!activeQuestion) {
+    return NextResponse.json({ error: "question not found" }, { status: 404 });
+  }
+
   const result = await getAssistantProvider().ask(
-    buildTodayAssistantInput(message, quiz.quizDate, quiz.progress, quiz.questions, conversation),
+    buildTodayAssistantInput(message, quiz.quizDate, quiz.progress, [activeQuestion], conversation),
   );
 
   if (result.status === "unavailable") {

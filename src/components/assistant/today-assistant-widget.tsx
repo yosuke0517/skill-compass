@@ -144,7 +144,7 @@ type AssistantViewport = {
   offsetTop: number;
 };
 
-export function TodayAssistantWidget() {
+export function TodayAssistantWidget({ questionId }: { questionId: string }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -207,6 +207,7 @@ export function TodayAssistantWidget() {
         body: JSON.stringify({
           message: trimmed,
           messages: nextMessages,
+          questionId,
         }),
       });
 

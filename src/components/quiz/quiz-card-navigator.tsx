@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
+import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
+
 import { getNextQuestionIndex } from "./quiz-card-navigation";
 import { QuizQuestionCard } from "./quiz-question-card";
 
@@ -16,15 +18,12 @@ type QuizCardNavigatorProps = {
 };
 
 export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCardNavigatorProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const activeIndex = Math.min(selectedIndex, Math.max(questions.length - 1, 0));
   const previousActiveIndex = useRef(activeIndex);
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
-
-  useEffect(() => {
-    setActiveIndex((currentIndex) => Math.min(currentIndex, Math.max(questions.length - 1, 0)));
-  }, [questions.length]);
 
   useEffect(() => {
     if (activeIndex !== previousActiveIndex.current && activeQuestion) {
@@ -38,7 +37,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
   }
 
   function move(direction: "next" | "previous") {
-    setActiveIndex((currentIndex) => getNextQuestionIndex(currentIndex, questions.length, direction));
+    setSelectedIndex((currentIndex) => getNextQuestionIndex(currentIndex, questions.length, direction));
   }
 
   return (
@@ -52,8 +51,11 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
       <ol className="quiz-card-indicators" aria-label="Question status">
         {questions.map((question, index) => (
           <li key={question.question.id} aria-current={index === activeIndex ? "step" : undefined}>
-            <span className={question.answer === null ? "unanswered" : "answered"}>
-              Question {index + 1}: {question.answer === null ? "unanswered" : "answered"}
+            <span
+              className={question.answer === null ? "unanswered" : "answered"}
+              aria-label={`Question ${index + 1}: ${question.answer === null ? "unanswered" : "answered"}`}
+            >
+              {index + 1}
             </span>
           </li>
         ))}
@@ -77,6 +79,8 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
           <ChevronRight size={18} aria-hidden="true" />
         </button>
       </nav>
+
+      <TodayAssistantWidget questionId={activeQuestion.question.id} />
     </section>
   );
 }

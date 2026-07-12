@@ -1,19 +1,72 @@
 import { expect, test } from "@playwright/test";
 
-test("today shows one quiz card with navigation controls", async ({ page }) => {
+test("today keeps one card focused while navigating and revisiting unanswered questions", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
 
-  const cards = page.locator(".quiz-card");
+  const navigator = page.getByLabel("Quiz questions");
+  const cards = navigator.locator(".quiz-card");
   await expect(cards).toHaveCount(1);
 
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Previous question" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Next question" })).toBeVisible();
+  const previous = page.getByRole("button", { name: "Previous question" });
+  const next = page.getByRole("button", { name: "Next question" });
+  await expect(previous).toBeDisabled();
+  await expect(next).toBeVisible();
+
+  expect(total).toBeGreaterThan(1);
+  const firstQuestion = await cards.getByRole("heading").innerText();
+
+  await next.click();
+  await expect(cards).toHaveCount(1);
+  await expect(cards.getByRole("heading")).toBeFocused();
+  await expect(previous).toBeEnabled();
+
+  let activeQuestionNumber = 2;
+  while (activeQuestionNumber < total && (await cards.getByRole("heading").innerText()) === firstQuestion) {
+    await next.click();
+    activeQuestionNumber += 1;
+  }
+
+  await expect(cards.getByRole("heading")).not.toHaveText(firstQuestion);
+  const distinctQuestion = await cards.getByRole("heading").innerText();
+
+  await previous.click();
+  activeQuestionNumber -= 1;
+  await expect(cards).toHaveCount(1);
+  await expect(cards.getByRole("heading")).not.toHaveText(distinctQuestion);
+  await expect(cards.getByRole("heading")).toBeFocused();
+
+  const unansweredIndicator = navigator.locator(".quiz-card-indicators .unanswered").first();
+  await expect(unansweredIndicator).toBeVisible();
+  const unansweredNumber = Number((await unansweredIndicator.getAttribute("aria-label"))?.match(/Question (\d+)/)?.[1]);
+  expect(unansweredNumber).toBeGreaterThan(0);
+
+  while (activeQuestionNumber < unansweredNumber) {
+    await next.click();
+    activeQuestionNumber += 1;
+  }
+  while (activeQuestionNumber > unansweredNumber) {
+    await previous.click();
+    activeQuestionNumber -= 1;
+  }
+
+  const unansweredQuestion = await cards.getByRole("heading").innerText();
+  if (unansweredNumber < total) {
+    await next.click();
+    await previous.click();
+  } else {
+    await previous.click();
+    await next.click();
+  }
+
+  await expect(cards).toHaveCount(1);
+  await expect(cards.getByRole("heading")).toHaveText(unansweredQuestion);
+  await expect(cards.getByRole("heading")).toBeFocused();
 });
 
 test("user can answer a daily quiz question", async ({ page }) => {
