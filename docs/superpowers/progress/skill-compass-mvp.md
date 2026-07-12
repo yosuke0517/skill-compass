@@ -77,6 +77,12 @@
 - Today quiz rendering treats persisted answer rows whose evaluation has no `correct` value as unanswered. The question remains eligible for a retry instead of showing an incomplete review state.
 - Focused unit coverage verifies last-card target selection and retryable incomplete-evaluation rows. Broader E2E assertion updates, typecheck, lint, and full-suite verification were intentionally deferred at the user's request.
 
+### Quiz answer assertion follow-up (2026-07-12)
+
+- The requested race-resistant answer assertions in `tests/e2e/quiz-flow.spec.ts` and `tests/e2e/quiz-translation.spec.ts` were not changed because implementation was stopped before edits began.
+- The intended follow-up is to capture the submitted heading id before submit, wait for Today after the action, detect auto-advance, and use a bounded `Previous question` loop to return to the submitted card before checking feedback and review. The loop must also allow zero moves when no later unanswered card exists.
+- No focused E2E, typecheck, lint, or diff-check results are claimed for this follow-up.
+
 Task 10完了時点のfull verification:
 
 ```bash
