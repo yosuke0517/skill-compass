@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type RefObject, useState, useTransition } from "react";
 import { CheckCircle2, CircleHelp, Languages } from "lucide-react";
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
@@ -15,6 +15,8 @@ type QuizQuestionCardProps = {
   item: TodayQuizQuestion;
   translation?: TranslatedQuizCard;
   isActive?: boolean;
+  activeCardFocusRef?: RefObject<HTMLHeadingElement | null>;
+  onAnswerSubmit?: (questionId: string) => void;
 };
 
 const reasonLabels: Record<string, string> = {
@@ -25,7 +27,14 @@ const reasonLabels: Record<string, string> = {
   fallback: "Fallback",
 };
 
-export function QuizQuestionCard({ quizDayId, item, translation, isActive = false }: QuizQuestionCardProps) {
+export function QuizQuestionCard({
+  quizDayId,
+  item,
+  translation,
+  isActive = false,
+  activeCardFocusRef,
+  onAnswerSubmit,
+}: QuizQuestionCardProps) {
   const answered = item.answer !== null;
   const correctChoice = item.question.choices.find((choice) => choice.correct);
   const [currentTranslation, setCurrentTranslation] = useState<TranslatedQuizCard | undefined>(translation);
@@ -75,7 +84,7 @@ export function QuizQuestionCard({ quizDayId, item, translation, isActive = fals
           <Languages size={17} aria-hidden="true" />
         </button>
       </div>
-      <h2 id={`quiz-question-${item.question.id}`} tabIndex={-1}>{item.question.prompt}</h2>
+      <h2 ref={activeCardFocusRef} id={`quiz-question-${item.question.id}`} tabIndex={-1}>{item.question.prompt}</h2>
       {isTranslating ? (
         <div className="translation-loading" aria-label="Translation loading" aria-live="polite">
           <span />
@@ -127,7 +136,7 @@ export function QuizQuestionCard({ quizDayId, item, translation, isActive = fals
           </div>
         </>
       ) : (
-        <form action={submitQuizAnswerAction} className="quiz-form">
+        <form action={submitQuizAnswerAction} className="quiz-form" onSubmit={() => onAnswerSubmit?.(item.question.id)}>
           <input type="hidden" name="quizDayId" value={quizDayId} />
           <input type="hidden" name="questionId" value={item.question.id} />
 

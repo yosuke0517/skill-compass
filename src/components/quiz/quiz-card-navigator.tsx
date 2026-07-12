@@ -1,6 +1,6 @@
 "use client";
 
-import { type PointerEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
@@ -15,13 +15,19 @@ type QuizCardNavigatorProps = {
   quizDayId: string;
   questions: TodayQuizQuestion[];
   translations: Record<string, TranslatedQuizCard>;
+  navigatorAction?: ReactNode;
 };
 
-export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCardNavigatorProps) {
+function getPendingAnswerStorageKey(quizDayId: string) {
+  return `skill-compass:pending-quiz-answer:${quizDayId}`;
+}
+
+export function QuizCardNavigator({ quizDayId, questions, translations, navigatorAction }: QuizCardNavigatorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const activeIndex = getClampedQuestionIndex(selectedIndex, questions.length);
   const previousActiveIndex = useRef(activeIndex);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const activeCardFocusRef = useRef<HTMLHeadingElement>(null);
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
@@ -35,10 +41,27 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
 
   useEffect(() => {
     if (activeIndex !== previousActiveIndex.current && activeQuestion) {
-      document.getElementById(`quiz-question-${activeQuestion.question.id}`)?.focus();
+      activeCardFocusRef.current?.focus();
     }
     previousActiveIndex.current = activeIndex;
   }, [activeIndex, activeQuestion]);
+
+  useEffect(() => {
+    const pendingQuestionId = window.sessionStorage.getItem(getPendingAnswerStorageKey(quizDayId));
+    if (!pendingQuestionId) return;
+
+    window.sessionStorage.removeItem(getPendingAnswerStorageKey(quizDayId));
+    const submittedIndex = questions.findIndex((question) => question.question.id === pendingQuestionId);
+    if (submittedIndex < 0) return;
+
+    const nextUnansweredIndex = questions.findIndex(
+      (question, index) => index > submittedIndex && question.answer === null,
+    );
+    const frame = requestAnimationFrame(() => {
+      setSelectedIndex(nextUnansweredIndex >= 0 ? nextUnansweredIndex : submittedIndex);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [quizDayId, questions]);
 
   if (!activeQuestion) {
     return <p className="form-error">No quiz questions are available.</p>;
@@ -46,6 +69,10 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
 
   function goTo(index: number) {
     setSelectedIndex(getClampedQuestionIndex(index, questions.length));
+  }
+
+  function handleAnswerSubmit(questionId: string) {
+    window.sessionStorage.setItem(getPendingAnswerStorageKey(quizDayId), questionId);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -118,7 +145,11 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
         item={activeQuestion}
         translation={translations[activeQuestion.question.id]}
         isActive
+        activeCardFocusRef={activeCardFocusRef}
+        onAnswerSubmit={handleAnswerSubmit}
       />
+
+      {navigatorAction}
 
       <nav className="quiz-card-controls" aria-label="Question navigation">
         <button type="button" aria-label="Previous question" disabled={activeIndex === 0} onClick={() => goTo(activeIndex - 1)}>

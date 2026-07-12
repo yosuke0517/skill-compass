@@ -1,4 +1,3 @@
-import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 import { QuizCardNavigator } from "@/components/quiz/quiz-card-navigator";
 import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 import { getTranslatedQuizCards } from "@/app/actions/translation";
@@ -30,28 +29,29 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
       {error === "missing-answer" ? <p className="form-error">Choose an answer.</p> : null}
 
-      {canAddMore ? (
-        <form action={addMoreQuizQuestionsAction} className="add-questions-card">
+      <QuizCardNavigator
+        quizDayId={quiz.quizDayId}
+        questions={quiz.questions}
+        translations={translations}
+        navigatorAction={canAddMore ? (
+          <form action={addMoreQuizQuestionsAction} className="add-questions-action">
           <input type="hidden" name="quizDayId" value={quiz.quizDayId} />
           <div>
-            <p className="eyebrow">More practice</p>
-            <strong>Add up to 5 questions</strong>
+            <strong>Add more practice</strong>
             <span>{DAILY_QUIZ_LIMIT - quiz.progress.total} remaining today</span>
           </div>
           <button type="submit">Add 5</button>
         </form>
-      ) : completedCurrentSet ? (
-        <section className="add-questions-card limit-reached">
+        ) : completedCurrentSet ? (
+          <section className="add-questions-card limit-reached">
           <div>
             <p className="eyebrow">Daily limit</p>
             <strong>30 / 30 complete</strong>
             <span>Nice work. Come back tomorrow for a fresh set.</span>
           </div>
         </section>
-      ) : null}
-
-      <QuizCardNavigator quizDayId={quiz.quizDayId} questions={quiz.questions} translations={translations} />
-      <TodayAssistantWidget />
+        ) : null}
+      />
     </>
   );
 }

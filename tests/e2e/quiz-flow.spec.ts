@@ -160,6 +160,42 @@ test("user can answer a daily quiz question", async ({ page }) => {
   await expect(answeredCard.locator(".answer-badge.correct")).toBeVisible();
 });
 
+test("answering a skipped card preserves its review and advances to the next unanswered card", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const navigator = page.getByLabel("Quiz questions");
+  const card = navigator.locator(".quiz-card");
+  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  const firstQuestion = await card.getByRole("heading").innerText();
+
+  test.skip(total < 3, "The seeded daily quiz needs three cards for this flow.");
+
+  await page.getByRole("button", { name: "Next question" }).click();
+  const submittedQuestion = await card.getByRole("heading").innerText();
+  await card.locator('input[name="selectedChoiceId"]').first().check();
+  await card.locator('input[name="confidence"][value="4"]').check();
+  await card.locator('textarea[name="reasoning"]').fill("I compared the contract before choosing this answer.");
+  await card.getByRole("button", { name: "Submit answer" }).click();
+
+  await expect(page).toHaveURL(/\/today/);
+  await expect(card.getByRole("heading")).not.toHaveText(submittedQuestion);
+  await expect(card.getByRole("heading")).not.toHaveText(firstQuestion);
+  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Previous question" }).click();
+  await expect(card.getByRole("heading")).toHaveText(submittedQuestion);
+  await expect(card.getByLabel("Answer review")).toBeVisible();
+  await expect(card.locator(".answer-badge.selected")).toBeVisible();
+
+  await page.getByRole("button", { name: "Previous question" }).click();
+  await expect(card.getByRole("heading")).toHaveText(firstQuestion);
+  await expect(card.getByRole("button", { name: "Submit answer" })).toBeVisible();
+});
+
 test("user can add more questions after completing the current set", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
@@ -196,7 +232,17 @@ test("user can add more questions after completing the current set", async ({ pa
     return;
   }
 
-  expect(await addButton.evaluate((element) => getComputedStyle(element).position)).toBe("sticky");
+  const placement = await addButton.evaluate((element) => {
+    const action = element.closest(".add-questions-action");
+    const controls = document.querySelector(".quiz-card-controls");
+    return {
+      actionPosition: action ? getComputedStyle(action).position : "",
+      actionBottom: action?.getBoundingClientRect().bottom ?? 0,
+      controlsTop: controls?.getBoundingClientRect().top ?? 0,
+    };
+  });
+  expect(placement.actionPosition).toBe("sticky");
+  expect(placement.actionBottom).toBeLessThanOrEqual(placement.controlsTop);
   await addButton.click();
   await expect
     .poll(async () => {

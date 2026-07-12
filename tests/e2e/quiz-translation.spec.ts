@@ -8,9 +8,13 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
   await page.getByRole("link", { name: "Today" }).click();
 
   await expect(page).toHaveURL(/\/today/);
-  await page.getByLabel("Translate to Japanese").first().click();
+  const navigator = page.getByLabel("Quiz questions");
+  const activeCard = navigator.locator('.quiz-card[aria-current="step"]');
+  await expect(navigator.locator(".quiz-card")).toHaveCount(1);
+  await expect(activeCard.getByLabel("Translate to Japanese")).toHaveCount(1);
+  await activeCard.getByLabel("Translate to Japanese").click();
 
-  const translation = page.getByLabel("Japanese translation").first();
+  const translation = activeCard.getByLabel("Japanese translation");
   await expect(translation).toBeVisible();
   await expect(translation).toContainText(/[ぁ-んァ-ン一-龯]/);
 
@@ -23,6 +27,23 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
   }
 });
 
+test("translation controls move with the active card", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const navigator = page.getByLabel("Quiz questions");
+  const card = navigator.locator('.quiz-card[aria-current="step"]');
+  const firstQuestionId = await card.getByRole("heading").getAttribute("id");
+  await page.getByRole("button", { name: "Next question" }).click();
+
+  await expect(card.getByRole("heading")).not.toHaveAttribute("id", firstQuestionId ?? "");
+  await expect(navigator.locator(".quiz-card")).toHaveCount(1);
+  await expect(card.getByLabel("Translate to Japanese")).toBeVisible();
+});
+
 test("translation keeps the current scroll position on lower cards", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
@@ -30,7 +51,16 @@ test("translation keeps the current scroll position on lower cards", async ({ pa
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
 
-  const lowerCard = page.locator(".quiz-card").nth(3);
+  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  const laterCardIndex = Math.min(3, total - 1);
+  test.skip(laterCardIndex < 1, "The seeded daily quiz needs more than one card for this flow.");
+
+  for (let index = 0; index < laterCardIndex; index += 1) {
+    await page.getByRole("button", { name: "Next question" }).click();
+  }
+
+  const lowerCard = page.getByLabel("Quiz questions").locator('.quiz-card[aria-current="step"]');
+  await expect(lowerCard).toHaveCount(1);
   await lowerCard.scrollIntoViewIfNeeded();
   await page.waitForTimeout(100);
   const beforeScrollY = await page.evaluate(() => window.scrollY);
