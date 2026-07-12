@@ -20,12 +20,11 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(controls).toBeVisible();
   await expect(footer).toBeVisible();
   await expect(navigator).toHaveCSS("touch-action", "pan-y");
-  await activeCard.scrollIntoViewIfNeeded();
-
-  const cardLayout = await activeCard.evaluate((card) => {
+  const getActiveCardLayout = () => activeCard.evaluate((card) => {
     const bounds = card.getBoundingClientRect();
     return {
       top: bounds.top,
+      bottom: bounds.bottom,
       left: bounds.left,
       right: bounds.right,
       viewportWidth: window.innerWidth,
@@ -33,14 +32,21 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
       documentWidth: document.documentElement.scrollWidth,
     };
   });
-  expect(cardLayout.top).toBeGreaterThanOrEqual(-1);
-  expect(cardLayout.left).toBeGreaterThanOrEqual(-1);
-  expect(cardLayout.right).toBeLessThanOrEqual(cardLayout.viewportWidth + 1);
+
+  await activeCard.scrollIntoViewIfNeeded();
+  let cardLayout = await getActiveCardLayout();
+  expect(Math.ceil(cardLayout.top)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(cardLayout.bottom)).toBeLessThanOrEqual(cardLayout.viewportHeight);
+  expect(Math.ceil(cardLayout.bottom)).toBeGreaterThanOrEqual(0);
+  expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(cardLayout.right)).toBeLessThanOrEqual(cardLayout.viewportWidth);
   expect(cardLayout.documentWidth).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
   await activeCard.evaluate((card) => card.scrollIntoView({ block: "end" }));
-  const cardBottom = await activeCard.evaluate((card) => card.getBoundingClientRect().bottom);
-  expect(cardBottom).toBeLessThanOrEqual(cardLayout.viewportHeight + 1);
+  cardLayout = await getActiveCardLayout();
+  expect(Math.ceil(cardLayout.top)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(cardLayout.bottom)).toBeLessThanOrEqual(cardLayout.viewportHeight);
+  expect(Math.ceil(cardLayout.bottom)).toBeGreaterThanOrEqual(0);
 
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   test.skip(total < 3, "Quiz card navigation flow requires at least three seeded questions.");
@@ -50,6 +56,10 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(previous).toBeDisabled();
   await expect(next).toBeVisible();
   await next.scrollIntoViewIfNeeded();
+  cardLayout = await getActiveCardLayout();
+  expect(Math.ceil(cardLayout.top)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(cardLayout.bottom)).toBeLessThanOrEqual(cardLayout.viewportHeight);
+  expect(Math.ceil(cardLayout.bottom)).toBeGreaterThanOrEqual(0);
 
   const controlsLayout = await controls.evaluate((controlsElement) => {
     const footerElement = document.querySelector(".app-nav");
@@ -284,18 +294,29 @@ test("user can add more questions after completing the current set", async ({ pa
     return {
       actionTop: actionBounds.top,
       actionBottom: actionBounds.bottom,
+      actionLeft: actionBounds.left,
+      actionRight: actionBounds.right,
       buttonTop: buttonBounds.top,
       buttonBottom: buttonBounds.bottom,
+      buttonLeft: buttonBounds.left,
+      buttonRight: buttonBounds.right,
+      viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
       actionPosition: getComputedStyle(action).position,
       controlsTop: controls.getBoundingClientRect().top,
       footerTop: footer.getBoundingClientRect().top,
     };
   });
-  expect(placement.actionTop).toBeGreaterThanOrEqual(-1);
-  expect(placement.actionBottom).toBeLessThanOrEqual(placement.viewportHeight + 1);
-  expect(placement.buttonTop).toBeGreaterThanOrEqual(-1);
-  expect(placement.buttonBottom).toBeLessThanOrEqual(placement.viewportHeight + 1);
+  expect(Math.ceil(placement.actionTop)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(placement.actionBottom)).toBeLessThanOrEqual(placement.viewportHeight);
+  expect(Math.ceil(placement.actionBottom)).toBeGreaterThanOrEqual(0);
+  expect(Math.ceil(placement.actionLeft)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(placement.actionRight)).toBeLessThanOrEqual(placement.viewportWidth);
+  expect(Math.ceil(placement.buttonTop)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(placement.buttonBottom)).toBeLessThanOrEqual(placement.viewportHeight);
+  expect(Math.ceil(placement.buttonBottom)).toBeGreaterThanOrEqual(0);
+  expect(Math.ceil(placement.buttonLeft)).toBeGreaterThanOrEqual(0);
+  expect(Math.floor(placement.buttonRight)).toBeLessThanOrEqual(placement.viewportWidth);
   expect(placement.actionPosition).toBe("sticky");
   expect(placement.actionBottom).toBeLessThanOrEqual(placement.controlsTop);
   expect(placement.actionBottom).toBeLessThanOrEqual(placement.footerTop);
