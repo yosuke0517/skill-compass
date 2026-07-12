@@ -71,6 +71,12 @@
 - Answer submission failures redirect to the existing Today error state; the navigator clears its session-only pending-answer marker when that error is rendered.
 - Focused regression coverage was added for last-card navigation, assistant conversation isolation, interactive-descendant swipes, and stale pending-answer cleanup. Verification was intentionally stopped before completion at the user's request; see the final handoff for exact executed results.
 
+### Today card navigation focused follow-up (2026-07-12)
+
+- The navigator now calculates one question-aware next target. The Next button, ArrowRight, and left swipe all use the same `goToNext` path, so the last card wraps to an earlier unanswered card when one exists and is otherwise disabled.
+- Today quiz rendering treats persisted answer rows whose evaluation has no `correct` value as unanswered. The question remains eligible for a retry instead of showing an incomplete review state.
+- Focused unit coverage verifies last-card target selection and retryable incomplete-evaluation rows. Broader E2E assertion updates, typecheck, lint, and full-suite verification were intentionally deferred at the user's request.
+
 Task 10完了時点のfull verification:
 
 ```bash

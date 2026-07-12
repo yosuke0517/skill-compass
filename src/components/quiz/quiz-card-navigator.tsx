@@ -8,7 +8,7 @@ import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 
-import { getClampedQuestionIndex, getFirstUnansweredIndex } from "./quiz-card-navigation";
+import { getClampedQuestionIndex, getNextQuestionIndex } from "./quiz-card-navigation";
 import { QuizQuestionCard } from "./quiz-question-card";
 
 type QuizCardNavigatorProps = {
@@ -50,8 +50,8 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
-  const firstUnansweredIndex = getFirstUnansweredIndex(questions);
-  const hasNextTarget = activeIndex < questions.length - 1 || firstUnansweredIndex >= 0 && firstUnansweredIndex !== activeIndex;
+  const nextIndex = getNextQuestionIndex(activeIndex, questions);
+  const hasNextTarget = nextIndex !== activeIndex;
 
   useEffect(() => {
     if (selectedIndex === activeIndex) return;
@@ -98,14 +98,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
   }
 
   function goToNext() {
-    if (activeIndex < questions.length - 1) {
-      goTo(activeIndex + 1);
-      return;
-    }
-
-    if (firstUnansweredIndex >= 0 && firstUnansweredIndex !== activeIndex) {
-      goTo(firstUnansweredIndex);
-    }
+    goTo(nextIndex);
   }
 
   function handleAnswerSubmit(questionId: string) {
@@ -125,7 +118,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
 
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      goTo(activeIndex + 1);
+      goToNext();
     }
   }
 

@@ -43,4 +43,35 @@ describe("buildTodayQuiz", () => {
     expect(quiz.questions[0]?.answer?.feedback).toBe("Correct.");
     expect(quiz.questions[1]?.answer).toBeNull();
   });
+
+  it("keeps an answer with a missing evaluation available for resubmission", () => {
+    const quiz = buildTodayQuiz({
+      quizDay: { id: "quiz_2026-07-09", quizDate: "2026-07-09" },
+      preparedQuestions: [
+        { quizDayId: "quiz_2026-07-09", questionId: "q1", slot: 1, reason: "latest_catchup" },
+      ],
+      questions: [
+        {
+          id: "q1",
+          conceptId: "c1",
+          prompt: "Question 1?",
+          choices: [{ id: "a", label: "Answer", correct: true }],
+          rationale: "Because.",
+        },
+      ],
+      answers: [
+        {
+          quizDayId: "quiz_2026-07-09",
+          questionId: "q1",
+          selectedChoiceId: "a",
+          correct: null,
+          feedback: null,
+          scoreDelta: null,
+        },
+      ],
+    });
+
+    expect(quiz.progress).toEqual({ answered: 0, total: 1 });
+    expect(quiz.questions[0]?.answer).toBeNull();
+  });
 });

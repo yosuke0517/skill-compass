@@ -13,19 +13,22 @@ describe("quiz card navigator", () => {
   });
 
   describe("getNextQuestionIndex", () => {
-    it("moves to the next question without exceeding the last index", () => {
-      expect(getNextQuestionIndex(1, 3, "next")).toBe(2);
-      expect(getNextQuestionIndex(2, 3, "next")).toBe(2);
+    it("moves to the next question and wraps from the last card when needed", () => {
+      const questions: QuestionRecord[] = [{ answer: null }, { answer: null }, { answer: null }];
+
+      expect(getNextQuestionIndex(1, questions)).toBe(2);
+      expect(getNextQuestionIndex(2, questions)).toBe(0);
     });
 
-    it("moves to the previous question without going below zero", () => {
-      expect(getNextQuestionIndex(1, 3, "previous")).toBe(0);
-      expect(getNextQuestionIndex(0, 3, "previous")).toBe(0);
+    it("wraps from the last card to an earlier unanswered question", () => {
+      const questions: QuestionRecord[] = [{ answer: {} }, { answer: null }, { answer: {} }];
+
+      expect(getNextQuestionIndex(2, questions)).toBe(1);
     });
 
-    it("returns zero for an empty question list", () => {
-      expect(getNextQuestionIndex(0, 0, "next")).toBe(0);
-      expect(getNextQuestionIndex(0, 0, "previous")).toBe(0);
+    it("keeps the last card selected when no distinct unanswered question exists", () => {
+      expect(getNextQuestionIndex(1, [{ answer: {} }, { answer: {} }])).toBe(1);
+      expect(getNextQuestionIndex(0, [])).toBe(0);
     });
   });
 

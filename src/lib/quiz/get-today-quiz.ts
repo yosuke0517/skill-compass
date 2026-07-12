@@ -154,7 +154,8 @@ export function buildTodayQuiz(input: BuildTodayQuizInput): TodayQuiz {
     const question = questionById.get(prepared.questionId);
     if (!question) continue;
 
-    const answer = answerByQuestionId.get(prepared.questionId);
+    const savedAnswer = answerByQuestionId.get(prepared.questionId);
+    const answer = savedAnswer?.correct === null ? undefined : savedAnswer;
     items.push({
       slot: prepared.slot,
       reason: prepared.reason as QuizSelectionReason,

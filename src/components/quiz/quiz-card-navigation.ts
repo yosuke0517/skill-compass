@@ -1,5 +1,3 @@
-export type QuizCardNavigationDirection = "next" | "previous";
-
 export type QuizCardQuestionRecord = {
   answer: object | null;
 };
@@ -10,15 +8,22 @@ export function getClampedQuestionIndex(index: number, total: number): number {
   return Math.min(Math.max(index, 0), total - 1);
 }
 
-export function getNextQuestionIndex(currentIndex: number, total: number, direction: QuizCardNavigationDirection): number {
-  if (total <= 0) return 0;
+export function getNextQuestionIndex(
+  currentIndex: number,
+  questions: readonly QuizCardQuestionRecord[],
+): number {
+  if (questions.length === 0) return 0;
 
-  const lastIndex = total - 1;
-  const boundedCurrentIndex = getClampedQuestionIndex(currentIndex, total);
+  const lastIndex = questions.length - 1;
+  const boundedCurrentIndex = getClampedQuestionIndex(currentIndex, questions.length);
 
-  return direction === "next"
-    ? Math.min(boundedCurrentIndex + 1, lastIndex)
-    : Math.max(boundedCurrentIndex - 1, 0);
+  if (boundedCurrentIndex < lastIndex) return boundedCurrentIndex + 1;
+
+  const firstUnansweredIndex = getFirstUnansweredIndex(questions);
+
+  return firstUnansweredIndex >= 0 && firstUnansweredIndex !== boundedCurrentIndex
+    ? firstUnansweredIndex
+    : boundedCurrentIndex;
 }
 
 export function getFirstUnansweredIndex(questions: readonly QuizCardQuestionRecord[]): number {
