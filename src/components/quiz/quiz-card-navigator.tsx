@@ -26,9 +26,12 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
 
-  if (selectedIndex !== activeIndex) {
-    setSelectedIndex(activeIndex);
-  }
+  useEffect(() => {
+    if (selectedIndex === activeIndex) return;
+
+    const frame = requestAnimationFrame(() => setSelectedIndex(activeIndex));
+    return () => cancelAnimationFrame(frame);
+  }, [activeIndex, selectedIndex]);
 
   useEffect(() => {
     if (activeIndex !== previousActiveIndex.current && activeQuestion) {
@@ -46,7 +49,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations }: QuizCa
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.target instanceof HTMLElement && event.target.matches("input, textarea, select, [contenteditable=true]")) return;
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])")) return;
 
     if (event.key === "ArrowLeft") {
       event.preventDefault();

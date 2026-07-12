@@ -12,6 +12,7 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   const navigator = page.getByLabel("Quiz questions");
   const cards = navigator.locator(".quiz-card");
   await expect(cards).toHaveCount(1);
+  await expect(navigator).toHaveCSS("touch-action", "pan-y");
 
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
@@ -38,6 +39,32 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
   await page.getByText(`2 / ${total}`, { exact: true }).click();
+  await navigator.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 300 });
+  await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 356, clientY: 300 });
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+
+  await navigator.dispatchEvent("pointerdown", { pointerId: 2, pointerType: "touch", clientX: 300, clientY: 300 });
+  await navigator.dispatchEvent("pointerup", { pointerId: 2, pointerType: "touch", clientX: 380, clientY: 400 });
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+
+  await navigator.getByRole("button", { name: "Open Today assistant" }).click();
+  await page.getByLabel("Ask the Today assistant").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+
+  await page.evaluate(() => {
+    const navigator = document.querySelector<HTMLElement>(".quiz-card-navigator");
+    if (!navigator) throw new Error("quiz navigator not found");
+    const editor = document.createElement("div");
+    editor.contentEditable = "true";
+    editor.innerHTML = '<span tabindex="0">Editable child</span>';
+    navigator.append(editor);
+    editor.querySelector<HTMLElement>("span")?.focus();
+  });
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close assistant" }).click();
+
   await navigator.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 300 });
   await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 200, clientY: 310 });
   await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
