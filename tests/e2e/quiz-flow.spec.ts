@@ -154,6 +154,15 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 200, clientY: 310 });
   await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 
+  await next.dispatchEvent("pointerdown", { pointerId: 4, pointerType: "touch", clientX: 300, clientY: 300 });
+  await next.dispatchEvent("pointerup", { pointerId: 4, pointerType: "touch", clientX: 200, clientY: 300 });
+  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+
+  const cardInput = cards.locator('input[name="selectedChoiceId"]').first();
+  await cardInput.dispatchEvent("pointerdown", { pointerId: 5, pointerType: "touch", clientX: 300, clientY: 300 });
+  await cardInput.dispatchEvent("pointerup", { pointerId: 5, pointerType: "touch", clientX: 200, clientY: 300 });
+  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+
   let activeQuestionNumber = 3;
   while (activeQuestionNumber < total && (await cards.getByRole("heading").innerText()) === firstQuestion) {
     await next.click();
@@ -173,12 +182,16 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
     await next.click();
     activeQuestionNumber += 1;
   }
-  await expect(next).toBeDisabled();
 
   const unansweredIndicator = navigator.locator(".quiz-card-indicators .unanswered").first();
   await expect(unansweredIndicator).toBeVisible();
   const unansweredNumber = Number((await unansweredIndicator.getAttribute("aria-label"))?.match(/Question (\d+)/)?.[1]);
   expect(unansweredNumber).toBeGreaterThan(0);
+
+  await expect(next).toBeEnabled();
+  await next.click();
+  activeQuestionNumber = unansweredNumber;
+  await expect(page.getByText(`${unansweredNumber} / ${total}`, { exact: true })).toBeVisible();
 
   while (activeQuestionNumber < unansweredNumber) {
     await next.click();
@@ -265,6 +278,24 @@ test("answering a skipped card preserves its review and advances to the next una
   await page.getByRole("button", { name: "Previous question" }).click();
   await expect(card.getByRole("heading")).toHaveText(firstQuestion);
   await expect(card.getByRole("button", { name: "Submit answer" })).toBeVisible();
+});
+
+test("Today errors clear the pending answer marker without changing the active question", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.getByRole("link", { name: "Today" }).click();
+
+  const quizDayId = await page.locator('input[name="quizDayId"]').first().inputValue();
+  const initialQuestion = await page.locator('.quiz-card[aria-current="step"] h2').innerText();
+  await page.evaluate((key) => window.sessionStorage.setItem(key, "stale-question-id"), `skill-compass:pending-quiz-answer:${quizDayId}`);
+  await page.goto("/today?error=submit-failed");
+
+  await expect(page.getByText("Unable to submit your answer. Please try again.")).toBeVisible();
+  await expect(page.locator('.quiz-card[aria-current="step"] h2')).toHaveText(initialQuestion);
+  const pendingAnswerStorageKey = `skill-compass:pending-quiz-answer:${quizDayId}`;
+  await expect.poll(() => page.evaluate((storageKey) => window.sessionStorage.getItem(storageKey), pendingAnswerStorageKey)).toBeNull();
 });
 
 test("user can add more questions after completing the current set", async ({ page }) => {

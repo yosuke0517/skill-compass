@@ -40,4 +40,17 @@ describe("submitQuizAnswerAction", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard");
     expect(mocks.redirect).toHaveBeenCalledWith("/today");
   });
+
+  it("redirects to the Today error state when answer submission fails", async () => {
+    mocks.submitTodayAnswer.mockRejectedValue(new Error("evaluation unavailable"));
+    const formData = new FormData();
+    formData.set("quizDayId", "quiz_2026-07-12");
+    formData.set("questionId", "question_typescript");
+    formData.set("selectedChoiceId", "choice_b");
+
+    await expect(submitQuizAnswerAction(formData)).rejects.toThrow("redirect:/today?error=submit-failed");
+
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(mocks.redirect).toHaveBeenCalledWith("/today?error=submit-failed");
+  });
 });

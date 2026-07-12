@@ -17,13 +17,17 @@ export async function submitQuizAnswerAction(formData: FormData) {
     redirect("/today?error=missing-answer");
   }
 
-  await submitTodayAnswer({
-    quizDayId,
-    questionId,
-    selectedChoiceId,
-    confidence,
-    reasoning,
-  });
+  try {
+    await submitTodayAnswer({
+      quizDayId,
+      questionId,
+      selectedChoiceId,
+      confidence,
+      reasoning,
+    });
+  } catch {
+    redirect("/today?error=submit-failed");
+  }
 
   revalidatePath("/today");
   revalidatePath("/dashboard");

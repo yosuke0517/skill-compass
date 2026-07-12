@@ -8,7 +8,7 @@ import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
 
-import { getClampedQuestionIndex } from "./quiz-card-navigation";
+import { getClampedQuestionIndex, getFirstUnansweredIndex } from "./quiz-card-navigation";
 import { QuizQuestionCard } from "./quiz-question-card";
 
 type QuizCardNavigatorProps = {
@@ -16,13 +16,32 @@ type QuizCardNavigatorProps = {
   questions: TodayQuizQuestion[];
   translations: Record<string, TranslatedQuizCard>;
   navigatorAction?: ReactNode;
+  error?: string;
 };
+
+const interactiveDescendantSelector = [
+  "a",
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "label",
+  "summary",
+  "[contenteditable]",
+  "[role='button']",
+  "[role='link']",
+  "[role='textbox']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+  "[tabindex]:not([tabindex='-1'])",
+].join(", ");
 
 function getPendingAnswerStorageKey(quizDayId: string) {
   return `skill-compass:pending-quiz-answer:${quizDayId}`;
 }
 
-export function QuizCardNavigator({ quizDayId, questions, translations, navigatorAction }: QuizCardNavigatorProps) {
+export function QuizCardNavigator({ quizDayId, questions, translations, navigatorAction, error }: QuizCardNavigatorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const activeIndex = getClampedQuestionIndex(selectedIndex, questions.length);
   const previousActiveIndex = useRef(activeIndex);
@@ -31,6 +50,8 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.answer !== null).length;
   const unansweredCount = questions.length - answeredCount;
+  const firstUnansweredIndex = getFirstUnansweredIndex(questions);
+  const hasNextTarget = activeIndex < questions.length - 1 || firstUnansweredIndex >= 0 && firstUnansweredIndex !== activeIndex;
 
   useEffect(() => {
     if (selectedIndex === activeIndex) return;
@@ -47,6 +68,11 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
   }, [activeIndex, activeQuestion]);
 
   useEffect(() => {
+    if (error) {
+      window.sessionStorage.removeItem(getPendingAnswerStorageKey(quizDayId));
+      return;
+    }
+
     const pendingQuestionId = window.sessionStorage.getItem(getPendingAnswerStorageKey(quizDayId));
     if (!pendingQuestionId) return;
 
@@ -61,7 +87,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
       setSelectedIndex(nextUnansweredIndex >= 0 ? nextUnansweredIndex : submittedIndex);
     });
     return () => cancelAnimationFrame(frame);
-  }, [quizDayId, questions]);
+  }, [error, quizDayId, questions]);
 
   if (!activeQuestion) {
     return <p className="form-error">No quiz questions are available.</p>;
@@ -69,6 +95,17 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
 
   function goTo(index: number) {
     setSelectedIndex(getClampedQuestionIndex(index, questions.length));
+  }
+
+  function goToNext() {
+    if (activeIndex < questions.length - 1) {
+      goTo(activeIndex + 1);
+      return;
+    }
+
+    if (firstUnansweredIndex >= 0 && firstUnansweredIndex !== activeIndex) {
+      goTo(firstUnansweredIndex);
+    }
   }
 
   function handleAnswerSubmit(questionId: string) {
@@ -93,6 +130,11 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
   }
 
   function handlePointerDown(event: PointerEvent<HTMLElement>) {
+    if (isInteractiveDescendant(event.target)) {
+      pointerStart.current = null;
+      return;
+    }
+
     pointerStart.current = { x: event.clientX, y: event.clientY };
   }
 
@@ -100,14 +142,19 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
     const start = pointerStart.current;
     pointerStart.current = null;
 
-    if (!start) return;
+    if (!start || isInteractiveDescendant(event.target)) return;
 
     const horizontalDistance = event.clientX - start.x;
     const verticalDistance = event.clientY - start.y;
 
     if (Math.abs(horizontalDistance) <= 56 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) return;
 
-    goTo(activeIndex + (horizontalDistance < 0 ? 1 : -1));
+    if (horizontalDistance < 0) {
+      goToNext();
+      return;
+    }
+
+    goTo(activeIndex - 1);
   }
 
   return (
@@ -156,13 +203,17 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
           <ChevronLeft size={18} aria-hidden="true" />
           Previous
         </button>
-        <button type="button" aria-label="Next question" disabled={activeIndex === questions.length - 1} onClick={() => goTo(activeIndex + 1)}>
+        <button type="button" aria-label="Next question" disabled={!hasNextTarget} onClick={goToNext}>
           Next
           <ChevronRight size={18} aria-hidden="true" />
         </button>
       </nav>
 
-      <TodayAssistantWidget questionId={activeQuestion.question.id} />
+      <TodayAssistantWidget key={activeQuestion.question.id} questionId={activeQuestion.question.id} />
     </section>
   );
+}
+
+function isInteractiveDescendant(target: EventTarget | null) {
+  return target instanceof Element && target.closest(interactiveDescendantSelector) !== null;
 }

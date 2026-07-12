@@ -64,6 +64,13 @@
 - Today quizのmobile E2Eは、390x844 viewportでcard heightをviewportと比較し、card先頭から末尾へscrollした際にcard bottomとbottom-most interactive/content elementがviewport内に収まることを確認する。水平boundsとviewport intersection checksも維持する。
 - Focused verification passed: `pnpm exec playwright test tests/e2e/quiz-flow.spec.ts --project=chromium --workers=1 -g 'today keeps one card focused'`; `git diff --check` also passed.
 
+### Today card navigation final review follow-up (2026-07-12)
+
+- On the last card, Next now returns to the first earlier unanswered card and is disabled only when no unanswered destination remains.
+- The Today assistant is keyed by active question id, and navigator gestures ignore interactive descendants such as assistant controls, form fields, links, and editable content.
+- Answer submission failures redirect to the existing Today error state; the navigator clears its session-only pending-answer marker when that error is rendered.
+- Focused regression coverage was added for last-card navigation, assistant conversation isolation, interactive-descendant swipes, and stale pending-answer cleanup. Verification was intentionally stopped before completion at the user's request; see the final handoff for exact executed results.
+
 Task 10完了時点のfull verification:
 
 ```bash

@@ -76,6 +76,12 @@ test("user can ask the Today assistant from the floating button", async ({ page 
   expect(requests[0]?.questionId).toBe(displayedQuestionId);
   expect(requests[0]?.messages?.at(-1)).toEqual({ role: "user", text: "この問題を説明して" });
   expect(requests[0]?.messages?.some((message) => message.role === "assistant")).toBe(true);
+
+  await page.getByRole("button", { name: "Close assistant" }).click();
+  await page.getByRole("button", { name: "Previous question" }).click();
+  await page.getByLabel("Open Today assistant").click();
+  await expect(page.getByText("この問題を説明して")).toBeHidden();
+  await expect(page.getByText("API契約の互換性を見る問題です")).toBeHidden();
 });
 
 test("Today assistant sends previous chat turns with follow-up questions", async ({ page }) => {

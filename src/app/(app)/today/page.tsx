@@ -28,11 +28,13 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       </section>
 
       {error === "missing-answer" ? <p className="form-error">Choose an answer.</p> : null}
+      {error === "submit-failed" ? <p className="form-error">Unable to submit your answer. Please try again.</p> : null}
 
       <QuizCardNavigator
         quizDayId={quiz.quizDayId}
         questions={quiz.questions}
         translations={translations}
+        error={error}
         navigatorAction={canAddMore ? (
           <form action={addMoreQuizQuestionsAction} className="add-questions-action">
           <input type="hidden" name="quizDayId" value={quiz.quizDayId} />
