@@ -14,6 +14,19 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(cards).toHaveCount(1);
   await expect(navigator).toHaveCSS("touch-action", "pan-y");
 
+  const cardLayout = await cards.evaluate((card) => {
+    const bounds = card.getBoundingClientRect();
+    return {
+      left: bounds.left,
+      right: bounds.right,
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    };
+  });
+  expect(cardLayout.left).toBeGreaterThanOrEqual(0);
+  expect(cardLayout.right).toBeLessThanOrEqual(cardLayout.viewportWidth);
+  expect(cardLayout.documentWidth).toBeLessThanOrEqual(cardLayout.viewportWidth);
+
   const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   test.skip(total < 3, "Quiz card navigation flow requires at least three seeded questions.");
   await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
@@ -21,6 +34,19 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   const next = page.getByRole("button", { name: "Next question" });
   await expect(previous).toBeDisabled();
   await expect(next).toBeVisible();
+  await next.scrollIntoViewIfNeeded();
+
+  const controlsLayout = await page.evaluate(() => {
+    const controls = document.querySelector(".quiz-card-controls");
+    const footer = document.querySelector(".app-nav");
+    if (!controls || !footer) throw new Error("Quiz controls or fixed footer not found");
+
+    return {
+      controlsBottom: controls.getBoundingClientRect().bottom,
+      footerTop: footer.getBoundingClientRect().top,
+    };
+  });
+  expect(controlsLayout.controlsBottom).toBeLessThanOrEqual(controlsLayout.footerTop);
 
   const firstQuestion = await cards.getByRole("heading").innerText();
 
@@ -235,14 +261,17 @@ test("user can add more questions after completing the current set", async ({ pa
   const placement = await addButton.evaluate((element) => {
     const action = element.closest(".add-questions-action");
     const controls = document.querySelector(".quiz-card-controls");
+    const footer = document.querySelector(".app-nav");
     return {
       actionPosition: action ? getComputedStyle(action).position : "",
       actionBottom: action?.getBoundingClientRect().bottom ?? 0,
       controlsTop: controls?.getBoundingClientRect().top ?? 0,
+      footerTop: footer?.getBoundingClientRect().top ?? 0,
     };
   });
   expect(placement.actionPosition).toBe("sticky");
   expect(placement.actionBottom).toBeLessThanOrEqual(placement.controlsTop);
+  expect(placement.actionBottom).toBeLessThanOrEqual(placement.footerTop);
   await addButton.click();
   await expect
     .poll(async () => {
