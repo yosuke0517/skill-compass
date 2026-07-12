@@ -12,17 +12,12 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <div className="screen-title">
-        <p className="eyebrow">Daily practice</p>
-        <h1>Today</h1>
-      </div>
-
       <section className="today-quiz-summary">
         <div>
-          <p className="metric-label">Progress</p>
           <strong>
             {quiz.progress.answered} / {quiz.progress.total || 5}
           </strong>
+          <span>answered</span>
         </div>
         <span>{quiz.quizDate}</span>
       </section>
