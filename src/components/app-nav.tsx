@@ -22,7 +22,12 @@ export function AppNav() {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
         return (
-          <Link key={item.href} href={item.href} title={item.label} aria-current={active ? "page" : undefined}>
+          <Link
+            key={item.href}
+            href={item.href}
+            title={item.label}
+            aria-current={active ? "page" : undefined}
+          >
             <Icon size={18} aria-hidden="true" />
             <span>{item.label}</span>
           </Link>

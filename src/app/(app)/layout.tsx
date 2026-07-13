@@ -7,7 +7,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   await requireSession();
 
   return (
-    <main className="mobile-shell dashboard-shell">
+    <main className="mobile-shell">
       <section className="app-surface app-frame">
         {children}
         <AppNav />
