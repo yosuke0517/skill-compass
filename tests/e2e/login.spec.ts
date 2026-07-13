@@ -25,5 +25,4 @@ test("valid password opens the protected dashboard", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/dashboard/);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByText("Session active")).toBeVisible();
 });

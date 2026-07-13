@@ -5,6 +5,7 @@ test("admin can open the access control workspace", async ({ page }) => {
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
   await page.goto("/admin/access");
 
   await expect(page.getByRole("heading", { name: "アクセス管理" })).toBeVisible();
@@ -18,6 +19,7 @@ test("normal user cannot open the admin workspace", async ({ page }) => {
   await page.getByLabel("Email").fill("member@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
   await page.goto("/admin/access");
 
   await expect(page).toHaveURL(/\/settings\?error=admin-required/);
