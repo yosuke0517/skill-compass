@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
-test("today keeps one card focused while navigating and revisiting unanswered questions", async ({ page }) => {
+test("today keeps one card focused while navigating and revisiting unanswered questions", async ({
+  page,
+}) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
@@ -14,36 +16,71 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   const activeCard = navigator.locator('.quiz-card[aria-current="step"]');
   const controls = page.getByRole("navigation", { name: "Question navigation" });
   const footer = page.getByRole("navigation", { name: "Primary" });
+  const summary = page.locator(".today-quiz-summary");
+  const indicators = navigator.locator(".quiz-card-indicators");
   await expect(cards).toHaveCount(1);
   await expect(activeCard).toHaveCount(1);
   await expect(activeCard).toBeVisible();
   await expect(controls).toBeVisible();
   await expect(footer).toBeVisible();
+  await expect(summary).toBeVisible();
   await expect(navigator).toHaveCSS("touch-action", "pan-y");
-  const getActiveCardLayout = () => activeCard.evaluate((card) => {
-    const bounds = card.getBoundingClientRect();
-    const bottomMost = [...card.querySelectorAll<HTMLElement>(
-      'button, input, textarea, select, a, label, p, li, [contenteditable="true"], [role="button"], [role="textbox"]',
-    )]
-      .map((element) => ({ element, bounds: element.getBoundingClientRect() }))
-      .filter(({ element, bounds }) => {
-        const style = window.getComputedStyle(element);
-        return style.visibility !== "hidden" && style.display !== "none" && bounds.width > 0 && bounds.height > 0;
-      })
-      .sort((a, b) => b.bounds.bottom - a.bounds.bottom)[0];
+
+  const summaryLayout = await summary.evaluate((element) => {
+    const style = window.getComputedStyle(element);
     return {
-      top: bounds.top,
-      bottom: bounds.bottom,
-      height: bounds.height,
-      left: bounds.left,
-      right: bounds.right,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-      documentWidth: document.documentElement.scrollWidth,
-      bottomMostContentBottom: bottomMost?.bounds.bottom ?? null,
-      bottomMostContentTop: bottomMost?.bounds.top ?? null,
+      height: element.getBoundingClientRect().height,
+      radius: Number.parseFloat(style.borderTopLeftRadius),
     };
   });
+  expect(summaryLayout.height).toBeLessThanOrEqual(52);
+  expect(summaryLayout.radius).toBeLessThanOrEqual(8);
+
+  const indicatorButtons = indicators.getByRole("button", { name: /Go to question \d+/ });
+  const total = Number((await summary.locator("strong").innerText()).split("/")[1]?.trim());
+  const unansweredCount = await indicators.locator(".unanswered").count();
+  await expect(indicatorButtons).toHaveCount(total);
+  await expect(indicatorButtons.first()).toHaveAccessibleName(
+    /Go to question 1, (answered|unanswered)/,
+  );
+  const indicatorSize = await indicatorButtons.first().evaluate((button) => {
+    const bounds = button.getBoundingClientRect();
+    return { height: bounds.height, width: bounds.width };
+  });
+  expect(indicatorSize.height).toBeLessThanOrEqual(32);
+  expect(indicatorSize.width).toBeLessThanOrEqual(32);
+  const getActiveCardLayout = () =>
+    activeCard.evaluate((card) => {
+      const bounds = card.getBoundingClientRect();
+      const bottomMost = [
+        ...card.querySelectorAll<HTMLElement>(
+          'button, input, textarea, select, a, label, p, li, [contenteditable="true"], [role="button"], [role="textbox"]',
+        ),
+      ]
+        .map((element) => ({ element, bounds: element.getBoundingClientRect() }))
+        .filter(({ element, bounds }) => {
+          const style = window.getComputedStyle(element);
+          return (
+            style.visibility !== "hidden" &&
+            style.display !== "none" &&
+            bounds.width > 0 &&
+            bounds.height > 0
+          );
+        })
+        .sort((a, b) => b.bounds.bottom - a.bounds.bottom)[0];
+      return {
+        top: bounds.top,
+        bottom: bounds.bottom,
+        height: bounds.height,
+        left: bounds.left,
+        right: bounds.right,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        documentWidth: document.documentElement.scrollWidth,
+        bottomMostContentBottom: bottomMost?.bounds.bottom ?? null,
+        bottomMostContentTop: bottomMost?.bounds.top ?? null,
+      };
+    });
 
   await activeCard.evaluate((card) => card.scrollIntoView({ block: "start" }));
   const cardStartLayout = await getActiveCardLayout();
@@ -68,9 +105,9 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
   expect(Math.floor(cardLayout.right)).toBeLessThanOrEqual(cardLayout.viewportWidth);
 
-  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
   test.skip(total < 3, "Quiz card navigation flow requires at least three seeded questions.");
-  await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+  test.skip(unansweredCount < 3, "Quiz card navigation flow requires three unanswered questions.");
+  await expect(navigator.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
   const previous = page.getByRole("button", { name: "Previous question" });
   const next = page.getByRole("button", { name: "Next question" });
   await expect(previous).toBeDisabled();
@@ -96,21 +133,21 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   const firstQuestion = await cards.getByRole("heading").innerText();
 
   await next.click();
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
   await expect(cards).toHaveCount(1);
   await expect(cards.getByRole("heading")).toBeFocused();
   await expect(previous).toBeEnabled();
 
-  await navigator.getByRole("button", { name: "Go to question 1" }).click();
-  await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+  await navigator.getByRole("button", { name: /^Go to question 1,/ }).click();
+  await expect(navigator.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
 
   await navigator.focus();
   await page.keyboard.press("ArrowLeft");
-  await expect(page.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
   await expect(previous).toBeDisabled();
 
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
   await page.evaluate(() => {
     const navigator = document.querySelector<HTMLElement>(".quiz-card-navigator");
@@ -122,23 +159,43 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
     editor.querySelector<HTMLElement>("span")?.focus();
   });
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
   await page.keyboard.press("ArrowLeft");
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
-  await page.getByText(`2 / ${total}`, { exact: true }).click();
-  await navigator.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 300 });
-  await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 356, clientY: 300 });
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await navigator.getByText(`2 / ${total}`, { exact: true }).click();
+  await navigator.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    clientX: 300,
+    clientY: 300,
+  });
+  await navigator.dispatchEvent("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    clientX: 356,
+    clientY: 300,
+  });
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
-  await navigator.dispatchEvent("pointerdown", { pointerId: 2, pointerType: "touch", clientX: 300, clientY: 300 });
-  await navigator.dispatchEvent("pointerup", { pointerId: 2, pointerType: "touch", clientX: 380, clientY: 400 });
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await navigator.dispatchEvent("pointerdown", {
+    pointerId: 2,
+    pointerType: "touch",
+    clientX: 300,
+    clientY: 300,
+  });
+  await navigator.dispatchEvent("pointerup", {
+    pointerId: 2,
+    pointerType: "touch",
+    clientX: 380,
+    clientY: 400,
+  });
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
   await navigator.getByRole("button", { name: "Open Today assistant" }).click();
   await page.getByLabel("Ask the Today assistant").focus();
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 
   await page.evaluate(() => {
     const navigator = document.querySelector<HTMLElement>(".quiz-card-navigator");
@@ -150,24 +207,57 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
     editor.querySelector<HTMLElement>("span")?.focus();
   });
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close assistant" }).click();
 
-  await navigator.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 300 });
-  await navigator.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: 200, clientY: 310 });
-  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+  await navigator.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    clientX: 300,
+    clientY: 300,
+  });
+  await navigator.dispatchEvent("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    clientX: 200,
+    clientY: 310,
+  });
+  await expect(navigator.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 
-  await next.dispatchEvent("pointerdown", { pointerId: 4, pointerType: "touch", clientX: 300, clientY: 300 });
-  await next.dispatchEvent("pointerup", { pointerId: 4, pointerType: "touch", clientX: 200, clientY: 300 });
-  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+  await next.dispatchEvent("pointerdown", {
+    pointerId: 4,
+    pointerType: "touch",
+    clientX: 300,
+    clientY: 300,
+  });
+  await next.dispatchEvent("pointerup", {
+    pointerId: 4,
+    pointerType: "touch",
+    clientX: 200,
+    clientY: 300,
+  });
+  await expect(navigator.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 
   const cardInput = cards.locator('input[name="selectedChoiceId"]').first();
-  await cardInput.dispatchEvent("pointerdown", { pointerId: 5, pointerType: "touch", clientX: 300, clientY: 300 });
-  await cardInput.dispatchEvent("pointerup", { pointerId: 5, pointerType: "touch", clientX: 200, clientY: 300 });
-  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+  await cardInput.dispatchEvent("pointerdown", {
+    pointerId: 5,
+    pointerType: "touch",
+    clientX: 300,
+    clientY: 300,
+  });
+  await cardInput.dispatchEvent("pointerup", {
+    pointerId: 5,
+    pointerType: "touch",
+    clientX: 200,
+    clientY: 300,
+  });
+  await expect(navigator.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 
   let activeQuestionNumber = 3;
-  while (activeQuestionNumber < total && (await cards.getByRole("heading").innerText()) === firstQuestion) {
+  while (
+    activeQuestionNumber < total &&
+    (await cards.getByRole("heading").innerText()) === firstQuestion
+  ) {
     await next.click();
     activeQuestionNumber += 1;
   }
@@ -188,13 +278,17 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
 
   const unansweredIndicator = navigator.locator(".quiz-card-indicators .unanswered").first();
   await expect(unansweredIndicator).toBeVisible();
-  const unansweredNumber = Number((await unansweredIndicator.getAttribute("aria-label"))?.match(/Question (\d+)/)?.[1]);
+  const unansweredNumber = Number(
+    (await unansweredIndicator.getAttribute("aria-label"))?.match(/question (\d+)/i)?.[1],
+  );
   expect(unansweredNumber).toBeGreaterThan(0);
 
   await expect(next).toBeEnabled();
   await next.click();
   activeQuestionNumber = unansweredNumber;
-  await expect(page.getByText(`${unansweredNumber} / ${total}`, { exact: true })).toBeVisible();
+  await expect(
+    navigator.getByText(`${unansweredNumber} / ${total}`, { exact: true }),
+  ).toBeVisible();
 
   while (activeQuestionNumber < unansweredNumber) {
     await next.click();
@@ -229,7 +323,10 @@ test("user can answer a daily quiz question", async ({ page }) => {
   await expect(page).toHaveURL(/\/today/);
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
 
-  const firstUnanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) }).first();
+  const firstUnanswered = page
+    .locator(".quiz-card")
+    .filter({ has: page.getByRole("button", { name: "Submit answer" }) })
+    .first();
   const unansweredCount = await firstUnanswered.count();
 
   if (unansweredCount > 0) {
@@ -240,7 +337,7 @@ test("user can answer a daily quiz question", async ({ page }) => {
     await expect(page).toHaveURL(/\/today/);
     const activeCard = page.locator('.quiz-card[aria-current="step"]');
     for (let index = 0; index < 30; index += 1) {
-      if (await activeCard.getByRole("heading").getAttribute("id") === submittedQuestionId) break;
+      if ((await activeCard.getByRole("heading").getAttribute("id")) === submittedQuestionId) break;
       const previous = page.getByRole("button", { name: "Previous question" });
       if (await previous.isDisabled()) break;
       await previous.click();
@@ -251,13 +348,19 @@ test("user can answer a daily quiz question", async ({ page }) => {
   const answeredCard = page.locator('.quiz-card[aria-current="step"]');
   await expect(answeredCard.locator(".answer-feedback")).toBeVisible();
   await expect(answeredCard.getByLabel("Answer review")).toBeVisible();
-  await expect(answeredCard.locator(".answer-review-summary").filter({ hasText: "Your answer" })).toBeVisible();
-  await expect(answeredCard.locator(".answer-review-summary").filter({ hasText: "Correct answer" })).toBeVisible();
+  await expect(
+    answeredCard.locator(".answer-review-summary").filter({ hasText: "Your answer" }),
+  ).toBeVisible();
+  await expect(
+    answeredCard.locator(".answer-review-summary").filter({ hasText: "Correct answer" }),
+  ).toBeVisible();
   await expect(answeredCard.locator(".answer-badge.selected")).toBeVisible();
   await expect(answeredCard.locator(".answer-badge.correct")).toBeVisible();
 });
 
-test("answering a skipped card preserves its review and advances to the next unanswered card", async ({ page }) => {
+test("answering a skipped card preserves its review and advances to the next unanswered card", async ({
+  page,
+}) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
@@ -266,7 +369,9 @@ test("answering a skipped card preserves its review and advances to the next una
 
   const navigator = page.getByLabel("Quiz questions");
   const card = navigator.locator(".quiz-card");
-  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  const total = Number(
+    (await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim(),
+  );
   const firstQuestion = await card.getByRole("heading").innerText();
 
   test.skip(total < 3, "The seeded daily quiz needs three cards for this flow.");
@@ -275,13 +380,15 @@ test("answering a skipped card preserves its review and advances to the next una
   const submittedQuestion = await card.getByRole("heading").innerText();
   await card.locator('input[name="selectedChoiceId"]').first().check();
   await card.locator('input[name="confidence"][value="4"]').check();
-  await card.locator('textarea[name="reasoning"]').fill("I compared the contract before choosing this answer.");
+  await card
+    .locator('textarea[name="reasoning"]')
+    .fill("I compared the contract before choosing this answer.");
   await card.getByRole("button", { name: "Submit answer" }).click();
 
   await expect(page).toHaveURL(/\/today/);
   await expect(card.getByRole("heading")).not.toHaveText(submittedQuestion);
   await expect(card.getByRole("heading")).not.toHaveText(firstQuestion);
-  await expect(page.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
+  await expect(navigator.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Previous question" }).click();
   await expect(card.getByRole("heading")).toHaveText(submittedQuestion);
@@ -293,7 +400,9 @@ test("answering a skipped card preserves its review and advances to the next una
   await expect(card.getByRole("button", { name: "Submit answer" })).toBeVisible();
 });
 
-test("Today errors clear the pending answer marker without changing the active question", async ({ page }) => {
+test("Today errors clear the pending answer marker without changing the active question", async ({
+  page,
+}) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
@@ -302,13 +411,23 @@ test("Today errors clear the pending answer marker without changing the active q
 
   const quizDayId = await page.locator('input[name="quizDayId"]').first().inputValue();
   const initialQuestion = await page.locator('.quiz-card[aria-current="step"] h2').innerText();
-  await page.evaluate((key) => window.sessionStorage.setItem(key, "stale-question-id"), `skill-compass:pending-quiz-answer:${quizDayId}`);
+  await page.evaluate(
+    (key) => window.sessionStorage.setItem(key, "stale-question-id"),
+    `skill-compass:pending-quiz-answer:${quizDayId}`,
+  );
   await page.goto("/today?error=submit-failed");
 
   await expect(page.getByText("Unable to submit your answer. Please try again.")).toBeVisible();
   await expect(page.locator('.quiz-card[aria-current="step"] h2')).toHaveText(initialQuestion);
   const pendingAnswerStorageKey = `skill-compass:pending-quiz-answer:${quizDayId}`;
-  await expect.poll(() => page.evaluate((storageKey) => window.sessionStorage.getItem(storageKey), pendingAnswerStorageKey)).toBeNull();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (storageKey) => window.sessionStorage.getItem(storageKey),
+        pendingAnswerStorageKey,
+      ),
+    )
+    .toBeNull();
 });
 
 test("user can add more questions after completing the current set", async ({ page }) => {
@@ -318,25 +437,30 @@ test("user can add more questions after completing the current set", async ({ pa
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
 
-  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  const total = Number(
+    (await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim(),
+  );
+  test.skip(total >= 30, "The shared test account has reached the daily question limit.");
+  test.skip(total > 5, "Add 5 setup requires the base daily question set.");
 
   const maxSetupAttempts = total;
   for (let attempt = 0; attempt < maxSetupAttempts; attempt += 1) {
     const addButton = page.getByRole("button", { name: "Add 5" });
     if ((await addButton.count()) > 0) break;
 
+    const unansweredIndicator = page.locator(".quiz-card-indicators .unanswered").first();
+    if ((await unansweredIndicator.count()) === 0) break;
+    await unansweredIndicator.click();
+
     const activeCard = page.locator('.quiz-card[aria-current="step"]');
     await expect(activeCard).toHaveCount(1);
     const submitButton = activeCard.getByRole("button", { name: "Submit answer" });
-    if ((await submitButton.count()) === 0) {
-      const nextButton = page.getByRole("button", { name: "Next question" });
-      if (await nextButton.isDisabled()) break;
-      await nextButton.click();
-      continue;
-    }
+    await expect(submitButton).toHaveCount(1);
 
     await activeCard.locator('input[name="selectedChoiceId"]').first().check();
-    await activeCard.locator('textarea[name="reasoning"]').fill("I am finishing the current set before adding more practice.");
+    await activeCard
+      .locator('textarea[name="reasoning"]')
+      .fill("I am finishing the current set before adding more practice.");
     await submitButton.click();
     await expect(page).toHaveURL(/\/today/);
   }
@@ -353,12 +477,14 @@ test("user can add more questions after completing the current set", async ({ pa
   await expect(addButton).toBeVisible();
   await expect(controls).toBeVisible();
   await expect(footer).toBeVisible();
+  await addAction.scrollIntoViewIfNeeded();
 
   const placement = await addButton.evaluate((element) => {
     const action = element.closest(".add-questions-action");
     const controls = document.querySelector(".quiz-card-controls");
     const footer = document.querySelector(".app-nav");
-    if (!action || !controls || !footer) throw new Error("Add action, quiz controls, or fixed footer not found");
+    if (!action || !controls || !footer)
+      throw new Error("Add action, quiz controls, or fixed footer not found");
     const actionBounds = action.getBoundingClientRect();
     const buttonBounds = element.getBoundingClientRect();
     return {

@@ -12,27 +12,51 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
   const activeCard = navigator.locator('.quiz-card[aria-current="step"]');
   await expect(navigator.locator(".quiz-card")).toHaveCount(1);
   await expect(activeCard.getByLabel("Translate to Japanese")).toHaveCount(1);
+  const contentOrder = await activeCard.evaluate((card) =>
+    Array.from(card.querySelectorAll("h2, button, input, textarea")).map((element) => ({
+      tag: element.tagName,
+      label: element.getAttribute("aria-label"),
+      name: element.getAttribute("name"),
+    })),
+  );
+  const promptIndex = contentOrder.findIndex((element) => element.tag === "H2");
+  const translationIndex = contentOrder.findIndex(
+    (element) => element.label === "Translate to Japanese",
+  );
+  const choiceIndex = contentOrder.findIndex((element) => element.name === "selectedChoiceId");
+  expect(promptIndex).toBeGreaterThanOrEqual(0);
+  expect(translationIndex).toBeGreaterThan(promptIndex);
+  if (choiceIndex >= 0) expect(choiceIndex).toBeGreaterThan(translationIndex);
   await activeCard.getByLabel("Translate to Japanese").click();
 
   const translation = activeCard.getByLabel("Japanese translation");
   await expect(translation).toBeVisible();
   await expect(translation).toContainText(/[ぁ-んァ-ン一-龯]/);
 
-  const unanswered = page.locator(".quiz-card").filter({ has: page.getByRole("button", { name: "Submit answer" }) }).first();
+  const unanswered = page
+    .locator(".quiz-card")
+    .filter({ has: page.getByRole("button", { name: "Submit answer" }) })
+    .first();
   if ((await unanswered.count()) > 0) {
     const submittedQuestionId = await unanswered.getByRole("heading").getAttribute("id");
     await unanswered.locator('input[name="selectedChoiceId"]').first().check();
-    await unanswered.locator('textarea[name="reasoning"]').fill("I checked the translated aid and compared it with the English prompt.");
+    await unanswered
+      .locator('textarea[name="reasoning"]')
+      .fill("I checked the translated aid and compared it with the English prompt.");
     await unanswered.getByRole("button", { name: "Submit answer" }).click();
     await expect(page).toHaveURL(/\/today/);
     const activeAfterSubmit = page.locator('.quiz-card[aria-current="step"]');
     for (let index = 0; index < 30; index += 1) {
-      if (await activeAfterSubmit.getByRole("heading").getAttribute("id") === submittedQuestionId) break;
+      if ((await activeAfterSubmit.getByRole("heading").getAttribute("id")) === submittedQuestionId)
+        break;
       const previous = page.getByRole("button", { name: "Previous question" });
       if (await previous.isDisabled()) break;
       await previous.click();
     }
-    await expect(activeAfterSubmit.getByRole("heading")).toHaveAttribute("id", submittedQuestionId ?? "");
+    await expect(activeAfterSubmit.getByRole("heading")).toHaveAttribute(
+      "id",
+      submittedQuestionId ?? "",
+    );
     await expect(activeAfterSubmit.locator(".answer-feedback")).toBeVisible();
   }
 });
@@ -46,7 +70,9 @@ test("translation controls move with the active card", async ({ page }) => {
 
   const navigator = page.getByLabel("Quiz questions");
   const card = navigator.locator('.quiz-card[aria-current="step"]');
-  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  const total = Number(
+    (await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim(),
+  );
   test.skip(total <= 1, "Translation card navigation requires more than one seeded question.");
   const firstQuestionId = await card.getByRole("heading").getAttribute("id");
   await page.getByRole("button", { name: "Next question" }).click();
@@ -63,7 +89,9 @@ test("translation keeps the current scroll position on lower cards", async ({ pa
   await page.getByRole("button", { name: "Log in" }).click();
   await page.getByRole("link", { name: "Today" }).click();
 
-  const total = Number((await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim());
+  const total = Number(
+    (await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim(),
+  );
   const laterCardIndex = Math.min(3, total - 1);
   test.skip(laterCardIndex < 1, "The seeded daily quiz needs more than one card for this flow.");
 

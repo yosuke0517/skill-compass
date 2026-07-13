@@ -1,6 +1,13 @@
 "use client";
 
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
@@ -41,7 +48,13 @@ function getPendingAnswerStorageKey(quizDayId: string) {
   return `skill-compass:pending-quiz-answer:${quizDayId}`;
 }
 
-export function QuizCardNavigator({ quizDayId, questions, translations, navigatorAction, error }: QuizCardNavigatorProps) {
+export function QuizCardNavigator({
+  quizDayId,
+  questions,
+  translations,
+  navigatorAction,
+  error,
+}: QuizCardNavigatorProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const activeIndex = getClampedQuestionIndex(selectedIndex, questions.length);
   const previousActiveIndex = useRef(activeIndex);
@@ -77,7 +90,9 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
     if (!pendingQuestionId) return;
 
     window.sessionStorage.removeItem(getPendingAnswerStorageKey(quizDayId));
-    const submittedIndex = questions.findIndex((question) => question.question.id === pendingQuestionId);
+    const submittedIndex = questions.findIndex(
+      (question) => question.question.id === pendingQuestionId,
+    );
     if (submittedIndex < 0) return;
 
     const nextUnansweredIndex = questions.findIndex(
@@ -107,9 +122,10 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (
-      event.target instanceof HTMLElement
-      && (event.target.isContentEditable || event.target.closest("input, textarea, select"))
-    ) return;
+      event.target instanceof HTMLElement &&
+      (event.target.isContentEditable || event.target.closest("input, textarea, select"))
+    )
+      return;
 
     if (event.key === "ArrowLeft") {
       event.preventDefault();
@@ -123,7 +139,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
   }
 
   function handlePointerDown(event: PointerEvent<HTMLElement>) {
-    if (isInteractiveDescendant(event.target)) {
+    if (isInteractiveDescendant(event.target, event.currentTarget)) {
       pointerStart.current = null;
       return;
     }
@@ -135,12 +151,16 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
     const start = pointerStart.current;
     pointerStart.current = null;
 
-    if (!start || isInteractiveDescendant(event.target)) return;
+    if (!start || isInteractiveDescendant(event.target, event.currentTarget)) return;
 
     const horizontalDistance = event.clientX - start.x;
     const verticalDistance = event.clientY - start.y;
 
-    if (Math.abs(horizontalDistance) <= 56 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) return;
+    if (
+      Math.abs(horizontalDistance) <= 56 ||
+      Math.abs(horizontalDistance) <= Math.abs(verticalDistance)
+    )
+      return;
 
     if (horizontalDistance < 0) {
       goToNext();
@@ -158,12 +178,20 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
       onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => { pointerStart.current = null; }}
+      onPointerCancel={() => {
+        pointerStart.current = null;
+      }}
     >
       <div className="quiz-card-navigation-status" aria-live="polite">
-        <strong>{activeIndex + 1} / {questions.length}</strong>
-        <span>Question {activeIndex + 1} of {questions.length}</span>
-        <span>{answeredCount} answered, {unansweredCount} unanswered</span>
+        <strong>
+          {activeIndex + 1} / {questions.length}
+        </strong>
+        <span>
+          Question {activeIndex + 1} of {questions.length}
+        </span>
+        <span>
+          {answeredCount} answered, {unansweredCount} unanswered
+        </span>
       </div>
 
       <ol className="quiz-card-indicators" aria-label="Question status">
@@ -173,6 +201,7 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
               type="button"
               className={question.answer === null ? "unanswered" : "answered"}
               aria-label={`Go to question ${index + 1}, ${question.answer === null ? "unanswered" : "answered"}`}
+              aria-pressed={index === activeIndex}
               title={`Go to question ${index + 1}`}
               onClick={() => goTo(index)}
             >
@@ -196,21 +225,37 @@ export function QuizCardNavigator({ quizDayId, questions, translations, navigato
       {navigatorAction}
 
       <nav className="quiz-card-controls" aria-label="Question navigation">
-        <button type="button" aria-label="Previous question" disabled={activeIndex === 0} onClick={() => goTo(activeIndex - 1)}>
+        <button
+          type="button"
+          aria-label="Previous question"
+          disabled={activeIndex === 0}
+          onClick={() => goTo(activeIndex - 1)}
+        >
           <ChevronLeft size={18} aria-hidden="true" />
           Previous
         </button>
-        <button type="button" aria-label="Next question" disabled={!hasNextTarget} onClick={goToNext}>
+        <button
+          type="button"
+          aria-label="Next question"
+          disabled={!hasNextTarget}
+          onClick={goToNext}
+        >
           Next
           <ChevronRight size={18} aria-hidden="true" />
         </button>
       </nav>
 
-      <TodayAssistantWidget key={activeQuestion.question.id} questionId={activeQuestion.question.id} />
+      <TodayAssistantWidget
+        key={activeQuestion.question.id}
+        questionId={activeQuestion.question.id}
+      />
     </section>
   );
 }
 
-function isInteractiveDescendant(target: EventTarget | null) {
-  return target instanceof Element && target.closest(interactiveDescendantSelector) !== null;
+function isInteractiveDescendant(target: EventTarget | null, container?: Element) {
+  if (!(target instanceof Element)) return false;
+
+  const interactiveElement = target.closest(interactiveDescendantSelector);
+  return interactiveElement !== null && interactiveElement !== container;
 }

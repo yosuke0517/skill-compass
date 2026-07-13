@@ -42,7 +42,8 @@ export function QuizQuestionCard({
     value: translation,
   });
   const [isTranslating, startTranslating] = useTransition();
-  const currentTranslation = translationState.questionId === item.question.id ? translationState.value : translation;
+  const currentTranslation =
+    translationState.questionId === item.question.id ? translationState.value : translation;
 
   function handleTranslate() {
     startTranslating(async () => {
@@ -73,12 +74,20 @@ export function QuizQuestionCard({
   }
 
   return (
-    <article className={`quiz-card${answered ? " answered" : ""}`} aria-current={isActive ? "step" : undefined}>
+    <article
+      className={`quiz-card${answered ? " answered" : ""}`}
+      aria-current={isActive ? "step" : undefined}
+    >
       <div className="quiz-card-header">
         <div className="quiz-card-meta">
           <span>#{item.slot}</span>
           <strong>{reasonLabels[item.reason] ?? item.reason}</strong>
         </div>
+      </div>
+      <h2 ref={activeCardFocusRef} id={`quiz-question-${item.question.id}`} tabIndex={-1}>
+        {item.question.prompt}
+      </h2>
+      <div className="quiz-card-translation">
         <button
           type="button"
           className="icon-button"
@@ -91,7 +100,6 @@ export function QuizQuestionCard({
           <Languages size={17} aria-hidden="true" />
         </button>
       </div>
-      <h2 ref={activeCardFocusRef} id={`quiz-question-${item.question.id}`} tabIndex={-1}>{item.question.prompt}</h2>
       {isTranslating ? (
         <div className="translation-loading" aria-label="Translation loading" aria-live="polite">
           <span />
@@ -106,7 +114,10 @@ export function QuizQuestionCard({
           <section className="answer-review" aria-label="Answer review">
             <div className="answer-review-summary">
               <span>Your answer</span>
-              <strong>{item.question.choices.find((choice) => choice.id === item.answer?.selectedChoiceId)?.label ?? "Unknown choice"}</strong>
+              <strong>
+                {item.question.choices.find((choice) => choice.id === item.answer?.selectedChoiceId)
+                  ?.label ?? "Unknown choice"}
+              </strong>
             </div>
             <div className="answer-review-summary correct">
               <span>Correct answer</span>
@@ -119,7 +130,10 @@ export function QuizQuestionCard({
                 const correct = choice.correct;
 
                 return (
-                  <div key={choice.id} className={`answered-choice${selected ? " selected" : ""}${correct ? " correct" : ""}`}>
+                  <div
+                    key={choice.id}
+                    className={`answered-choice${selected ? " selected" : ""}${correct ? " correct" : ""}`}
+                  >
                     <span className="answered-choice-marker" aria-hidden="true">
                       {correct ? <CheckCircle2 size={16} /> : index + 1}
                     </span>
@@ -135,7 +149,11 @@ export function QuizQuestionCard({
           </section>
 
           <div className="answer-feedback">
-            {item.answer?.correct ? <CheckCircle2 size={20} aria-hidden="true" /> : <CircleHelp size={20} aria-hidden="true" />}
+            {item.answer?.correct ? (
+              <CheckCircle2 size={20} aria-hidden="true" />
+            ) : (
+              <CircleHelp size={20} aria-hidden="true" />
+            )}
             <div>
               <p>{item.answer?.correct ? "Correct" : "Review"}</p>
               <span>{item.answer?.feedback}</span>
@@ -143,7 +161,11 @@ export function QuizQuestionCard({
           </div>
         </>
       ) : (
-        <form action={submitQuizAnswerAction} className="quiz-form" onSubmit={() => onAnswerSubmit?.(item.question.id)}>
+        <form
+          action={submitQuizAnswerAction}
+          className="quiz-form"
+          onSubmit={() => onAnswerSubmit?.(item.question.id)}
+        >
           <input type="hidden" name="quizDayId" value={quizDayId} />
           <input type="hidden" name="questionId" value={item.question.id} />
 
@@ -159,8 +181,14 @@ export function QuizQuestionCard({
           <ConfidenceInput />
 
           <label className="reasoning-field">
-            <span>Reasoning <small>(optional)</small></span>
-            <textarea name="reasoning" rows={3} placeholder="Why does this answer fit the source?" />
+            <span>
+              Reasoning <small>(optional)</small>
+            </span>
+            <textarea
+              name="reasoning"
+              rows={3}
+              placeholder="Why does this answer fit the source?"
+            />
           </label>
 
           <button type="submit">Submit answer</button>
