@@ -70,7 +70,8 @@ button {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
+select:focus-visible,
+.app-nav a:focus-visible {
   outline: 3px solid rgb(36 111 229 / 45%);
   outline-offset: 3px;
 }
