@@ -2316,3 +2316,94 @@ p {
     width: min(520px, calc(100vw - 56px));
   }
 }
+
+.podcast-current-episode {
+  background: #f7fbf9;
+  border: 1px solid #b9d9ce;
+  border-radius: 14px;
+  margin: 10px -6px 0;
+  padding: 14px 10px;
+}
+
+.podcast-current-episode + article {
+  border-top: 0;
+}
+
+.podcast-episode-actions audio {
+  display: block;
+  height: 40px;
+  width: min(100%, 330px);
+}
+
+.podcast-chat-sheet,
+.podcast-chat-sheet * {
+  box-sizing: border-box;
+}
+
+@media (max-width: 560px) {
+  .podcast-hero {
+    align-items: flex-start;
+    margin-top: 12px;
+    padding: 16px;
+  }
+
+  .podcast-hero h2 {
+    font-size: 1.12rem;
+  }
+
+  .podcast-empty-panel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .podcast-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .podcast-actions .button-link,
+  .podcast-actions button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .podcast-episode-list article,
+  .podcast-current-episode {
+    align-items: stretch;
+    display: grid;
+    gap: 10px;
+  }
+
+  .podcast-episode-actions {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .podcast-episode-actions a,
+  .podcast-chat-trigger {
+    justify-content: center;
+    min-height: 38px;
+  }
+
+  .podcast-chat-backdrop {
+    padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .podcast-chat-sheet {
+    max-height: min(84dvh, 700px);
+    padding: 14px;
+    width: 100%;
+  }
+
+  .podcast-chat-sheet .podcast-chat-messages {
+    max-height: min(36dvh, 280px);
+  }
+
+  .podcast-chat-form textarea {
+    min-height: 56px;
+  }
+}
