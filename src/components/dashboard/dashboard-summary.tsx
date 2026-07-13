@@ -23,6 +23,9 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
             {data.todayQuiz.answered} / {quizTotal}
           </p>
           <p className="metric-caption">Daily quiz progress</p>
+          <Link className="dashboard-primary-action" href="/today">
+            Continue to Today <ArrowRight size={15} aria-hidden="true" />
+          </Link>
         </div>
         <div className="progress-ring" style={{ "--progress": `${quizPercent}%` } as CSSProperties}>
           <span>{quizPercent}%</span>

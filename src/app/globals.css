@@ -290,6 +290,23 @@ p {
   margin: 10px 0 0;
 }
 
+.dashboard-primary-action {
+  align-items: center;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 760;
+  gap: 5px;
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+.dashboard-primary-action:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid #ffffff;
+  outline-offset: 4px;
+}
+
 .progress-ring {
   --progress: 0%;
   align-items: center;
@@ -438,6 +455,10 @@ p {
   color: var(--foreground);
   font-size: 0.9rem;
   text-align: right;
+}
+
+.dashboard-today .progress-ring {
+  margin-left: 12px;
 }
 
 .prompt-row {
@@ -1184,6 +1205,11 @@ p {
   font-weight: 760;
   height: 42px;
   justify-content: center;
+}
+
+.confidence-input label:has(input:focus-visible) span {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
 }
 
 .confidence-input input:checked + span {
