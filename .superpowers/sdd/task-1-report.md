@@ -65,3 +65,23 @@ DONE_WITH_CONCERNS
   - Passed with exit code 0.
 - `git diff --check`
   - Passed with no whitespace errors before the fix commit.
+
+## Remaining Review Fix
+
+- Finding: the app-nav `:focus-visible` outline used `rgb(36 111 229 / 45%)`, which had insufficient contrast over white.
+- Updated `src/app/globals.css` to use the opaque `var(--signal)` color while preserving the existing 3px outline and 3px offset.
+
+## Remaining Fix Verification
+
+- Command: `./node_modules/.bin/playwright test tests/e2e/quiet-technical-studio-ui.spec.ts --project=chromium --workers=1`
+  - Exit code: 0
+  - Exact result: `2 passed (2.5s)`
+- Command: `./node_modules/.bin/tsc --noEmit`
+  - Exit code: 0
+  - Exact result: no output
+- Command: `./node_modules/.bin/eslint .`
+  - Exit code: 0
+  - Exact result: no output
+- Command: `git diff --check`
+  - Exit code: 0
+  - Exact result: no output
