@@ -47,3 +47,21 @@ DONE_WITH_CONCERNS
 
 - `pnpm typecheck` and `pnpm lint` could not run because the local `pnpm` shim has no version configured in `.tool-versions`; equivalent repository-installed `tsc` and `eslint` binaries passed.
 - The new display and utility stacks use local fallbacks because this task intentionally adds no external font dependency.
+
+## Review Fix
+
+- Finding: the authored `:focus-visible` rule covered form controls but not the five primary navigation links.
+- Fix commit: `0283f13` - `fix: add keyboard focus indicator to app navigation`
+- Updated `src/app/globals.css` with `.app-nav a:focus-visible`, reusing the existing 3px blue outline and 3px offset.
+- Added a focused shell regression test that moves keyboard focus between primary navigation links and checks the visible outline.
+
+## Fix Verification
+
+- `./node_modules/.bin/playwright test tests/e2e/quiet-technical-studio-ui.spec.ts --project=chromium --workers=1`
+  - Passed: 2 tests.
+- `./node_modules/.bin/tsc --noEmit`
+  - Passed with exit code 0.
+- `./node_modules/.bin/eslint .`
+  - Passed with exit code 0.
+- `git diff --check`
+  - Passed with no whitespace errors before the fix commit.
