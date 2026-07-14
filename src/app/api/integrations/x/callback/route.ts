@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { db } from "@/db/client";
+import { podcastSettings } from "@/db/schema";
 import { getEnv } from "@/lib/env";
 import { requireSession } from "@/lib/auth/session";
 import { clientSecret, oauthErrorUrl } from "@/lib/integrations/oauth-client";
@@ -26,6 +28,7 @@ export async function GET(request: Request) {
   const token = await response.json() as { access_token?: string; refresh_token?: string; token_type?: string; scope?: string; expires_in?: number };
   if (!token.access_token) return NextResponse.redirect(oauthErrorUrl(redirectUrl.toString(), "x-token-missing"));
   await saveOAuthToken(session.userId, "x", { accessToken: token.access_token, refreshToken: token.refresh_token, tokenType: token.token_type, scope: token.scope, expiresInSeconds: token.expires_in });
+  await db.insert(podcastSettings).values({ userId: session.userId, includeXPersonal: true }).onDuplicateKeyUpdate({ set: { includeXPersonal: true } });
   redirectUrl.searchParams.set("oauth", "x-connected");
   const responseWithCookie = NextResponse.redirect(redirectUrl);
   responseWithCookie.cookies.delete(verifierCookie);

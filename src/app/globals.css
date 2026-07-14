@@ -2306,7 +2306,9 @@ p {
 .podcast-form-grid label { color: var(--muted); display: grid; font-size: 0.78rem; font-weight: 750; gap: 6px; }
 .podcast-form-grid input, .podcast-form-grid select, .podcast-source-row select { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); min-height: 42px; min-width: 0; padding: 0 10px; }
 .podcast-toggle { align-items: center; border-top: 1px solid var(--border); display: flex; gap: 10px; padding-top: 12px; }
-.podcast-toggle input, .podcast-source-check input { accent-color: var(--accent); flex: 0 0 auto; }
+.podcast-toggle input, .podcast-source-check input { appearance: none; background: #d9e0de; border: 0; border-radius: 999px; flex: 0 0 auto; height: 26px; margin: 0; position: relative; width: 44px; background-image: radial-gradient(circle at 13px 13px, #ffffff 0 8px, transparent 8.5px); }
+.podcast-toggle input:checked, .podcast-source-check input:checked { background-color: var(--accent); background-image: radial-gradient(circle at 31px 13px, #ffffff 0 8px, transparent 8.5px); }
+.podcast-toggle input:focus-visible, .podcast-source-check input:focus-visible { outline: 3px solid rgba(23, 134, 119, 0.25); outline-offset: 2px; }
 .podcast-toggle span, .podcast-source-check span { display: grid; gap: 3px; min-width: 0; }
 .podcast-toggle strong, .podcast-source-check strong { color: var(--foreground); font-size: 0.88rem; overflow-wrap: anywhere; }
 .podcast-toggle small, .podcast-source-check small { color: var(--muted); font-size: 0.76rem; overflow-wrap: anywhere; }
