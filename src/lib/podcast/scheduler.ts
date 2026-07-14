@@ -4,6 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { podcastEpisodes, podcastJobs, podcastSettings } from "@/db/schema";
 import { createMySqlPodcastJobQueue } from "@/lib/podcast/mysql-job-queue";
 import type { PodcastSettings } from "@/lib/podcast/types";
+import type { PodcastSourceSetting } from "@/lib/podcast/types";
 
 export function isPodcastGenerationDue(
   frequency: PodcastSettings["generationFrequency"],
@@ -17,6 +18,19 @@ export function isPodcastGenerationDue(
   if (frequency === "daily") return elapsedDays >= 1;
   if (frequency === "weekdays") return isWeekday(localDate);
   return elapsedDays >= 7;
+}
+
+export function isPodcastSourceDue(
+  frequency: PodcastSourceSetting["frequency"],
+  localDate: string,
+  lastCollectedDate?: string,
+): boolean {
+  if (!lastCollectedDate) return true;
+  const elapsedDays = Math.floor((Date.parse(`${localDate}T00:00:00Z`) - Date.parse(`${lastCollectedDate}T00:00:00Z`)) / 86_400_000);
+  if (elapsedDays < 0) return false;
+  if (frequency === "monthly") return localDate.slice(0, 7) !== lastCollectedDate.slice(0, 7);
+  const minimumDays = { daily: 1, every_3_days: 3, weekly: 7, every_14_days: 14 }[frequency];
+  return elapsedDays >= minimumDays;
 }
 
 export function localDateKey(now: Date, timezone: string): string {

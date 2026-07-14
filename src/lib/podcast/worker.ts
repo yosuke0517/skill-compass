@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { podcastAssets, podcastAudioChunks, podcastEpisodes, podcastJobs } from "@/db/schema";
@@ -10,6 +10,7 @@ import { createGeminiScriptGenerator } from "@/lib/podcast/providers/gemini-scri
 import { createKeychainApiKeyResolver } from "@/lib/translation/providers/gemini-provider";
 import { getPodcastSettings } from "@/lib/podcast/settings";
 import { createDeterministicScriptGenerator } from "@/lib/podcast/script-generator";
+import { isPodcastSourceDue, localDateKey } from "@/lib/podcast/scheduler";
 
 export async function runPodcastWorkerOnce(now = new Date()): Promise<{ status: "idle" | "script_ready" | "audio_chunk_ready" | "audio_ready"; jobId?: string }> {
   const [job] = await db.select().from(podcastJobs)
@@ -38,9 +39,17 @@ async function preparePodcastChunks(job: typeof podcastJobs.$inferSelect, now: D
   await db.update(podcastJobs).set({ status: "running", attempts: job.attempts + 1 }).where(eq(podcastJobs.id, job.id));
   try {
     const settings = await getPodcastSettings(job.userId);
+    const priorEpisodes = await db.select({ localDate: podcastEpisodes.localDate, sourceSnapshot: podcastEpisodes.sourceSnapshot })
+      .from(podcastEpisodes).where(eq(podcastEpisodes.userId, job.userId)).orderBy(desc(podcastEpisodes.localDate)).limit(100);
+    const localDate = localDateKey(now, settings.settings.timezone);
+    const sources = settings.sources.map((source) => {
+      const lastCollectedDate = priorEpisodes.find((episode) => episode.sourceSnapshot.some((item) => item.id === source.id))?.localDate;
+      const lastDate = lastCollectedDate ? toDateKey(lastCollectedDate) : undefined;
+      return { ...source, enabled: source.enabled && isPodcastSourceDue(source.frequency, localDate, lastDate) };
+    });
     const collected = await createWebContentCollector({ now: () => now }).collect({
       useSources: settings.settings.useSources,
-      sources: settings.sources.map((source) => ({ id: source.id, title: source.title, url: source.url, enabled: source.enabled })),
+      sources: sources.map((source) => ({ id: source.id, title: source.title, url: source.url, enabled: source.enabled })),
     });
     const env = getEnv();
     const apiKey = env.GEMINI_API_KEY_SOURCE === "keychain" && env.GEMINI_KEYCHAIN_SERVICE
@@ -118,4 +127,8 @@ function getWavDurationSeconds(audio: Buffer): number | null {
   if (audio.length < 44 || audio.toString("ascii", 0, 4) !== "RIFF") return null;
   const byteRate = audio.readUInt32LE(28);
   return byteRate > 0 ? Math.round(audio.readUInt32LE(40) / byteRate) : null;
+}
+
+function toDateKey(value: string | Date): string {
+  return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10);
 }
