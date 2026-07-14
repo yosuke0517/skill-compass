@@ -23,6 +23,16 @@ const envSchema = z
     GEMINI_SCRIPT_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
     GEMINI_ASSISTANT_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
     GEMINI_TTS_MODEL: z.string().min(1).default("gemini-2.5-flash-preview-tts"),
+    GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+    GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
+    GOOGLE_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE: z
+      .string()
+      .default("skill-compass/google-oauth-client-secret"),
+    X_OAUTH_CLIENT_ID: z.string().optional(),
+    X_OAUTH_REDIRECT_URI: z.string().url().optional(),
+    X_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE: z
+      .string()
+      .default("skill-compass/x-oauth-client-secret"),
     PODCAST_NEWS_FEED_URLS: z.string().default(""),
     PODCAST_AUDIO_STORAGE: z.enum(["filesystem", "r2"]).default("filesystem"),
     PODCAST_AUDIO_STORAGE_DIR: z.string().default("./var/skill-compass-audio"),
