@@ -34,7 +34,7 @@ export default async function PodcastPage({ searchParams }: { searchParams: Prom
       <section className="podcast-empty-panel">
         <div className="podcast-empty-icon"><Sparkles size={22} aria-hidden="true" /></div>
         <div><h2>{canGenerate ? "Your first briefing is ready to configure" : "Sample briefing"}</h2><p>{canGenerate ? "Choose your sources and schedule, then generate a private episode." : "Upgrade to Pro to generate personal briefings from your sources."}</p></div>
-        {canGenerate ? <div className="podcast-actions"><Link href="/podcast/settings" className="button-link">Configure</Link><form action={enqueuePodcastGenerationAction}><button type="submit">Generate preview</button></form></div> : <span className="locked-pill">Pro feature</span>}
+        {canGenerate ? <div className="podcast-actions"><Link href="/podcast/settings" className="button-link">Configure</Link><Link href="/podcast/settings#connections" className="button-link podcast-secondary-link">Connect sources</Link><form action={enqueuePodcastGenerationAction}><button type="submit">Generate preview</button></form></div> : <span className="locked-pill">Pro feature</span>}
       </section>
 
       <section className="podcast-status-grid">

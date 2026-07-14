@@ -2313,6 +2313,7 @@ p {
 .podcast-connection-row { align-items: center; border-top: 1px solid var(--border); display: flex; gap: 12px; justify-content: space-between; }
 .podcast-connection-row .podcast-toggle { border-top: 0; flex: 1 1 auto; padding-top: 12px; }
 .podcast-connection-row .button-link { font-size: 0.72rem; padding: 9px 12px; }
+.podcast-secondary-link { background: var(--surface-muted); color: var(--accent-dark); }
 .podcast-source-list { display: grid; gap: 0; }
 .podcast-source-row { align-items: center; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: space-between; padding: 11px 0; }
 .podcast-source-check { align-items: center; display: flex; gap: 10px; min-width: 0; }
