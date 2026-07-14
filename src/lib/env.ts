@@ -23,6 +23,7 @@ const envSchema = z
     GEMINI_SCRIPT_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
     GEMINI_ASSISTANT_MODEL: z.string().min(1).default("gemini-2.5-flash-lite"),
     GEMINI_TTS_MODEL: z.string().min(1).default("gemini-2.5-flash-preview-tts"),
+    PODCAST_NEWS_FEED_URLS: z.string().default(""),
     PODCAST_AUDIO_STORAGE: z.enum(["filesystem", "r2"]).default("filesystem"),
     PODCAST_AUDIO_STORAGE_DIR: z.string().default("./var/skill-compass-audio"),
     PODCAST_R2_ACCOUNT_ID: z.string().optional(),

@@ -12,6 +12,7 @@ import { getPodcastSettings } from "@/lib/podcast/settings";
 import { createDeterministicScriptGenerator } from "@/lib/podcast/script-generator";
 import { isPodcastSourceDue, localDateKey } from "@/lib/podcast/scheduler";
 import { createPodcastContextCollector } from "@/lib/podcast/context-collector";
+import { createRssNewsCollector } from "@/lib/podcast/news-collector";
 
 export async function runPodcastWorkerOnce(now = new Date()): Promise<{ status: "idle" | "script_ready" | "audio_chunk_ready" | "audio_ready"; jobId?: string }> {
   const [job] = await db.select().from(podcastJobs)
@@ -58,8 +59,9 @@ async function preparePodcastChunks(job: typeof podcastJobs.$inferSelect, now: D
       includeXPublic: settings.settings.includeXPublic,
       includeXPersonal: settings.settings.includeXPersonal,
     });
-    const allCollected = [...collected, ...context];
     const env = getEnv();
+    const news = await createRssNewsCollector({ feedUrls: env.PODCAST_NEWS_FEED_URLS.split(",").map((url) => url.trim()).filter(Boolean) }).collect({ now, enabled: settings.settings.includeNews });
+    const allCollected = [...collected, ...news, ...context];
     const apiKey = env.GEMINI_API_KEY_SOURCE === "keychain" && env.GEMINI_KEYCHAIN_SERVICE
       ? await createKeychainApiKeyResolver({ service: env.GEMINI_KEYCHAIN_SERVICE, account: env.GEMINI_KEYCHAIN_ACCOUNT })()
       : env.GEMINI_API_KEY;
