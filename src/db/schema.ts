@@ -25,6 +25,7 @@ export const selfAssessmentSubjectTypeValues = ["category", "tag"] as const;
 export const userStatusValues = ["active", "invited", "disabled"] as const;
 export const userRoleValues = ["admin", "normal"] as const;
 export const userPlanValues = ["free", "pro"] as const;
+export const oauthProviderValues = ["google-calendar", "x"] as const;
 
 export const sourceTrustTierEnum = {
   enumValues: sourceTrustTierValues,
@@ -428,6 +429,23 @@ export const sessions = mysqlTable("sessions", {
   expiresAt: datetime("expires_at").notNull(),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
+
+export const oauthConnections = mysqlTable(
+  "oauth_connections",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    accessTokenCiphertext: text("access_token_ciphertext").notNull(),
+    refreshTokenCiphertext: text("refresh_token_ciphertext"),
+    tokenType: varchar("token_type", { length: 32 }),
+    scope: text("scope"),
+    expiresAt: datetime("expires_at"),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("oauth_connections_user_provider_idx").on(table.userId, table.provider)],
+);
 
 export const exportRuns = mysqlTable("export_runs", {
   id: varchar("id", { length: 64 }).primaryKey(),

@@ -71,6 +71,13 @@
       "when": 1783677000000,
       "tag": "0010_podcast_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1783678800000,
+      "tag": "0011_oauth_connections",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ const envSchema = z
     GOOGLE_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE: z
       .string()
       .default("skill-compass/google-oauth-client-secret"),
+    OAUTH_TOKEN_ENCRYPTION_SECRET: z.string().min(32).optional(),
     X_OAUTH_CLIENT_ID: z.string().optional(),
     X_OAUTH_REDIRECT_URI: z.string().url().optional(),
     X_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE: z
