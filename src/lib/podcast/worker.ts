@@ -24,6 +24,16 @@ export async function runPodcastWorkerOnce(now = new Date()): Promise<{ status: 
   return processPodcastChunk(chunk);
 }
 
+export async function drainPodcastWorker(maxSteps = 100, now = new Date()): Promise<{ steps: number; status: "idle" | "drained" | "limit" }> {
+  let steps = 0;
+  while (steps < maxSteps) {
+    const result = await runPodcastWorkerOnce(now);
+    if (result.status === "idle") return { steps, status: steps === 0 ? "idle" : "drained" };
+    steps += 1;
+  }
+  return { steps, status: "limit" };
+}
+
 async function preparePodcastChunks(job: typeof podcastJobs.$inferSelect, now: Date) {
   await db.update(podcastJobs).set({ status: "running", attempts: job.attempts + 1 }).where(eq(podcastJobs.id, job.id));
   try {
