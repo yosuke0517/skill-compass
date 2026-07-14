@@ -11,6 +11,7 @@ import { createKeychainApiKeyResolver } from "@/lib/translation/providers/gemini
 import { getPodcastSettings } from "@/lib/podcast/settings";
 import { createDeterministicScriptGenerator } from "@/lib/podcast/script-generator";
 import { isPodcastSourceDue, localDateKey } from "@/lib/podcast/scheduler";
+import { createPodcastContextCollector } from "@/lib/podcast/context-collector";
 
 export async function runPodcastWorkerOnce(now = new Date()): Promise<{ status: "idle" | "script_ready" | "audio_chunk_ready" | "audio_ready"; jobId?: string }> {
   const [job] = await db.select().from(podcastJobs)
@@ -51,15 +52,22 @@ async function preparePodcastChunks(job: typeof podcastJobs.$inferSelect, now: D
       useSources: settings.settings.useSources,
       sources: sources.map((source) => ({ id: source.id, title: source.title, url: source.url, enabled: source.enabled })),
     });
+    const context = await createPodcastContextCollector().collect({
+      now,
+      includeCalendar: settings.settings.includeCalendar,
+      includeXPublic: settings.settings.includeXPublic,
+      includeXPersonal: settings.settings.includeXPersonal,
+    });
+    const allCollected = [...collected, ...context];
     const env = getEnv();
     const apiKey = env.GEMINI_API_KEY_SOURCE === "keychain" && env.GEMINI_KEYCHAIN_SERVICE
       ? await createKeychainApiKeyResolver({ service: env.GEMINI_KEYCHAIN_SERVICE, account: env.GEMINI_KEYCHAIN_ACCOUNT })()
       : env.GEMINI_API_KEY;
     const script = apiKey
-      ? await createGeminiScriptGenerator({ apiKey, model: env.GEMINI_SCRIPT_MODEL }).generate({ language: settings.settings.language, durationMinutes: settings.settings.durationMinutes, sources: collected })
-      : await createDeterministicScriptGenerator().generate({ language: settings.settings.language, durationMinutes: settings.settings.durationMinutes, sources: collected });
+      ? await createGeminiScriptGenerator({ apiKey, model: env.GEMINI_SCRIPT_MODEL }).generate({ language: settings.settings.language, durationMinutes: settings.settings.durationMinutes, sources: allCollected })
+      : await createDeterministicScriptGenerator().generate({ language: settings.settings.language, durationMinutes: settings.settings.durationMinutes, sources: allCollected });
     const chunks = chunkScript(script.speakers, 2);
-    await db.update(podcastEpisodes).set({ sourceSnapshot: collected.map((source) => ({ id: source.id, title: source.title, url: source.url })), script, status: "synthesizing" }).where(eq(podcastEpisodes.id, job.episodeId));
+    await db.update(podcastEpisodes).set({ sourceSnapshot: allCollected.map((source) => ({ id: source.id, title: source.title, url: source.url })), script, status: "synthesizing" }).where(eq(podcastEpisodes.id, job.episodeId));
     await db.insert(podcastAudioChunks).values(chunks.map((_, chunkIndex) => ({ episodeId: job.episodeId, chunkIndex, status: "queued" }))).onDuplicateKeyUpdate({ set: { status: "queued", errorCode: null } });
     await db.update(podcastJobs).set({ status: "succeeded", errorCode: "audio_chunks_queued" }).where(eq(podcastJobs.id, job.id));
     return { status: "script_ready" as const, jobId: job.id };
