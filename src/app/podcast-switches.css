@@ -1,0 +1,27 @@
+/* Loaded separately so mobile clients receive switch styling even when the main stylesheet is cached. */
+.podcast-toggle input,
+.podcast-source-check input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #d9e0de;
+  background-image: radial-gradient(circle at 13px 13px, #ffffff 0 8px, transparent 8.5px);
+  border: 0;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  height: 26px;
+  margin: 0;
+  position: relative;
+  width: 44px;
+}
+
+.podcast-toggle input:checked,
+.podcast-source-check input:checked {
+  background-color: #0f7b68;
+  background-image: radial-gradient(circle at 31px 13px, #ffffff 0 8px, transparent 8.5px);
+}
+
+.podcast-toggle input:focus-visible,
+.podcast-source-check input:focus-visible {
+  outline: 3px solid rgba(23, 134, 119, 0.25);
+  outline-offset: 2px;
+}

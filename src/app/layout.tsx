@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./podcast-switches.css";
 
 export const metadata: Metadata = {
   title: "Skill Compass",
