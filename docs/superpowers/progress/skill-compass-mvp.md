@@ -96,10 +96,11 @@ Docker Desktop上のlocal MySQLが正常に起動し、公開可能なstarter co
 
 ## 現在のTask
 
-Podcast Studio Core Task 9: 永続音声チャンクqueueのScheduler実行、全チャンク結合、失敗チャンクの再実行を確認する。
+Podcast Studio Core Task 10: Podcast workerのdrain/watch実行と、生成設定・外部連携の運用確認を進める。
 
 ## 次のTask
 
+- `podcast:worker`は1回実行、`podcast:worker --watch`はキューが空になるまで処理して待機する。
 - その後、Podcast生成画面、Sourcesごとの周期設定、Calendar/X連携、JobQueue、TTSを順に実装する。
 
 ## MVP後のroadmap
