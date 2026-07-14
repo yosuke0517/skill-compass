@@ -4,11 +4,14 @@ dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const { drainPodcastWorker, runPodcastWorkerOnce } = await import("@/lib/podcast/worker");
+const { enqueueDuePodcastGenerations } = await import("@/lib/podcast/scheduler");
 const watch = process.argv.includes("--watch");
 const intervalMs = Number(process.env.PODCAST_WORKER_INTERVAL_MS ?? 5000);
 
 async function runOnce() {
   if (watch) {
+    const scheduled = await enqueueDuePodcastGenerations();
+    if (scheduled > 0) console.log(`Podcast scheduler queued ${scheduled} episode(s).`);
     const result = await drainPodcastWorker();
     console.log(`Podcast worker cycle: ${result.status} (${result.steps} steps).`);
     return;
