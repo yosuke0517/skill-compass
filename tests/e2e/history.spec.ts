@@ -6,7 +6,7 @@ test("user can browse answered quiz history from the dashboard", async ({ page }
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
 
-  await page.getByRole("link", { name: "Today" }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Today" }).click();
   const unansweredQuestion = page.locator(".quiz-card", {
     has: page.getByRole("button", { name: "Submit answer" }),
   }).first();
@@ -31,4 +31,20 @@ test("user can browse answered quiz history from the dashboard", async ({ page }
   await expect(page.getByText("Your answer").first()).toBeVisible();
   await expect(page.getByText("Expected").first()).toBeVisible();
   await expect(page.getByText("Reasoning").first()).toBeVisible();
+});
+
+test("user can search answered history", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("local@example.com");
+  await page.getByLabel("Password").fill("local-password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await page.goto("/history");
+
+  await page.getByRole("searchbox", { name: "Search archive" }).fill("index");
+  await page.getByRole("button", { name: "Search" }).click();
+
+  await expect(page).toHaveURL(/\/history\?q=index/);
+  await expect(page.getByRole("region", { name: "Search results" })).toBeVisible();
+  await expect(page.getByText(/matches/)).toBeVisible();
 });

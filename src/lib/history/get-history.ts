@@ -71,12 +71,22 @@ export type HistoryDayData = {
   answers: HistoryAnswerDetail[];
 };
 
+export type HistorySearchResult = {
+  date: string;
+  questionId: string;
+  conceptTitle: string;
+  prompt: string;
+  correct: boolean | null;
+};
+
 export type HistoryPageData = {
   archive: HistoryArchiveData;
   selectedDay: HistoryDayData | null;
+  searchQuery: string;
+  searchResults: HistorySearchResult[];
 };
 
-export async function getHistoryArchive(selectedDay?: string): Promise<HistoryPageData> {
+export async function getHistoryArchive(selectedDay?: string, searchQuery = ""): Promise<HistoryPageData> {
   const { db } = await import("@/db/client");
   const [quizDayRows, answerRows, questionRows, conceptRows] = await Promise.all([
     db.select().from(quizDays).orderBy(desc(quizDays.quizDate)),
@@ -93,11 +103,39 @@ export async function getHistoryArchive(selectedDay?: string): Promise<HistoryPa
   const archive = buildHistoryArchive(input);
   const firstDay = archive.years[0]?.months[0]?.days[0]?.date;
   const selectedDate = selectedDay ?? firstDay;
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
 
   return {
     archive,
     selectedDay: selectedDate ? buildHistoryDay(input, selectedDate) : null,
+    searchQuery,
+    searchResults: normalizedQuery ? buildHistorySearchResults(input, normalizedQuery) : [],
   };
+}
+
+export function buildHistorySearchResults(input: HistoryBuildInput, query: string): HistorySearchResult[] {
+  const quizDayById = new Map(input.quizDays.map((quizDay) => [quizDay.id, quizDay]));
+  const questionById = new Map(input.questions.map((question) => [question.id, question]));
+  const conceptById = new Map(input.concepts.map((concept) => [concept.id, concept]));
+
+  return input.answers
+    .map((answer) => {
+      const question = questionById.get(answer.questionId);
+      const conceptTitle = question ? conceptById.get(question.conceptId)?.title ?? "Unknown concept" : "Unknown concept";
+      const selectedChoice = question?.choices.find((choice) => choice.id === answer.selectedChoiceId)?.label ?? "";
+      const date = toDateKey(quizDayById.get(answer.quizDayId)?.quizDate ?? answer.answeredAt);
+      return { date, questionId: answer.questionId, conceptTitle, prompt: question?.prompt ?? "Unknown question", correct: answer.correct, haystack: [conceptTitle, question?.prompt, selectedChoice, answer.reasoning, answer.feedback].join(" ").toLocaleLowerCase() };
+    })
+    .filter((result) => result.haystack.includes(query))
+    .sort((left, right) => right.date.localeCompare(left.date))
+    .map((result) => ({
+      date: result.date,
+      questionId: result.questionId,
+      conceptTitle: result.conceptTitle,
+      prompt: result.prompt,
+      correct: result.correct,
+    }))
+    .slice(0, 30);
 }
 
 export function buildHistoryArchive(input: HistoryBuildInput): HistoryArchiveData {

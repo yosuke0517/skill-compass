@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHistoryArchive, buildHistoryDay } from "@/lib/history/get-history";
+import { buildHistoryArchive, buildHistoryDay, buildHistorySearchResults } from "@/lib/history/get-history";
 
 const rows = {
   quizDays: [
@@ -133,5 +133,21 @@ describe("buildHistoryDay", () => {
         },
       ],
     });
+  });
+});
+
+describe("buildHistorySearchResults", () => {
+  it("matches prompt, concept, selected answer, and reasoning text", () => {
+    expect(buildHistorySearchResults(rows, "tradeoff")).toEqual([
+      {
+        date: "2026-07-10",
+        questionId: "q_index",
+        conceptTitle: "index design",
+        prompt: "What is a common tradeoff when adding a database index?",
+        correct: true,
+      },
+    ]);
+    expect(buildHistorySearchResults(rows, "reverse proxy")).toHaveLength(1);
+    expect(buildHistorySearchResults(rows, "missing term")).toEqual([]);
   });
 });

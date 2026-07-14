@@ -5,10 +5,10 @@ import { getHistoryArchive } from "@/lib/history/get-history";
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ day?: string }>;
+  searchParams: Promise<{ day?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const data = await getHistoryArchive(params.day);
+  const data = await getHistoryArchive(params.day, params.q);
 
   return (
     <div className="screen-stack history-page">
@@ -18,10 +18,19 @@ export default async function HistoryPage({
         <p className="body-copy">Review answered Today quizzes by year, month, and day.</p>
       </section>
 
-      <section className="history-search-placeholder" aria-label="Search preview">
+      <form className="history-search" role="search">
         <Search size={18} aria-hidden="true" />
-        <span>Free-word search is next</span>
-      </section>
+        <input name="q" type="search" defaultValue={data.searchQuery} placeholder="Search questions, concepts, or reasoning" aria-label="Search archive" />
+        <button type="submit">Search</button>
+        {params.day ? <input type="hidden" name="day" value={params.day} /> : null}
+      </form>
+
+      {data.searchQuery.trim() ? (
+        <section className="history-search-results" aria-label="Search results">
+          <div className="history-detail-heading"><div><p className="eyebrow">Search results</p><h2>{data.searchResults.length} matches</h2></div></div>
+          {data.searchResults.length > 0 ? <div className="history-answer-list">{data.searchResults.map((result) => <Link className="history-search-result" key={`${result.date}-${result.questionId}`} href={`/history?day=${result.date}`}><span className="history-search-result-date">{result.date}</span><strong>{result.conceptTitle}</strong><span>{result.prompt}</span><em>{result.correct ? "Correct" : "Review"}</em></Link>)}</div> : <p className="body-copy">No matching answered questions.</p>}
+        </section>
+      ) : null}
 
       {data.archive.years.length === 0 ? (
         <section className="empty-panel">
