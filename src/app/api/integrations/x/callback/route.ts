@@ -10,7 +10,8 @@ const verifierCookie = "skill_compass_x_oauth_verifier";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const redirectUrl = new URL("/podcast/settings", request.url);
+  const env = getEnv();
+  const redirectUrl = new URL("/podcast/settings", env.PUBLIC_APP_URL ?? request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   if (url.searchParams.get("error") || !code || !state) return NextResponse.redirect(oauthErrorUrl(redirectUrl.toString(), "x-denied"));
@@ -18,7 +19,6 @@ export async function GET(request: Request) {
   const session = await requireSession();
   if (!verified || verified.provider !== "x" || verified.userId !== session.userId) return NextResponse.redirect(oauthErrorUrl(redirectUrl.toString(), "invalid-oauth-state"));
   const verifier = request.headers.get("cookie")?.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${verifierCookie}=`))?.slice(verifierCookie.length + 1);
-  const env = getEnv();
   const secret = env.X_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE ? await clientSecret(env.X_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE)() : undefined;
   if (!env.X_OAUTH_CLIENT_ID || !env.X_OAUTH_REDIRECT_URI || !secret || !verifier) return NextResponse.redirect(oauthErrorUrl(redirectUrl.toString(), "x-credentials-missing"));
   const response = await fetch("https://api.x.com/2/oauth2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", authorization: `Basic ${Buffer.from(`${env.X_OAUTH_CLIENT_ID}:${secret}`).toString("base64")}` }, body: new URLSearchParams({ code, grant_type: "authorization_code", redirect_uri: env.X_OAUTH_REDIRECT_URI, client_id: env.X_OAUTH_CLIENT_ID, code_verifier: verifier }) });

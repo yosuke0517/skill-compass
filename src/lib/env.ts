@@ -4,6 +4,7 @@ const envSchema = z
   .object({
     DATABASE_URL: z.string().url(),
     SESSION_SECRET: z.string().min(32),
+    PUBLIC_APP_URL: z.string().url().optional(),
     MARKDOWN_EXPORT_DIR: z.string().default("./exports/skill-compass"),
     LLM_PROVIDER: z.enum(["deterministic"]).default("deterministic"),
     QUIZ_GENERATION_PROVIDER: z.enum(["deterministic", "gemini"]).default("deterministic"),
