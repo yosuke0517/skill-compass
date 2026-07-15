@@ -95,11 +95,8 @@ export function QuizCardNavigator({
     );
     if (submittedIndex < 0) return;
 
-    const nextUnansweredIndex = questions.findIndex(
-      (question, index) => index > submittedIndex && question.answer === null,
-    );
     const frame = requestAnimationFrame(() => {
-      setSelectedIndex(nextUnansweredIndex >= 0 ? nextUnansweredIndex : submittedIndex);
+      setSelectedIndex(submittedIndex);
     });
     return () => cancelAnimationFrame(frame);
   }, [error, quizDayId, questions]);

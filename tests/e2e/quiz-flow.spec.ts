@@ -358,22 +358,20 @@ test("user can answer a daily quiz question", async ({ page }) => {
   await expect(answeredCard.locator(".answer-badge.correct")).toBeVisible();
 });
 
-test("answering a skipped card preserves its review and advances to the next unanswered card", async ({
+test("answering a skipped card preserves its review until the user advances", async ({
   page,
 }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.getByRole("link", { name: "Today" }).click();
+  await page.goto("/today");
 
   const navigator = page.getByLabel("Quiz questions");
   const card = navigator.locator(".quiz-card");
   const total = Number(
     (await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim(),
   );
-  const firstQuestion = await card.getByRole("heading").innerText();
-
   test.skip(total < 3, "The seeded daily quiz needs three cards for this flow.");
 
   await page.getByRole("button", { name: "Next question" }).click();
@@ -386,18 +384,15 @@ test("answering a skipped card preserves its review and advances to the next una
   await card.getByRole("button", { name: "Submit answer" }).click();
 
   await expect(page).toHaveURL(/\/today/);
-  await expect(card.getByRole("heading")).not.toHaveText(submittedQuestion);
-  await expect(card.getByRole("heading")).not.toHaveText(firstQuestion);
-  await expect(navigator.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
-
-  await page.getByRole("button", { name: "Previous question" }).click();
   await expect(card.getByRole("heading")).toHaveText(submittedQuestion);
   await expect(card.getByLabel("Answer review")).toBeVisible();
   await expect(card.locator(".answer-badge.selected")).toBeVisible();
 
+  await page.getByRole("button", { name: "Next question" }).click();
+  await expect(card.getByRole("heading")).not.toHaveText(submittedQuestion);
+
   await page.getByRole("button", { name: "Previous question" }).click();
-  await expect(card.getByRole("heading")).toHaveText(firstQuestion);
-  await expect(card.getByRole("button", { name: "Submit answer" })).toBeVisible();
+  await expect(card.getByRole("heading")).toHaveText(submittedQuestion);
 });
 
 test("Today errors clear the pending answer marker without changing the active question", async ({
