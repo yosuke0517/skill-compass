@@ -17,7 +17,7 @@ export async function handleMcpRequest(
   request: Request,
   deps: McpHttpDeps,
 ): Promise<Response> {
-  if (new URL(request.url).origin !== new URL(deps.resourceUrl).origin) {
+  if (requestOrigin(request) !== new URL(deps.resourceUrl).origin) {
     return Response.json({ error: "invalid_host" }, { status: 403 });
   }
   const user = await deps.authenticate(request.headers.get("authorization"));
@@ -49,6 +49,15 @@ export async function handleMcpRequest(
   } finally {
     await server.close();
   }
+}
+
+function requestOrigin(request: Request): string {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  if (forwardedHost && (forwardedProto === "https" || forwardedProto === "http")) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  return new URL(request.url).origin;
 }
 
 export async function handleProductionMcpRequest(request: Request) {

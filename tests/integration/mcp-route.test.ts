@@ -45,6 +45,28 @@ describe("MCP HTTP handler", () => {
     );
   });
 
+  it("trusts the forwarded public host from the configured Cloudflare proxy", async () => {
+    const response = await handleMcpRequest(
+      new Request("http://localhost:3001/mcp", {
+        method: "POST",
+        headers: {
+          host: "localhost:3001",
+          "x-forwarded-host": "agent.finegate.xyz",
+          "x-forwarded-proto": "https",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
+      }),
+      {
+        resourceUrl: "https://agent.finegate.xyz/mcp",
+        authenticate: async () => null,
+        createServices: async () => services,
+      },
+    );
+
+    expect(response.status).toBe(401);
+  });
+
   it("initializes for an authenticated user", async () => {
     const response = await handleMcpRequest(
       new Request("https://agent.finegate.xyz/mcp", {
