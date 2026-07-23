@@ -78,6 +78,13 @@
       "when": 1783678800000,
       "tag": "0011_oauth_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1784851200000,
+      "tag": "0012_mcp_oauth",
+      "breakpoints": true
     }
   ]
 }

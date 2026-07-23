@@ -447,6 +447,48 @@ export const oauthConnections = mysqlTable(
   (table) => [uniqueIndex("oauth_connections_user_provider_idx").on(table.userId, table.provider)],
 );
 
+export const mcpOauthClients = mysqlTable("mcp_oauth_clients", {
+  id: varchar("id", { length: 191 }).primaryKey(),
+  redirectUris: json("redirect_uris").$type<string[]>().notNull(),
+  clientName: varchar("client_name", { length: 191 }).notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const mcpAuthorizationCodes = mysqlTable(
+  "mcp_authorization_codes",
+  {
+    codeHash: varchar("code_hash", { length: 64 }).primaryKey(),
+    clientId: varchar("client_id", { length: 191 })
+      .notNull()
+      .references(() => mcpOauthClients.id),
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: varchar("code_challenge", { length: 191 }).notNull(),
+    expiresAt: datetime("expires_at").notNull(),
+    usedAt: datetime("used_at"),
+  },
+  (table) => [index("mcp_authorization_codes_user_idx").on(table.userId)],
+);
+
+export const mcpAccessTokens = mysqlTable(
+  "mcp_access_tokens",
+  {
+    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+    clientId: varchar("client_id", { length: 191 })
+      .notNull()
+      .references(() => mcpOauthClients.id),
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
+    expiresAt: datetime("expires_at").notNull(),
+    revokedAt: datetime("revoked_at"),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  },
+  (table) => [index("mcp_access_tokens_user_idx").on(table.userId)],
+);
+
 export const exportRuns = mysqlTable("export_runs", {
   id: varchar("id", { length: 64 }).primaryKey(),
   status: mysqlEnum("status", jobStatusValues).notNull(),

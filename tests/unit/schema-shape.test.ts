@@ -5,6 +5,9 @@ import {
   concepts,
   conceptTags,
   entitlements,
+  mcpAccessTokens,
+  mcpAuthorizationCodes,
+  mcpOauthClients,
   planEntitlements,
   sourceTrustTierEnum,
   tags,
@@ -33,5 +36,11 @@ describe("schema", () => {
     expect(planEntitlements).toBeDefined();
     expect(userEntitlementOverrides).toBeDefined();
     expect(auditLogs).toBeDefined();
+  });
+
+  it("defines persisted MCP OAuth tables", () => {
+    expect(mcpOauthClients).toBeDefined();
+    expect(mcpAuthorizationCodes).toBeDefined();
+    expect(mcpAccessTokens).toBeDefined();
   });
 });
