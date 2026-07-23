@@ -11,14 +11,19 @@ import { requireSession } from "@/lib/auth/session";
 export async function requireCurrentUser(): Promise<CurrentUserAccess> {
   const session = await requireSession();
   if (!session.userId) redirect("/login");
+  const user = await getCurrentUserById(session.userId);
+  if (!user) redirect("/login");
+  return user;
+}
 
+export async function getCurrentUserById(userId: string): Promise<CurrentUserAccess | null> {
   const [user] = await db
     .select()
     .from(users)
-    .where(and(eq(users.id, session.userId), eq(users.status, "active")))
+    .where(and(eq(users.id, userId), eq(users.status, "active")))
     .limit(1);
   if (!user || !ROLE_IDS.includes(user.role as RoleId) || !PLAN_IDS.includes(user.plan as PlanId)) {
-    redirect("/login");
+    return null;
   }
 
   const [defaults, overrides] = await Promise.all([
