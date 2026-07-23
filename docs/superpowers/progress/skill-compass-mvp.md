@@ -62,6 +62,7 @@
 ### Task 5 review follow-up (2026-07-12)
 
 - Today quizのmobile E2Eは、390x844 viewportでcard heightをviewportと比較し、card先頭から末尾へscrollした際にcard bottomとbottom-most interactive/content elementがviewport内に収まることを確認する。水平boundsとviewport intersection checksも維持する。
+- ChatGPT MCP foundation: `get_today`、`submit_today_answer`、`list_podcast_episodes`、`get_podcast_episode`、`ask_about_podcast`の5 tools、OAuth 2.1 authorization code + PKCE、single-owner制限、stateless Streamable HTTP `/mcp`、local smoke clientを追加。`pnpm typecheck`、`pnpm lint`、106 unit/integration tests、`pnpm build`が成功。外部TunnelとChatGPT接続は未検証。
 - Focused verification passed: `pnpm exec playwright test tests/e2e/quiz-flow.spec.ts --project=chromium --workers=1 -g 'today keeps one card focused'`; `git diff --check` also passed.
 
 ### Today card navigation final review follow-up (2026-07-12)
