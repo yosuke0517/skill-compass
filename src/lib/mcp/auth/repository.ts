@@ -1,6 +1,7 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { mcpAccessTokens, mcpAuthorizationCodes } from "@/db/schema";
+import { mcpOauthClients } from "@/db/schema";
 import type {
   McpAuthRepository,
   StoredAuthorizationCode,
@@ -55,6 +56,25 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
       return token ? toStoredToken(token) : null;
     },
   };
+}
+
+export async function saveMcpOAuthClient(input: {
+  id: string;
+  redirectUris: string[];
+  clientName: string;
+}) {
+  const { db } = await import("@/db/client");
+  await db.insert(mcpOauthClients).values(input);
+}
+
+export async function getMcpOAuthClient(clientId: string) {
+  const { db } = await import("@/db/client");
+  const [client] = await db
+    .select()
+    .from(mcpOauthClients)
+    .where(eq(mcpOauthClients.id, clientId))
+    .limit(1);
+  return client ?? null;
 }
 
 function toStoredCode(

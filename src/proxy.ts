@@ -30,5 +30,6 @@ export const config = {
     "/settings/:path*",
     "/admin/:path*",
     "/api/podcast/:path*",
+    "/oauth/authorize/:path*",
   ],
 };
