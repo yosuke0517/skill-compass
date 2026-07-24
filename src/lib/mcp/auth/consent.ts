@@ -31,6 +31,8 @@ export function getMcpConsent(
       capabilities: [
         "Read and submit Today answers",
         "Read Podcast episodes and ask grounded questions",
+        "Read public X Posts and retrieve a bounded daily technical digest",
+        "Temporarily inspect your X following timeline without storing the timeline or followed-account list",
       ],
     };
   }

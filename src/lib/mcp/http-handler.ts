@@ -80,12 +80,16 @@ export async function handleProductionMcpRequest(request: Request) {
       listPodcastEpisodesForUser,
     },
     { getTodayForUser, submitTodayForUser },
+    { getXPostWithReferences },
+    { getDailyTechPosts: getDailyTechPostsForUser },
   ] = await Promise.all([
     import("@/lib/access/current-user"),
     import("@/lib/mcp/auth/repository"),
     import("@/lib/mcp/auth/service"),
     import("@/lib/podcast/podcast-service"),
     import("@/lib/quiz/today-service"),
+    import("@/lib/x/post-cache"),
+    import("@/lib/x/daily-digest"),
   ]);
   return handleMcpRequest(request, {
     resourceUrl: env.MCP_RESOURCE_URL,
@@ -123,6 +127,19 @@ export async function handleProductionMcpRequest(request: Request) {
         },
         async askPodcast({ episodeId, question }) {
           return { ...(await askPodcastForUser({ user, episodeId, question })) };
+        },
+        async getXPost({ url }) {
+          return {
+            ...(await getXPostWithReferences(user.id, url)),
+          };
+        },
+        async getDailyTechPosts({ limit, latestUserMessage }) {
+          return {
+            ...(await getDailyTechPostsForUser(
+              user.id,
+              { limit, latestUserMessage },
+            )),
+          };
         },
       };
     },

@@ -22,6 +22,8 @@ const services = {
   listEpisodes: async () => [],
   getEpisode: async () => ({ id: "episode_1" }),
   askPodcast: async () => ({ answer: "Answer", provider: "test" }),
+  getXPost: async () => ({ post: { id: "123" } }),
+  getDailyTechPosts: async () => ({ posts: [] }),
 };
 
 describe("MCP HTTP handler", () => {

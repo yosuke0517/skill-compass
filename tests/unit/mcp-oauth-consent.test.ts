@@ -30,6 +30,12 @@ describe("MCP OAuth consent copy", () => {
 
     expect(consent?.summary).toContain("Today progress");
     expect(consent?.capabilities).toContain("Read and submit Today answers");
+    expect(consent?.capabilities).toContain(
+      "Read public X Posts and retrieve a bounded daily technical digest",
+    );
+    expect(consent?.capabilities).toContain(
+      "Temporarily inspect your X following timeline without storing the timeline or followed-account list",
+    );
   });
 
   it("rejects an unknown resource", () => {

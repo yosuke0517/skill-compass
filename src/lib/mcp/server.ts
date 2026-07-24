@@ -18,6 +18,11 @@ export type SkillCompassMcpServices = {
   listEpisodes(input: { limit: number }): Promise<unknown[]>;
   getEpisode(input: { episodeId: string }): Promise<JsonObject>;
   askPodcast(input: { episodeId: string; question: string }): Promise<JsonObject>;
+  getXPost(input: { url: string }): Promise<JsonObject>;
+  getDailyTechPosts(input: {
+    limit: number;
+    latestUserMessage?: string;
+  }): Promise<JsonObject>;
 };
 
 export function createSkillCompassMcpServer(context: {
@@ -124,6 +129,46 @@ export function createSkillCompassMcpServer(context: {
         responseLanguage: detectResponseLanguage(latestUserMessage ?? question),
       });
     },
+  );
+
+  server.registerTool(
+    "get_x_post",
+    {
+      title: "Get and explain an X Post",
+      description:
+        "Use this read-only tool whenever the user includes an x.com or twitter.com Post URL and asks what it means, whether its claim is significant, or for context. Returns the public Post plus its quoted Post and direct parent when available. Explain in the user's language and distinguish Post claims from verified facts.",
+      inputSchema: {
+        url: z.string().url().max(2048),
+        latestUserMessage: z.string().max(4000).optional(),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    },
+    async ({ url, latestUserMessage }) =>
+      toolResult({
+        ...(await context.services.getXPost({ url })),
+        responseLanguage: detectResponseLanguage(latestUserMessage ?? ""),
+      }),
+  );
+
+  server.registerTool(
+    "get_daily_tech_posts",
+    {
+      title: "Get today's technical Posts from X",
+      description:
+        "Get the cached daily Skill Compass technical digest from public X search and a temporary read of the connected user's following timeline. Use for today's technical news, AI, Web/backend/cloud, and security Posts. Treat uncorroborated Posts as claims and link the originals.",
+      inputSchema: {
+        limit: z.number().int().min(1).max(10).default(5),
+        latestUserMessage: z.string().max(4000).optional(),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false },
+    },
+    async ({ limit, latestUserMessage }) =>
+      toolResult(
+        await context.services.getDailyTechPosts({
+          limit,
+          latestUserMessage,
+        }),
+      ),
   );
 
   return server;
