@@ -61,4 +61,18 @@ describe("parseEnv", () => {
       }),
     ).toThrow(/TRANSLATION_PROVIDER/);
   });
+
+  it("accepts a separate Architecture MCP resource URL", () => {
+    const env = parseEnv({
+      DATABASE_URL:
+        "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
+      SESSION_SECRET: "12345678901234567890123456789012",
+      MCP_ARCHITECTURE_RESOURCE_URL:
+        "https://example.com/mcp/architecture",
+    });
+
+    expect(env.MCP_ARCHITECTURE_RESOURCE_URL).toBe(
+      "https://example.com/mcp/architecture",
+    );
+  });
 });
