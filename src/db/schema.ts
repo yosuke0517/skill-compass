@@ -447,6 +447,17 @@ export const oauthConnections = mysqlTable(
   (table) => [uniqueIndex("oauth_connections_user_provider_idx").on(table.userId, table.provider)],
 );
 
+export const xPublicPostCache = mysqlTable(
+  "x_public_post_cache",
+  {
+    postId: varchar("post_id", { length: 32 }).primaryKey(),
+    snapshot: json("snapshot").notNull(),
+    fetchedAt: datetime("fetched_at").notNull(),
+    expiresAt: datetime("expires_at").notNull(),
+  },
+  (table) => [index("x_public_post_cache_expires_idx").on(table.expiresAt)],
+);
+
 export const mcpOauthClients = mysqlTable("mcp_oauth_clients", {
   id: varchar("id", { length: 191 }).primaryKey(),
   redirectUris: json("redirect_uris").$type<string[]>().notNull(),
