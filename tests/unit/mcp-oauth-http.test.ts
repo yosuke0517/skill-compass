@@ -25,6 +25,7 @@ describe("MCP OAuth HTTP metadata", () => {
       authorization_endpoint: "https://agent.finegate.xyz/oauth/authorize",
       token_endpoint: "https://agent.finegate.xyz/oauth/token",
       registration_endpoint: "https://agent.finegate.xyz/oauth/register",
+      grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
     });
   });
