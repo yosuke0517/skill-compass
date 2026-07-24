@@ -1,6 +1,10 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 
-import { mcpAccessTokens, mcpAuthorizationCodes } from "@/db/schema";
+import {
+  mcpAccessTokens,
+  mcpAuthorizationCodes,
+  mcpRefreshTokens,
+} from "@/db/schema";
 import { mcpOauthClients } from "@/db/schema";
 import type {
   McpAuthRepository,
@@ -45,6 +49,81 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
     async saveAccessToken(token) {
       const { db } = await import("@/db/client");
       await db.insert(mcpAccessTokens).values(token);
+    },
+    async saveTokenPair(accessToken, refreshToken) {
+      const { db } = await import("@/db/client");
+      await db.transaction(async (tx) => {
+        await tx.insert(mcpAccessTokens).values(accessToken);
+        await tx.insert(mcpRefreshTokens).values(refreshToken);
+      });
+    },
+    async rotateRefreshToken(input) {
+      const { db } = await import("@/db/client");
+      return db.transaction(async (tx) => {
+        const [stored] = await tx
+          .select()
+          .from(mcpRefreshTokens)
+          .where(eq(mcpRefreshTokens.tokenHash, input.tokenHash))
+          .limit(1)
+          .for("update");
+        if (
+          !stored ||
+          stored.clientId !== input.clientId ||
+          stored.userId !== input.userId ||
+          stored.revokedAt !== null ||
+          stored.expiresAt <= input.now ||
+          stored.familyExpiresAt <= input.now
+        ) {
+          return { status: "invalid" as const };
+        }
+        if (stored.consumedAt !== null) {
+          await tx
+            .update(mcpRefreshTokens)
+            .set({ revokedAt: input.now })
+            .where(eq(mcpRefreshTokens.familyId, stored.familyId));
+          await tx
+            .update(mcpAccessTokens)
+            .set({ revokedAt: input.now })
+            .where(eq(mcpAccessTokens.familyId, stored.familyId));
+          return { status: "replayed" as const };
+        }
+        await tx
+          .update(mcpRefreshTokens)
+          .set({
+            consumedAt: input.now,
+            replacementTokenHash: input.newRefreshTokenHash,
+          })
+          .where(
+            and(
+              eq(mcpRefreshTokens.tokenHash, input.tokenHash),
+              isNull(mcpRefreshTokens.consumedAt),
+            ),
+          );
+        await tx.insert(mcpAccessTokens).values({
+          tokenHash: input.newAccessTokenHash,
+          familyId: stored.familyId,
+          clientId: stored.clientId,
+          userId: stored.userId,
+          expiresAt: input.accessExpiresAt,
+          revokedAt: null,
+        });
+        await tx.insert(mcpRefreshTokens).values({
+          tokenHash: input.newRefreshTokenHash,
+          familyId: stored.familyId,
+          clientId: stored.clientId,
+          userId: stored.userId,
+          familyExpiresAt: stored.familyExpiresAt,
+          expiresAt: stored.familyExpiresAt,
+          consumedAt: null,
+          replacementTokenHash: null,
+          revokedAt: null,
+        });
+        return {
+          status: "rotated" as const,
+          familyId: stored.familyId,
+          familyExpiresAt: stored.familyExpiresAt,
+        };
+      });
     },
     async findAccessToken(tokenHash) {
       const { db } = await import("@/db/client");
@@ -95,6 +174,7 @@ function toStoredCode(
 function toStoredToken(token: typeof mcpAccessTokens.$inferSelect): StoredToken {
   return {
     tokenHash: token.tokenHash,
+    familyId: token.familyId,
     clientId: token.clientId,
     userId: token.userId,
     expiresAt: token.expiresAt,

@@ -12,11 +12,39 @@ export type StoredAuthorizationCode = {
 
 export type StoredToken = {
   tokenHash: string;
+  familyId: string | null;
   clientId: string;
   userId: string;
   expiresAt: Date;
   revokedAt: Date | null;
 };
+
+export type StoredRefreshToken = {
+  tokenHash: string;
+  familyId: string;
+  clientId: string;
+  userId: string;
+  familyExpiresAt: Date;
+  expiresAt: Date;
+  consumedAt: Date | null;
+  replacementTokenHash: string | null;
+  revokedAt: Date | null;
+};
+
+export type RotateRefreshTokenInput = {
+  tokenHash: string;
+  clientId: string;
+  userId: string;
+  now: Date;
+  newAccessTokenHash: string;
+  newRefreshTokenHash: string;
+  accessExpiresAt: Date;
+};
+
+export type RotateRefreshTokenResult =
+  | { status: "rotated"; familyId: string; familyExpiresAt: Date }
+  | { status: "replayed" }
+  | { status: "invalid" };
 
 export type McpAuthRepository = {
   saveAuthorizationCode(code: StoredAuthorizationCode): Promise<void>;
@@ -25,12 +53,26 @@ export type McpAuthRepository = {
     now: Date,
   ): Promise<StoredAuthorizationCode | null>;
   saveAccessToken(token: StoredToken): Promise<void>;
+  saveTokenPair(
+    accessToken: StoredToken,
+    refreshToken: StoredRefreshToken,
+  ): Promise<void>;
+  rotateRefreshToken(
+    input: RotateRefreshTokenInput,
+  ): Promise<RotateRefreshTokenResult>;
   findAccessToken(tokenHash: string): Promise<StoredToken | null>;
 };
 
 type TokenFactory = {
   now?: () => Date;
   randomToken?: () => string;
+};
+
+export type IssuedTokenPair = {
+  accessToken: string;
+  expiresIn: number;
+  refreshToken: string;
+  refreshTokenExpiresIn: number;
 };
 
 export async function createAuthorizationCode(
@@ -67,9 +109,11 @@ export async function exchangeAuthorizationCode(
   repo: McpAuthRepository,
   options: TokenFactory & {
     allowedUserId: string;
-    tokenTtlSeconds: number;
+    accessTokenTtlSeconds: number;
+    refreshTokenTtlSeconds: number;
+    randomFamilyId?: () => string;
   },
-): Promise<{ accessToken: string; expiresIn: number }> {
+): Promise<IssuedTokenPair> {
   const now = options.now?.() ?? new Date();
   const stored = await repo.consumeAuthorizationCode(sha256Hex(input.code), now);
   if (!stored) throw new Error("authorization_code_invalid");
@@ -87,14 +131,73 @@ export async function exchangeAuthorizationCode(
   }
 
   const accessToken = options.randomToken?.() ?? randomToken();
-  await repo.saveAccessToken({
+  const refreshToken = options.randomToken?.() ?? randomToken();
+  const familyId = options.randomFamilyId?.() ?? randomToken();
+  const familyExpiresAt = new Date(
+    now.getTime() + options.refreshTokenTtlSeconds * 1000,
+  );
+  await repo.saveTokenPair({
     tokenHash: sha256Hex(accessToken),
+    familyId,
     clientId: stored.clientId,
     userId: stored.userId,
-    expiresAt: new Date(now.getTime() + options.tokenTtlSeconds * 1000),
+    expiresAt: new Date(
+      now.getTime() + options.accessTokenTtlSeconds * 1000,
+    ),
+    revokedAt: null,
+  }, {
+    tokenHash: sha256Hex(refreshToken),
+    familyId,
+    clientId: stored.clientId,
+    userId: stored.userId,
+    familyExpiresAt,
+    expiresAt: familyExpiresAt,
+    consumedAt: null,
+    replacementTokenHash: null,
     revokedAt: null,
   });
-  return { accessToken, expiresIn: options.tokenTtlSeconds };
+  return {
+    accessToken,
+    expiresIn: options.accessTokenTtlSeconds,
+    refreshToken,
+    refreshTokenExpiresIn: options.refreshTokenTtlSeconds,
+  };
+}
+
+export async function exchangeRefreshToken(
+  input: { refreshToken: string; clientId: string },
+  repo: McpAuthRepository,
+  options: TokenFactory & {
+    allowedUserId: string;
+    accessTokenTtlSeconds: number;
+  },
+): Promise<IssuedTokenPair> {
+  const now = options.now?.() ?? new Date();
+  const accessToken = options.randomToken?.() ?? randomToken();
+  const refreshToken = options.randomToken?.() ?? randomToken();
+  const result = await repo.rotateRefreshToken({
+    tokenHash: sha256Hex(input.refreshToken),
+    clientId: input.clientId,
+    userId: options.allowedUserId,
+    now,
+    newAccessTokenHash: sha256Hex(accessToken),
+    newRefreshTokenHash: sha256Hex(refreshToken),
+    accessExpiresAt: new Date(
+      now.getTime() + options.accessTokenTtlSeconds * 1000,
+    ),
+  });
+  if (result.status === "replayed") throw new Error("refresh_token_replayed");
+  if (result.status === "invalid") throw new Error("refresh_token_invalid");
+  const refreshTokenExpiresIn = Math.floor(
+    (result.familyExpiresAt.getTime() - now.getTime()) / 1000,
+  );
+  if (refreshTokenExpiresIn <= 0) throw new Error("refresh_token_invalid");
+  return {
+    accessToken,
+    expiresIn: options.accessTokenTtlSeconds,
+    refreshToken,
+    refreshTokenExpiresIn,
+  };
 }
 
 export async function authenticateMcpBearer(
