@@ -75,6 +75,35 @@ describe("getValidXAccessToken", () => {
     });
   });
 
+  it("shares one in-flight refresh across concurrent calls", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          access_token: "shared-access",
+          refresh_token: "shared-refresh",
+          expires_in: 7200,
+        }),
+        { status: 200 },
+      ),
+    );
+    const deps = dependencies({
+      loadToken: vi.fn().mockResolvedValue({
+        accessToken: "old-access",
+        refreshToken: "old-refresh",
+        expiresAt: new Date("2026-07-23T00:00:00.000Z"),
+      }),
+      fetch: fetchMock,
+    });
+
+    await expect(
+      Promise.all([
+        getValidXAccessToken("same-user", deps),
+        getValidXAccessToken("same-user", deps),
+      ]),
+    ).resolves.toEqual(["shared-access", "shared-access"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["missing connection", null],
     [

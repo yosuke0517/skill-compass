@@ -50,6 +50,7 @@ export class XReconnectRequiredError extends Error {
 }
 
 const refreshBufferMs = 5 * 60 * 1000;
+const refreshesInFlight = new Map<string, Promise<string>>();
 
 async function defaultClientCredentials() {
   const env = getEnv();
@@ -91,6 +92,28 @@ export async function getValidXAccessToken(
   }
   if (!stored.refreshToken) throw new XReconnectRequiredError();
 
+  const existingRefresh = refreshesInFlight.get(userId);
+  if (existingRefresh) return existingRefresh;
+  const refresh = refreshXAccessToken(
+    userId,
+    { ...stored, refreshToken: stored.refreshToken },
+    dependencies,
+  );
+  refreshesInFlight.set(userId, refresh);
+  try {
+    return await refresh;
+  } finally {
+    if (refreshesInFlight.get(userId) === refresh) {
+      refreshesInFlight.delete(userId);
+    }
+  }
+}
+
+async function refreshXAccessToken(
+  userId: string,
+  stored: Exclude<StoredXToken, null> & { refreshToken: string },
+  dependencies: XTokenProviderDependencies,
+) {
   const credentials = await dependencies.getClientCredentials();
   if (!credentials) throw new XReconnectRequiredError();
 
