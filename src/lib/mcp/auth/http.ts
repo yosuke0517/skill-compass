@@ -19,6 +19,23 @@ export function authorizationServerMetadata(issuer: string) {
   };
 }
 
+export function authorizationSuccessRedirect(
+  redirectUri: string,
+  code: string,
+  state: string,
+): Response {
+  const redirect = new URL(redirectUri);
+  redirect.searchParams.set("code", code);
+  redirect.searchParams.set("state", state);
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: redirect.toString(),
+      "cache-control": "no-store",
+    },
+  });
+}
+
 export function validateRedirectUri(value: string): string {
   let url: URL;
   try {

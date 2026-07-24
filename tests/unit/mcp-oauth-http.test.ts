@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  authorizationSuccessRedirect,
   authorizationServerMetadata,
   protectedResourceMetadata,
   validateRedirectUri,
@@ -41,5 +42,19 @@ describe("MCP OAuth HTTP metadata", () => {
     expect(() => validateRedirectUri("javascript:alert(1)")).toThrow(
       "invalid_redirect_uri",
     );
+  });
+
+  it("redirects an authorization POST with 303 so the callback becomes GET", () => {
+    const response = authorizationSuccessRedirect(
+      "https://chatgpt.com/connector/oauth/callback",
+      "one-time-code",
+      "oauth-state",
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(
+      "https://chatgpt.com/connector/oauth/callback?code=one-time-code&state=oauth-state",
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 });

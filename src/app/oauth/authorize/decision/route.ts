@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
-
 import { requireCurrentUser } from "@/lib/access/current-user";
 import { getEnv } from "@/lib/env";
+import { authorizationSuccessRedirect } from "@/lib/mcp/auth/http";
 import { getMcpOAuthClient, createDrizzleMcpAuthRepository } from "@/lib/mcp/auth/repository";
 import { createAuthorizationCode } from "@/lib/mcp/auth/service";
 
@@ -29,8 +28,5 @@ export async function POST(request: Request) {
     { clientId, userId: user.id, redirectUri, codeChallenge },
     createDrizzleMcpAuthRepository(),
   );
-  const redirect = new URL(redirectUri);
-  redirect.searchParams.set("code", code);
-  redirect.searchParams.set("state", state);
-  return NextResponse.redirect(redirect);
+  return authorizationSuccessRedirect(redirectUri, code, state);
 }
