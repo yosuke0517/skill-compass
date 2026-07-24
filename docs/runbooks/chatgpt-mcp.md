@@ -70,6 +70,8 @@ An unauthenticated MCP request must return `401`:
 
 ```bash
 curl --include --request POST \
+  --header 'x-forwarded-host: agent.finegate.xyz' \
+  --header 'x-forwarded-proto: https' \
   --header 'content-type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}' \
   http://localhost:3001/mcp
@@ -79,6 +81,8 @@ The same check for the Architecture MCP must also return `401`:
 
 ```bash
 curl --include --request POST \
+  --header 'x-forwarded-host: agent.finegate.xyz' \
+  --header 'x-forwarded-proto: https' \
   --header 'content-type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}' \
   http://localhost:3001/mcp/architecture
