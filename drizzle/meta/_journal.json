@@ -99,6 +99,13 @@
       "when": 1784907000000,
       "tag": "0014_x_post_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1784907600000,
+      "tag": "0015_x_daily_tech_digest_cache",
+      "breakpoints": true
     }
   ]
 }

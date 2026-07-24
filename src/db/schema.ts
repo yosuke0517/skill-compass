@@ -458,6 +458,23 @@ export const xPublicPostCache = mysqlTable(
   (table) => [index("x_public_post_cache_expires_idx").on(table.expiresAt)],
 );
 
+export const xDailyTechDigestCache = mysqlTable(
+  "x_daily_tech_digest_cache",
+  {
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
+    localDate: date("local_date").notNull(),
+    digest: json("digest").notNull(),
+    generatedAt: datetime("generated_at").notNull(),
+    expiresAt: datetime("expires_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.localDate] }),
+    index("x_daily_tech_digest_cache_expires_idx").on(table.expiresAt),
+  ],
+);
+
 export const mcpOauthClients = mysqlTable("mcp_oauth_clients", {
   id: varchar("id", { length: 191 }).primaryKey(),
   redirectUris: json("redirect_uris").$type<string[]>().notNull(),

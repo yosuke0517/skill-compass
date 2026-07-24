@@ -41,6 +41,12 @@ const envSchema = z
     X_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE: z
       .string()
       .default("skill-compass/x-oauth-client-secret"),
+    X_DAILY_POST_READ_BUDGET: z.coerce.number().int().min(1).max(30).default(30),
+    X_PUBLIC_POST_CACHE_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(86_400),
     PODCAST_NEWS_FEED_URLS: z.string().default(""),
     PODCAST_AUDIO_STORAGE: z.enum(["filesystem", "r2"]).default("filesystem"),
     PODCAST_AUDIO_STORAGE_DIR: z.string().default("./var/skill-compass-audio"),

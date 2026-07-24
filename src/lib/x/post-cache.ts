@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { xPublicPostCache } from "@/db/schema";
+import { getEnv } from "@/lib/env";
 import { createXApiClient } from "@/lib/x/client";
 import { parseXPostUrl } from "@/lib/x/post-url";
 import { getValidXAccessToken } from "@/lib/x/token-provider";
@@ -58,19 +59,21 @@ export async function saveCachedPublicPost(
     });
 }
 
-const defaultDependencies: XPostCacheDependencies = {
-  now: () => new Date(),
-  ttlSeconds: 86_400,
-  getCachedPost: getCachedPublicPost,
-  saveCachedPost: saveCachedPublicPost,
-  createClient: async (userId) =>
-    createXApiClient(await getValidXAccessToken(userId)),
-};
+function defaultDependencies(): XPostCacheDependencies {
+  return {
+    now: () => new Date(),
+    ttlSeconds: getEnv().X_PUBLIC_POST_CACHE_TTL_SECONDS,
+    getCachedPost: getCachedPublicPost,
+    saveCachedPost: saveCachedPublicPost,
+    createClient: async (userId) =>
+      createXApiClient(await getValidXAccessToken(userId)),
+  };
+}
 
 export async function getXPostWithReferences(
   userId: string,
   value: string,
-  dependencies: XPostCacheDependencies = defaultDependencies,
+  dependencies: XPostCacheDependencies = defaultDependencies(),
 ) {
   const { postId } = parseXPostUrl(value);
   const now = dependencies.now();
