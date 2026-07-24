@@ -4,7 +4,7 @@
 
 Run the Skill Compass production server on `localhost:3001`, publish it through the existing Cloudflare Tunnel at `agent.finegate.xyz`, and connect two OAuth-protected ChatGPT MCP apps:
 
-- The learning MCP exposes five Today and Podcast tools backed by shared domain services.
+- The learning MCP exposes seven Today, Podcast, and read-only X tools backed by shared domain services.
 - The Architecture MCP exposes three read-only technical-interview tools backed only by a reviewed public-safe manifest.
 
 Neither resource exposes MySQL or local ports directly.
@@ -21,10 +21,14 @@ MCP_ARCHITECTURE_RESOURCE_URL=https://agent.finegate.xyz/mcp/architecture
 MCP_ACCESS_TOKEN_TTL_SECONDS=3600
 MCP_REFRESH_TOKEN_TTL_SECONDS=15552000
 MCP_ALLOWED_USER_ID=the-existing-skill-compass-user-id
+X_DAILY_POST_READ_BUDGET=30
+X_PUBLIC_POST_CACHE_TTL_SECONDS=86400
 ```
 
 - `/Users/yosukemini/.cloudflared/config.yml` maps `agent.finegate.xyz` to `http://localhost:3001`.
 - The configured Skill Compass account is active and has the required Podcast Pro entitlements.
+- X OAuth is connected with `tweet.read users.read bookmark.read offline.access`.
+  No X write scope is used. The X client secret remains in macOS Keychain.
 
 Do not place OAuth codes, MCP access tokens, database credentials, Gemini keys, or Cloudflare credentials in this repository or in command history.
 
@@ -38,8 +42,9 @@ cd /Users/yosukemini/work/skill-compass
 mkdir -p /Users/yosukemini/Library/Logs/skill-compass
 ```
 
-Back up the database before applying `0012_mcp_oauth.sql` or
-`0013_mcp_refresh_tokens.sql` in production.
+Back up the database before applying `0012_mcp_oauth.sql`,
+`0013_mcp_refresh_tokens.sql`, `0014_x_post_cache.sql`, or
+`0015_x_daily_tech_digest_cache.sql` in production.
 
 ## Verify the origin manually
 
@@ -138,13 +143,15 @@ launchctl print gui/$(id -u)/xyz.finegate.skill-compass-tunnel
 1. Add `https://agent.finegate.xyz/mcp` as the remote Skill Compass MCP app/server.
 2. ChatGPT discovers the OAuth metadata and dynamically registers its callback.
 3. Log in to the permitted Skill Compass account.
-4. Review the requested Today and Podcast access and select **Connect**.
+4. Review the requested Today, Podcast, public X Post, and temporary following-timeline access and select **Connect**.
 5. Confirm ChatGPT lists exactly:
    - `get_today`
    - `submit_today_answer`
    - `list_podcast_episodes`
    - `get_podcast_episode`
    - `ask_about_podcast`
+   - `get_x_post`
+   - `get_daily_tech_posts`
 
 Add a second custom app named **Skill Compass Architecture**:
 
@@ -181,6 +188,33 @@ If a consumed refresh token is presented again, Skill Compass returns
 response intentionally does not reveal whether a token was expired, replayed,
 revoked, mismatched, or unknown.
 
+The separate X provider token is refreshed by Skill Compass when expired or
+within five minutes of expiry. Refreshes for the same user are serialized so a
+rotating X refresh token is not used concurrently. If X rejects the refresh,
+the X tools return `x_reconnect_required`; reconnect X from Podcast settings.
+Provider token values and response bodies are never returned through MCP.
+
+## X Post privacy and cost boundary
+
+`get_x_post` accepts only HTTPS Post URLs with an exact `x.com`,
+`www.x.com`, `twitter.com`, or `www.twitter.com` host and an exact
+`/{username}/status/{numericId}` path. It ignores share query parameters,
+rejects credentials, custom ports, fragments, and extra path components, and
+never fetches the supplied URL. Only fixed `https://api.x.com` API endpoints
+are called.
+
+Public Post snapshots may be cached for 24 hours without a Skill Compass user
+ID. A daily result may be cached per user and Tokyo local date for 24 hours.
+The raw following timeline, its order, followed-account list, discarded
+candidates, request headers, and provider tokens are not persisted.
+
+The daily collector reads at most 30 unique Post candidates, targets a 70/30
+public-search/following-timeline mix, and returns at most ten selected Posts.
+The scheduled task requests five. The X Developer Console is authoritative for
+current usage and pricing; review it if X changes endpoint prices. At the
+design-time estimate, the 30-Post daily ceiling was approximately USD 4.50 per
+30-day month.
+
 ## Functional verification
 
 In ChatGPT:
@@ -192,6 +226,16 @@ skill-compassのTodayやりたい
 Answer one question with a choice, confidence, and reasoning. Open the Skill Compass Today page and confirm that the same question is answered with matching feedback.
 
 Then ask ChatGPT to list recent Podcast episodes and ask one grounded question. Confirm the exchange appears in the episode chat.
+
+Test a public X Post:
+
+```text
+https://x.com/example/status/1234567890 これどういう意味？
+```
+
+Expected: ChatGPT calls `get_x_post`, answers in Japanese, links the original,
+separates the Post's claims from its interpretation, and includes a quoted Post
+or direct parent only when X makes it available.
 
 Verify the Architecture app:
 
@@ -215,7 +259,17 @@ Expected: implemented OAuth/PKCE and user-authorization facts separated from aud
 
 ## Scheduled-task routing
 
-The 07:00 Asia/Tokyo task continues to prepare Today and inspect Podcast status with the learning MCP only. Add these instructions to the task:
+Keep two independent tasks so an X outage cannot delay Today or Podcast:
+
+- `skill-compass-daily-tech-on-x` runs daily at 06:45 Asia/Tokyo and calls only
+  `get_daily_tech_posts` with `limit=5`. It writes five concise Japanese items,
+  covers AI, Web/backend/cloud, and security, labels uncorroborated Posts as
+  claims, does not guess when retrieval fails, and ends each item with its
+  original X URL.
+- The existing 07:00 Asia/Tokyo task continues to prepare Today and inspect
+  Podcast status with the learning MCP only.
+
+Add these instructions to the 07:00 task:
 
 ```text
 When the user asks how Skill Compass was built, or asks about its architecture,
