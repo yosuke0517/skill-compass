@@ -476,6 +476,7 @@ export const mcpAccessTokens = mysqlTable(
   "mcp_access_tokens",
   {
     tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+    familyId: varchar("family_id", { length: 64 }),
     clientId: varchar("client_id", { length: 191 })
       .notNull()
       .references(() => mcpOauthClients.id),
@@ -487,6 +488,30 @@ export const mcpAccessTokens = mysqlTable(
     createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("mcp_access_tokens_user_idx").on(table.userId)],
+);
+
+export const mcpRefreshTokens = mysqlTable(
+  "mcp_refresh_tokens",
+  {
+    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
+    familyId: varchar("family_id", { length: 64 }).notNull(),
+    clientId: varchar("client_id", { length: 191 })
+      .notNull()
+      .references(() => mcpOauthClients.id),
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
+    familyExpiresAt: datetime("family_expires_at").notNull(),
+    expiresAt: datetime("expires_at").notNull(),
+    consumedAt: datetime("consumed_at"),
+    replacementTokenHash: varchar("replacement_token_hash", { length: 64 }),
+    revokedAt: datetime("revoked_at"),
+    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  },
+  (table) => [
+    index("mcp_refresh_tokens_family_idx").on(table.familyId),
+    index("mcp_refresh_tokens_user_idx").on(table.userId),
+  ],
 );
 
 export const exportRuns = mysqlTable("export_runs", {
