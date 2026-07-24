@@ -1,5 +1,6 @@
 import { requireCurrentUser } from "@/lib/access/current-user";
 import { getEnv } from "@/lib/env";
+import { getMcpConsent } from "@/lib/mcp/auth/consent";
 import { getMcpOAuthClient } from "@/lib/mcp/auth/repository";
 
 type Props = {
@@ -14,10 +15,15 @@ export default async function McpAuthorizePage({ searchParams }: Props) {
   const redirectUri = value(params.redirect_uri);
   const state = value(params.state);
   const codeChallenge = value(params.code_challenge);
+  const resource = value(params.resource);
+  const consent = getMcpConsent(resource, {
+    learningResourceUrl: env.MCP_RESOURCE_URL ?? "",
+    architectureResourceUrl: env.MCP_ARCHITECTURE_RESOURCE_URL,
+  });
   const valid =
     value(params.response_type) === "code" &&
     value(params.code_challenge_method) === "S256" &&
-    Boolean(clientId && redirectUri && state && codeChallenge);
+    Boolean(clientId && redirectUri && state && codeChallenge && consent);
   const client = valid ? await getMcpOAuthClient(clientId) : null;
   const authorized =
     client &&
@@ -33,10 +39,11 @@ export default async function McpAuthorizePage({ searchParams }: Props) {
       <section className="app-surface">
         <p className="eyebrow">ChatGPT connection</p>
         <h1>Connect {client.clientName}</h1>
-        <p>This grants access to your Skill Compass Today progress and Pro Podcast episodes.</p>
+        <p>{consent?.summary}</p>
         <ul>
-          <li>Read and submit Today answers</li>
-          <li>Read Podcast episodes and ask grounded questions</li>
+          {consent?.capabilities.map((capability) => (
+            <li key={capability}>{capability}</li>
+          ))}
         </ul>
         <form action="/oauth/authorize/decision" method="post">
           <input type="hidden" name="client_id" value={clientId} />
