@@ -18,7 +18,8 @@ Neither resource exposes MySQL or local ports directly.
 MCP_ISSUER_URL=https://agent.finegate.xyz
 MCP_RESOURCE_URL=https://agent.finegate.xyz/mcp
 MCP_ARCHITECTURE_RESOURCE_URL=https://agent.finegate.xyz/mcp/architecture
-MCP_ACCESS_TOKEN_TTL_SECONDS=2592000
+MCP_ACCESS_TOKEN_TTL_SECONDS=3600
+MCP_REFRESH_TOKEN_TTL_SECONDS=15552000
 MCP_ALLOWED_USER_ID=the-existing-skill-compass-user-id
 ```
 
@@ -37,7 +38,8 @@ cd /Users/yosukemini/work/skill-compass
 mkdir -p /Users/yosukemini/Library/Logs/skill-compass
 ```
 
-Back up the database before applying `0012_mcp_oauth.sql` in production.
+Back up the database before applying `0012_mcp_oauth.sql` or
+`0013_mcp_refresh_tokens.sql` in production.
 
 ## Verify the origin manually
 
@@ -155,6 +157,30 @@ Add a second custom app named **Skill Compass Architecture**:
 
 Do not paste a database password, local environment value, provider credential, or MCP bearer token into either custom app. The custom app uses the OAuth connection.
 
+## Token lifetime and mobile reconnection
+
+New connections receive a one-hour access token and a rotating refresh token.
+The refresh-token family has an absolute 180-day lifetime measured from the
+original authorization. Each successful refresh replaces the refresh token but
+does not extend that deadline. ChatGPT refreshes server-to-server without a
+Skill Compass browser session.
+
+Learning and Architecture are separate OAuth connections. Existing legacy
+30-day access tokens remain valid until their recorded expiration, but they do
+not receive refresh tokens. Reconnect each app once after deploying
+`0013_mcp_refresh_tokens.sql` to move both connections to the new policy.
+
+Manual reconnection is required after 180 days, after manual revocation, or if
+refresh-token replay protection revokes a connection family. Mobile
+reconnection works while `agent.finegate.xyz` is reachable. With the current
+deployment, the Mac must be awake and both the Next.js production service and
+Cloudflare Tunnel launchd job must be running.
+
+If a consumed refresh token is presented again, Skill Compass returns
+`invalid_grant` and revokes all access and refresh tokens in that family. The
+response intentionally does not reveal whether a token was expired, replayed,
+revoked, mismatched, or unknown.
+
 ## Functional verification
 
 In ChatGPT:
@@ -232,7 +258,10 @@ The command prints the server name, tool names, and safe Today result. It never 
 
 ## Revoke and rollback
 
-To revoke a connection, set `revoked_at` for its hashed row in `mcp_access_tokens`. Never search logs for or store the raw token.
+To revoke a refresh-capable connection, set `revoked_at` for every row sharing
+its `family_id` in both `mcp_access_tokens` and `mcp_refresh_tokens`. Legacy
+tokens have a null family ID and can still be revoked by their token hash.
+Never search logs for or store a raw token.
 
 For emergency rollback, stop the public tunnel first:
 
