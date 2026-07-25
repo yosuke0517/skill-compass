@@ -266,22 +266,45 @@ Keep two independent tasks so an X outage cannot delay Today or Podcast:
   covers AI, Web/backend/cloud, and security, labels uncorroborated Posts as
   claims, does not guess when retrieval fails, and ends each item with its
   original X URL.
-- The existing 07:00 Asia/Tokyo task continues to prepare Today and inspect
-  Podcast status with the learning MCP only.
+- The 07:00 Asia/Tokyo task calls `get_today` once and publishes a complete
+  five-question lesson packet plus the bounded instructor data into its task
+  conversation. It also inspects Podcast status with the learning MCP only.
+  The packet lets ChatGPT Voice/Live teach from conversation context even
+  though Voice/Live cannot call apps directly.
 
 Add these instructions to the 07:00 task:
 
 ```text
+Immediately call get_today and list_podcast_episodes. Publish all five Today
+questions and a compact INSTRUCTOR DATA section containing quizDayId,
+questionId, correctChoiceId, rationale, and existingAnswer. Do not submit an
+answer during preparation.
+
+When the user opens Voice/Live in this same conversation and says
+「Skill CompassのTodayやりたい」, teach one question at a time from the packet.
+Collect choice, confidence 1-5, and reasoning; reveal correctness and rationale
+only after the learner commits. At the end, output a SYNC PACK.
+
+After Voice/Live ends, when the user sends
+「今日の回答をSkill Compassに同期して」 as normal text, submit each complete
+SYNC PACK item with submit_today_answer.
+
 When the user asks how Skill Compass was built, or asks about its architecture,
 security, privacy, technical tradeoffs, or MCP data boundaries, use the Skill
 Compass Architecture app. Separate current implementation facts from planned
-improvements. Do not call Architecture tools during the automatic 07:00 Today
-and Podcast preparation.
+improvements.
 ```
 
 Run the task manually once after editing it:
 
 - The automatic run calls only `get_today` and `list_podcast_episodes`.
+- Its visible response contains five questions and five instructor-data rows.
+- It does not call `submit_today_answer`.
+- Open Voice/Live in the generated task conversation and confirm that
+  「Skill CompassのTodayやりたい」 starts with question one without attempting
+  an app call.
+- Exit Voice/Live and send the sync phrase as normal text before verifying
+  persisted answers.
 - A follow-up technical question in the same task conversation can call the Architecture app.
 - Japanese follow-ups receive Japanese answers.
 

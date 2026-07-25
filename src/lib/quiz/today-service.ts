@@ -16,6 +16,20 @@ export type McpTodayResult = {
     prompt: string;
     choices: Array<{ id: string; label: string }>;
   } | null;
+  instructorPack: Array<{
+    quizDayId: string;
+    questionId: string;
+    slot: number;
+    prompt: string;
+    choices: Array<{ id: string; label: string }>;
+    correctChoiceId: string;
+    rationale: string;
+    existingAnswer: {
+      selectedChoiceId: string;
+      correct: boolean | null;
+      feedback: string | null;
+    } | null;
+  }>;
 };
 
 export type SubmitTodayForUserInput = SubmitAnswerInput & {
@@ -54,6 +68,26 @@ export async function getTodayForUser(
           })),
         }
       : null,
+    instructorPack: quiz.questions.map((item) => ({
+      quizDayId: quiz.quizDayId,
+      questionId: item.question.id,
+      slot: item.slot,
+      prompt: item.question.prompt,
+      choices: item.question.choices.map((choice) => ({
+        id: choice.id,
+        label: choice.label,
+      })),
+      correctChoiceId:
+        item.question.choices.find((choice) => choice.correct)?.id ?? "",
+      rationale: item.question.rationale,
+      existingAnswer: item.answer
+        ? {
+            selectedChoiceId: item.answer.selectedChoiceId,
+            correct: item.answer.correct,
+            feedback: item.answer.feedback,
+          }
+        : null,
+    })),
   };
 }
 

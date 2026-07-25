@@ -175,11 +175,22 @@ Create one ChatGPT scheduled task for 07:00 Asia/Tokyo after the MCP app connect
 
 The task:
 
-1. Calls `get_today` so the day’s quiz is prepared by the existing lazy preparation behavior.
+1. Calls `get_today` so the day’s quiz is prepared by the existing lazy
+   preparation behavior and obtains a bounded instructor pack containing all
+   five questions, correct choice IDs, and rationales.
 2. Calls `list_podcast_episodes` to inspect the latest generation status.
-3. Reports Today progress and whether a new Podcast is ready, queued, processing, failed, or absent.
-4. Does not reveal Today answers or submit on the user’s behalf.
-5. Invites the user to say “skill-compassのTodayやりたい” to begin.
+3. Publishes all five questions plus a clearly separated instructor-data
+   section into the task conversation so Voice/Live can teach without calling
+   the MCP app.
+4. Reports Today progress and whether a new Podcast is ready, queued,
+   processing, failed, or absent.
+5. Does not submit on the user’s behalf during preparation.
+6. Invites the user to open Voice/Live in the same conversation and say
+   “skill-compassのTodayやりたい” to begin.
+7. Teaches one question at a time, collects choice, confidence, and reasoning,
+   and produces a structured sync pack when the lesson ends.
+8. Submits the sync pack only after Voice/Live ends and the user requests
+   synchronization from normal text chat.
 
 Scheduled output follows the same language rule. The task runs in English by default and responds in Japanese when the user continues in Japanese.
 

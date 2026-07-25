@@ -39,7 +39,7 @@ export function createSkillCompassMcpServer(context: {
     {
       title: "Get Skill Compass Today",
       description:
-        "Get progress and the next unanswered Skill Compass Today question. Present one question at a time and never infer a hidden answer.",
+        "Get Today progress, the next unanswered question, and a complete instructor pack for a tool-free ChatGPT Live session. When teaching, keep correctChoiceId and rationale private until the learner answers each question.",
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false },
     },

@@ -111,7 +111,7 @@ export const architectureManifest = {
       status: "implemented",
       topics: ["mcp", "pii", "security", "data_flow", "interview"],
       statement:
-        "Learning MCP tools return bounded domain DTOs and omit correctness metadata for unanswered quizzes, storage credentials, and audio internals.",
+        "Learning MCP tools return bounded domain DTOs. Today includes correctness metadata only in its instructor pack so a scheduled run can prepare a tool-free Live lesson; storage credentials and audio internals remain omitted.",
       reasoning:
         "The client receives only the fields required for the requested learning interaction.",
       limitation:

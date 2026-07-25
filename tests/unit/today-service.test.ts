@@ -44,7 +44,7 @@ const quiz: TodayQuiz = {
 };
 
 describe("getTodayForUser", () => {
-  it("returns only the next unanswered question without correctness metadata", async () => {
+  it("returns a complete instructor pack for a tool-free Live session", async () => {
     const result = await getTodayForUser(
       { userId: "user_1", today: "2026-07-24" },
       { allowedUserId: "user_1", getQuiz: async () => quiz },
@@ -64,9 +64,36 @@ describe("getTodayForUser", () => {
           { id: "c", label: "No index" },
         ],
       },
+      instructorPack: [
+        {
+          quizDayId: "quiz_2026-07-24",
+          questionId: "q1",
+          slot: 1,
+          prompt: "Answered question",
+          choices: [{ id: "a", label: "A" }],
+          correctChoiceId: "a",
+          rationale: "Hidden rationale",
+          existingAnswer: {
+            selectedChoiceId: "a",
+            correct: true,
+            feedback: "Correct",
+          },
+        },
+        {
+          quizDayId: "quiz_2026-07-24",
+          questionId: "q2",
+          slot: 2,
+          prompt: "Choose the correct index.",
+          choices: [
+            { id: "b", label: "Composite index" },
+            { id: "c", label: "No index" },
+          ],
+          correctChoiceId: "b",
+          rationale: "A composite index matches the query.",
+          existingAnswer: null,
+        },
+      ],
     });
-    expect(JSON.stringify(result)).not.toContain('"correct"');
-    expect(JSON.stringify(result)).not.toContain("rationale");
   });
 
   it("rejects a user other than the configured owner", async () => {
