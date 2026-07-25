@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>xyz.finegate.skill-compass-x-preflight</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/yosukemini/.asdf/shims/npm</string>
+    <string>run</string>
+    <string>x:preflight</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/yosukemini/work/skill-compass</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <key>PATH</key>
+    <string>/Users/yosukemini/.asdf/shims:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>35</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/yosukemini/Library/Logs/skill-compass/x-preflight.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/yosukemini/Library/Logs/skill-compass/x-preflight-error.log</string>
+</dict>
+</plist>

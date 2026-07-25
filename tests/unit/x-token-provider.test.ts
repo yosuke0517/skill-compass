@@ -66,6 +66,16 @@ describe("getValidXAccessToken", () => {
     await expect(getValidXAccessToken("user-1", deps)).resolves.toBe(
       "new-access",
     );
+    const [, request] = vi.mocked(deps.fetch).mock.calls[0];
+    expect(request?.headers).toMatchObject({
+      authorization: expect.stringMatching(/^Basic /),
+    });
+    expect(new URLSearchParams(String(request?.body))).toEqual(
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: "old-refresh",
+      }),
+    );
     expect(deps.saveToken).toHaveBeenCalledWith("user-1", "x", {
       accessToken: "new-access",
       refreshToken: "new-refresh",

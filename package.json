@@ -16,6 +16,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "job": "tsx src/lib/jobs/cli.ts",
     "mcp:smoke": "tsx src/lib/mcp/cli.ts",
+    "x:preflight": "tsx src/lib/x/preflight-cli.ts",
     "podcast:worker": "tsx src/lib/podcast/worker-cli.ts",
     "quiz:generate-choices": "tsx src/lib/quiz/generate-choices-cli.ts"
   },

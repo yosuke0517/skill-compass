@@ -190,9 +190,24 @@ revoked, mismatched, or unknown.
 
 The separate X provider token is refreshed by Skill Compass when expired or
 within five minutes of expiry. Refreshes for the same user are serialized so a
-rotating X refresh token is not used concurrently. If X rejects the refresh,
-the X tools return `x_reconnect_required`; reconnect X from Podcast settings.
-Provider token values and response bodies are never returned through MCP.
+rotating X refresh token is not used concurrently. The confidential-client
+refresh request authenticates with HTTP Basic and does not duplicate
+`client_id` in its form body. X authorization requests only
+`tweet.read users.read offline.access`.
+
+A local launchd preflight runs at 06:35 Asia/Tokyo:
+
+```bash
+plutil -lint ops/launchd/xyz.finegate.skill-compass-x-preflight.plist.example
+npm run x:preflight
+```
+
+The preflight uses the same on-demand token provider as the MCP tools. It does
+not poll X or fetch Posts: it checks the stored expiry and refreshes only when
+needed. The 06:45 ChatGPT task remains the first data API call. If X rejects
+the refresh, the preflight exits nonzero and the X tools return
+`x_reconnect_required`; reconnect X from Podcast settings. Provider token
+values and response bodies are never returned through MCP or preflight logs.
 
 ## X Post privacy and cost boundary
 

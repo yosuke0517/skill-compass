@@ -130,7 +130,6 @@ async function refreshXAccessToken(
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: stored.refreshToken,
-        client_id: credentials.clientId,
       }),
     });
   } catch {
