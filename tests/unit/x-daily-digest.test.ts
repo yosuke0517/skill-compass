@@ -4,6 +4,7 @@ import {
   getDailyTechPosts,
   type DailyDigestDependencies,
 } from "@/lib/x/daily-digest";
+import { XApiError } from "@/lib/x/client";
 import type { PublicXPost } from "@/lib/x/types";
 
 const now = new Date("2026-07-24T00:15:00.000Z");
@@ -92,6 +93,7 @@ describe("getDailyTechPosts", () => {
       partialFailures: [],
       trendSource: "personalized" as const,
       personalizedTrends: ["AI agents"],
+      digestVersion: 2 as const,
     };
     const deps = dependencies({
       getCachedDigest: vi.fn().mockResolvedValue({
@@ -106,7 +108,7 @@ describe("getDailyTechPosts", () => {
     expect(deps.createClient).not.toHaveBeenCalled();
   });
 
-  it("ignores an unexpired legacy cache without trend source metadata", async () => {
+  it("ignores an unexpired cache without the current digest version", async () => {
     const deps = dependencies({
       getCachedDigest: vi.fn().mockResolvedValue({
         digest: {
@@ -120,6 +122,8 @@ describe("getDailyTechPosts", () => {
           sourceMix: { publicSearch: 0, followingTimeline: 0 },
           responseLanguage: "ja",
           partialFailures: [],
+          trendSource: "fixed_topics",
+          personalizedTrends: [],
         },
         expiresAt: new Date("2026-07-25T00:00:00.000Z"),
       }),
@@ -136,7 +140,9 @@ describe("getDailyTechPosts", () => {
       createClient: vi.fn().mockResolvedValue({
         getPersonalizedTrends: vi
           .fn()
-          .mockRejectedValue(new Error("premium unavailable")),
+          .mockRejectedValue(
+            new XApiError("x_personalized_trends_unavailable"),
+          ),
         getMe: vi.fn().mockResolvedValue({ id: "999" }),
         searchRecent: vi.fn().mockResolvedValue([post(20)]),
         getFollowingTimeline: vi.fn().mockResolvedValue([]),

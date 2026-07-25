@@ -113,4 +113,21 @@ describe("rankTechPosts", () => {
 
     expect(result.map((item) => item.post.id)).toEqual(["20"]);
   });
+
+  it("excludes weak engagement that only reaches the old weighted threshold", () => {
+    const result = rankTechPosts({
+      candidates: [
+        candidate(
+          "30",
+          "AI developer tooling update",
+          "public_search",
+          { likes: 4, reposts: 2, replies: 2, quotes: 0 },
+        ),
+      ],
+      limit: 5,
+      now,
+    });
+
+    expect(result).toEqual([]);
+  });
 });

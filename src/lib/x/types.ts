@@ -44,4 +44,5 @@ export type XServiceErrorCode =
   | "x_reconnect_required"
   | "x_post_unavailable"
   | "x_rate_limited"
-  | "x_api_billing_unavailable";
+  | "x_api_billing_unavailable"
+  | "x_personalized_trends_unavailable";

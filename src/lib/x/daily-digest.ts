@@ -23,6 +23,7 @@ import {
 import type { RankedTechPost } from "@/lib/x/types";
 
 export type DailyTechDigest = {
+  digestVersion: 2;
   generatedAt: string;
   window: { start: string; end: string };
   topics: string[];
@@ -93,8 +94,7 @@ export async function getDailyTechPosts(
   if (
     cached &&
     cached.expiresAt.getTime() > now.getTime() &&
-    (cached.digest.trendSource === "personalized" ||
-      cached.digest.trendSource === "fixed_topics")
+    cached.digest.digestVersion === 2
   ) {
     return cached.digest;
   }
@@ -165,6 +165,7 @@ export async function getDailyTechPosts(
     now,
   });
   const digest: DailyTechDigest = {
+    digestVersion: 2,
     generatedAt: now.toISOString(),
     window: { start: start.toISOString(), end: now.toISOString() },
     topics: [...xTechTopics],

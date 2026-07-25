@@ -77,9 +77,14 @@ export function rankTechPosts(input: {
       candidate.post.metrics.likes +
       candidate.post.metrics.reposts * 2 +
       candidate.post.metrics.replies +
-      candidate.post.metrics.quotes;
+      candidate.post.metrics.quotes * 2;
     const isConcreteSecurityUpdate = securityPattern.test(candidate.post.text);
-    if (engagementTotal < 10 && !isConcreteSecurityUpdate) continue;
+    const meetsPopularityThreshold =
+      candidate.post.metrics.likes >= 10 ||
+      candidate.post.metrics.reposts >= 5 ||
+      candidate.post.metrics.quotes >= 2 ||
+      engagementTotal >= 25;
+    if (!meetsPopularityThreshold && !isConcreteSecurityUpdate) continue;
     const { score, reasons } = scorePost(candidate.post, input.now);
     seenIds.add(candidate.post.id);
     seenTexts.add(text);

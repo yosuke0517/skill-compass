@@ -139,6 +139,17 @@ describe("createXApiClient", () => {
     expect(url.searchParams.get("sort_order")).toBe("relevancy");
   });
 
+  it("classifies a Personalized Trends 401 as endpoint unavailability", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('{"detail":"not entitled"}', { status: 401 }),
+    );
+    const client = createXApiClient("valid-user-token", fetchMock);
+
+    await expect(client.getPersonalizedTrends()).rejects.toMatchObject({
+      code: "x_personalized_trends_unavailable",
+    });
+  });
+
   it.each([
     [401, "x_reconnect_required"],
     [404, "x_post_unavailable"],

@@ -273,7 +273,18 @@ export function createXApiClient(
         "personalized_trend.fields",
         "category,post_count,trend_name,trending_since",
       );
-      const envelope = await request(url);
+      let envelope: XApiEnvelope;
+      try {
+        envelope = await request(url);
+      } catch (error) {
+        if (
+          error instanceof XApiError &&
+          error.code === "x_reconnect_required"
+        ) {
+          throw new XApiError("x_personalized_trends_unavailable");
+        }
+        throw error;
+      }
       if (!Array.isArray(envelope.data)) return [];
       return envelope.data.filter(isPersonalizedTrend).flatMap(
         (trend): PersonalizedTrend[] =>
