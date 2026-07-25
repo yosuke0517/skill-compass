@@ -22,25 +22,25 @@ function dependencies(
   overrides: Partial<DailyDigestDependencies> = {},
 ): DailyDigestDependencies {
   const publicPosts = Array.from({ length: 21 }, (_, index) => post(index + 1));
-  const timelinePosts = Array.from({ length: 9 }, (_, index) =>
-    post(index + 22, `Cloud security patch details ${index}`),
-  );
   return {
     now: () => now,
     readBudget: 30,
     getCachedDigest: vi.fn().mockResolvedValue(null),
     saveCachedDigest: vi.fn().mockResolvedValue(undefined),
     createClient: vi.fn().mockResolvedValue({
+      getPersonalizedTrends: vi.fn().mockResolvedValue([
+        { name: "AI agents", category: "Technology", postCount: 10_000 },
+      ]),
       getMe: vi.fn().mockResolvedValue({ id: "999" }),
       searchRecent: vi.fn().mockResolvedValue(publicPosts),
-      getFollowingTimeline: vi.fn().mockResolvedValue(timelinePosts),
+      getFollowingTimeline: vi.fn().mockResolvedValue([]),
     }),
     ...overrides,
   };
 }
 
 describe("getDailyTechPosts", () => {
-  it("collects both sources, caps unique candidates, and persists only output", async () => {
+  it("uses personalized technical trends with relevancy search within the read budget", async () => {
     const saveCachedDigest = vi.fn().mockResolvedValue(undefined);
     const deps = dependencies({ saveCachedDigest });
 
@@ -51,11 +51,24 @@ describe("getDailyTechPosts", () => {
     );
 
     expect(result.posts).toHaveLength(5);
-    expect(result.sourceMix.publicSearch + result.sourceMix.followingTimeline).toBe(5);
+    expect(result.trendSource).toBe("personalized");
+    expect(result.personalizedTrends).toEqual(["AI agents"]);
+    expect(result.sourceMix).toEqual({ publicSearch: 5, followingTimeline: 0 });
     expect(result.responseLanguage).toBe("ja");
     const client = await deps.createClient("user-1");
-    expect(client.searchRecent).toHaveBeenCalledTimes(1);
-    expect(client.getFollowingTimeline).toHaveBeenCalledTimes(1);
+    expect(client.getPersonalizedTrends).toHaveBeenCalledTimes(1);
+    expect(client.searchRecent).toHaveBeenCalled();
+    expect(client.getFollowingTimeline).not.toHaveBeenCalled();
+    expect(
+      vi.mocked(client.searchRecent).mock.calls.every(
+        ([input]) => input.sortOrder === "relevancy",
+      ),
+    ).toBe(true);
+    expect(
+      vi
+        .mocked(client.searchRecent)
+        .mock.calls.reduce((total, [input]) => total + input.maxResults, 0),
+    ).toBeLessThanOrEqual(30);
     expect(
       vi.mocked(client.searchRecent).mock.calls[0][0].maxResults,
     ).toBeLessThanOrEqual(30);
@@ -77,6 +90,8 @@ describe("getDailyTechPosts", () => {
       sourceMix: { publicSearch: 0, followingTimeline: 0 },
       responseLanguage: "ja" as const,
       partialFailures: [],
+      trendSource: "personalized" as const,
+      personalizedTrends: ["AI agents"],
     };
     const deps = dependencies({
       getCachedDigest: vi.fn().mockResolvedValue({
@@ -91,17 +106,65 @@ describe("getDailyTechPosts", () => {
     expect(deps.createClient).not.toHaveBeenCalled();
   });
 
-  it("returns a partial digest when the personal timeline fails", async () => {
+  it("ignores an unexpired legacy cache without trend source metadata", async () => {
+    const deps = dependencies({
+      getCachedDigest: vi.fn().mockResolvedValue({
+        digest: {
+          generatedAt: "2026-07-24T00:00:00.000Z",
+          window: {
+            start: "2026-07-23T00:00:00.000Z",
+            end: "2026-07-24T00:00:00.000Z",
+          },
+          topics: ["AI"],
+          posts: [],
+          sourceMix: { publicSearch: 0, followingTimeline: 0 },
+          responseLanguage: "ja",
+          partialFailures: [],
+        },
+        expiresAt: new Date("2026-07-25T00:00:00.000Z"),
+      }),
+    });
+
+    const result = await getDailyTechPosts("user-1", { limit: 5 }, deps);
+
+    expect(result.trendSource).toBe("personalized");
+    expect(deps.createClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to one explicit-OR relevancy search when personalized trends are unavailable", async () => {
     const deps = dependencies({
       createClient: vi.fn().mockResolvedValue({
+        getPersonalizedTrends: vi
+          .fn()
+          .mockRejectedValue(new Error("premium unavailable")),
         getMe: vi.fn().mockResolvedValue({ id: "999" }),
-        searchRecent: vi.fn().mockResolvedValue([post(1)]),
-        getFollowingTimeline: vi.fn().mockRejectedValue(new Error("no timeline")),
+        searchRecent: vi.fn().mockResolvedValue([post(20)]),
+        getFollowingTimeline: vi.fn().mockResolvedValue([]),
       }),
     });
 
     const result = await getDailyTechPosts("user-1", { limit: 5 }, deps);
     expect(result.posts).toHaveLength(1);
-    expect(result.partialFailures).toEqual(["following_timeline_unavailable"]);
+    expect(result.trendSource).toBe("fixed_topics");
+    expect(result.personalizedTrends).toEqual([]);
+    expect(result.partialFailures).toEqual([
+      "personalized_trends_unavailable",
+    ]);
+    const client = await deps.createClient("user-1");
+    expect(client.searchRecent).toHaveBeenCalledTimes(1);
+    const search = vi.mocked(client.searchRecent).mock.calls[0][0];
+    expect(search.query).toContain("AI OR LLM");
+    expect(search.query).toContain("OR security OR vulnerability");
+    expect(search.sortOrder).toBe("relevancy");
+  });
+
+  it("does not request a ten-Post page when the configured read budget is smaller", async () => {
+    const deps = dependencies({ readBudget: 5 });
+
+    const result = await getDailyTechPosts("user-1", { limit: 5 }, deps);
+
+    const client = await deps.createClient("user-1");
+    expect(client.searchRecent).not.toHaveBeenCalled();
+    expect(result.posts).toEqual([]);
   });
 });

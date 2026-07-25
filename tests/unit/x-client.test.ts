@@ -90,6 +90,55 @@ describe("createXApiClient", () => {
     );
   });
 
+  it("retrieves normalized personalized trends from the fixed X API endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              trend_name: "AI agents",
+              category: "Technology",
+              post_count: 4200,
+              trending_since: "2026-07-24T00:00:00.000Z",
+              ignored: "provider-only-field",
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = createXApiClient("token", fetchMock);
+
+    await expect(client.getPersonalizedTrends()).resolves.toEqual([
+      {
+        name: "AI agents",
+        category: "Technology",
+        postCount: 4200,
+        trendingSince: "2026-07-24T00:00:00.000Z",
+      },
+    ]);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://api.x.com/2/users/personalized_trends?personalized_trend.fields=category%2Cpost_count%2Ctrend_name%2Ctrending_since",
+    );
+  });
+
+  it("requests recent search results in relevancy order when selected", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(apiResponse), { status: 200 }),
+    );
+    const client = createXApiClient("token", fetchMock);
+
+    await client.searchRecent({
+      query: "AI -is:retweet",
+      startTime: new Date("2026-07-23T00:00:00.000Z"),
+      maxResults: 10,
+      sortOrder: "relevancy",
+    });
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.searchParams.get("sort_order")).toBe("relevancy");
+  });
+
   it.each([
     [401, "x_reconnect_required"],
     [404, "x_post_unavailable"],

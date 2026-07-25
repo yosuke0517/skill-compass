@@ -43,7 +43,7 @@ function scorePost(post: PublicXPost, now: Date) {
     Math.log1p(Math.min(post.metrics.quotes, 1_000));
   let score = recency + engagement + 10;
   if (securityPattern.test(post.text)) {
-    score += 100;
+    score += 2;
     reasons.push("concrete_security_update");
   }
   reasons.push("technical_relevance", "recent_public_post");
@@ -73,6 +73,13 @@ export function rankTechPosts(input: {
     }
     const links = candidate.post.canonicalLinks;
     if (links.some((link) => seenLinks.has(link))) continue;
+    const engagementTotal =
+      candidate.post.metrics.likes +
+      candidate.post.metrics.reposts * 2 +
+      candidate.post.metrics.replies +
+      candidate.post.metrics.quotes;
+    const isConcreteSecurityUpdate = securityPattern.test(candidate.post.text);
+    if (engagementTotal < 10 && !isConcreteSecurityUpdate) continue;
     const { score, reasons } = scorePost(candidate.post, input.now);
     seenIds.add(candidate.post.id);
     seenTexts.add(text);
@@ -89,29 +96,5 @@ export function rankTechPosts(input: {
       left.post.id.localeCompare(right.post.id),
   );
   const limit = Math.max(0, Math.min(10, input.limit));
-  const publicTarget = Math.ceil(limit * 0.7);
-  const timelineTarget = limit - publicTarget;
-  const publicPosts = eligible.filter(
-    (item) => item.source === "public_search",
-  );
-  const timelinePosts = eligible.filter(
-    (item) => item.source === "following_timeline",
-  );
-  const selected = [
-    ...publicPosts.slice(0, publicTarget),
-    ...timelinePosts.slice(0, timelineTarget),
-  ];
-  const selectedIds = new Set(selected.map((item) => item.post.id));
-  selected.push(
-    ...eligible
-      .filter((item) => !selectedIds.has(item.post.id))
-      .slice(0, limit - selected.length),
-  );
-  return selected
-    .sort(
-      (left, right) =>
-        right.post.score - left.post.score ||
-        left.post.id.localeCompare(right.post.id),
-    )
-    .slice(0, limit);
+  return eligible.slice(0, limit);
 }

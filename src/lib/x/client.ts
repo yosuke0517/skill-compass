@@ -1,4 +1,5 @@
 import type {
+  PersonalizedTrend,
   PublicXPost,
   XMedia,
   XServiceErrorCode,
@@ -30,8 +31,14 @@ type XTweet = {
     quote_count?: number;
   };
 };
+type XPersonalizedTrend = {
+  trend_name?: string;
+  category?: string;
+  post_count?: number;
+  trending_since?: string;
+};
 type XApiEnvelope = {
-  data?: XTweet | XTweet[] | { id?: string };
+  data?: unknown;
   includes?: { users?: XUser[]; media?: XMediaResponse[] };
 };
 
@@ -42,7 +49,9 @@ export type XApiClient = {
     query: string;
     startTime: Date;
     maxResults: number;
+    sortOrder?: "recency" | "relevancy";
   }): Promise<PublicXPost[]>;
+  getPersonalizedTrends(): Promise<PersonalizedTrend[]>;
   getMe(): Promise<{ id: string }>;
   getFollowingTimeline(input: {
     userId: string;
@@ -95,10 +104,25 @@ function addPostFields(params: URLSearchParams) {
   params.set("media.fields", mediaFields);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTweet(value: unknown): value is XTweet {
+  return (
+    isRecord(value) &&
+    ("text" in value || "author_id" in value || "created_at" in value)
+  );
+}
+
+function isPersonalizedTrend(value: unknown): value is XPersonalizedTrend {
+  return isRecord(value) && typeof value.trend_name === "string";
+}
+
 function normalizePosts(envelope: XApiEnvelope): PublicXPost[] {
-  const rows = Array.isArray(envelope.data)
-    ? envelope.data
-    : envelope.data && "text" in envelope.data
+  const rows: XTweet[] = Array.isArray(envelope.data)
+    ? envelope.data.filter(isTweet)
+    : isTweet(envelope.data)
       ? [envelope.data]
       : [];
   const users = new Map(
@@ -236,8 +260,34 @@ export function createXApiClient(
         "max_results",
         String(Math.min(100, Math.max(10, input.maxResults))),
       );
+      if (input.sortOrder) {
+        url.searchParams.set("sort_order", input.sortOrder);
+      }
       addPostFields(url.searchParams);
       return requestPosts(url);
+    },
+
+    async getPersonalizedTrends() {
+      const url = new URL("https://api.x.com/2/users/personalized_trends");
+      url.searchParams.set(
+        "personalized_trend.fields",
+        "category,post_count,trend_name,trending_since",
+      );
+      const envelope = await request(url);
+      if (!Array.isArray(envelope.data)) return [];
+      return envelope.data.filter(isPersonalizedTrend).flatMap(
+        (trend): PersonalizedTrend[] =>
+          trend.trend_name
+            ? [
+                {
+                  name: trend.trend_name,
+                  category: trend.category,
+                  postCount: trend.post_count,
+                  trendingSince: trend.trending_since,
+                },
+              ]
+            : [],
+      );
     },
 
     async getMe() {
@@ -245,9 +295,8 @@ export function createXApiClient(
       url.searchParams.set("user.fields", "id");
       const envelope = await request(url);
       if (
-        !envelope.data ||
-        Array.isArray(envelope.data) ||
-        !envelope.data.id
+        !isRecord(envelope.data) ||
+        typeof envelope.data.id !== "string"
       ) {
         throw new XApiError("x_reconnect_required");
       }

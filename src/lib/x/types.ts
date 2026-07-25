@@ -5,6 +5,13 @@ export type XPostMetrics = {
   quotes: number;
 };
 
+export type PersonalizedTrend = {
+  name: string;
+  category?: string;
+  postCount?: number;
+  trendingSince?: string;
+};
+
 export type XMedia = {
   type: "photo" | "video" | "animated_gif";
   url?: string;

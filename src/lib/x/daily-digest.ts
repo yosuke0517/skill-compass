@@ -1,6 +1,10 @@
 import { getEnv } from "@/lib/env";
 import { detectResponseLanguage } from "@/lib/language/detect-response-language";
-import { createXApiClient, type XApiClient } from "@/lib/x/client";
+import {
+  createXApiClient,
+  XApiError,
+  type XApiClient,
+} from "@/lib/x/client";
 import {
   getCachedDailyDigest,
   saveCachedDailyDigest,
@@ -10,7 +14,12 @@ import {
   type TechPostCandidate,
 } from "@/lib/x/ranking";
 import { getValidXAccessToken } from "@/lib/x/token-provider";
-import { xRecentSearchQuery, xTechTopics } from "@/lib/x/topics";
+import { xTechTopics } from "@/lib/x/topics";
+import {
+  buildTrendSearchQuery,
+  selectTechnicalTrends,
+  xFixedTopicFallbackQuery,
+} from "@/lib/x/trend-queries";
 import type { RankedTechPost } from "@/lib/x/types";
 
 export type DailyTechDigest = {
@@ -19,6 +28,8 @@ export type DailyTechDigest = {
   topics: string[];
   posts: RankedTechPost[];
   sourceMix: { publicSearch: number; followingTimeline: number };
+  trendSource: "personalized" | "fixed_topics";
+  personalizedTrends: string[];
   responseLanguage: "ja" | "en";
   partialFailures: string[];
 };
@@ -39,7 +50,10 @@ export type DailyDigestDependencies = {
   createClient: (userId: string) => Promise<
     Pick<
       XApiClient,
-      "getMe" | "searchRecent" | "getFollowingTimeline"
+      | "getPersonalizedTrends"
+      | "getMe"
+      | "searchRecent"
+      | "getFollowingTimeline"
     >
   >;
 };
@@ -76,50 +90,69 @@ export async function getDailyTechPosts(
   const now = dependencies.now();
   const localDate = tokyoDateKey(now);
   const cached = await dependencies.getCachedDigest(userId, localDate);
-  if (cached && cached.expiresAt.getTime() > now.getTime()) {
+  if (
+    cached &&
+    cached.expiresAt.getTime() > now.getTime() &&
+    (cached.digest.trendSource === "personalized" ||
+      cached.digest.trendSource === "fixed_topics")
+  ) {
     return cached.digest;
   }
 
   const budget = Math.min(30, Math.max(1, dependencies.readBudget));
-  const publicBudget = Math.ceil(budget * 0.7);
-  const timelineBudget = budget - publicBudget;
   const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const client = await dependencies.createClient(userId);
   const candidates: TechPostCandidate[] = [];
   const partialFailures: string[] = [];
+  let personalizedTrends: string[] = [];
 
   try {
-    const posts = await client.searchRecent({
-      query: xRecentSearchQuery,
-      startTime: start,
-      maxResults: publicBudget,
-    });
-    candidates.push(
-      ...posts.slice(0, publicBudget).map((post) => ({
-        post,
-        source: "public_search" as const,
-      })),
+    personalizedTrends = selectTechnicalTrends(
+      await client.getPersonalizedTrends(),
+      Math.max(0, Math.min(2, Math.floor(budget / 10) - 1)),
     );
-  } catch {
-    partialFailures.push("public_search_unavailable");
+  } catch (error) {
+    if (
+      error instanceof XApiError &&
+      error.code === "x_reconnect_required"
+    ) {
+      throw error;
+    }
+    partialFailures.push("personalized_trends_unavailable");
   }
 
-  if (timelineBudget > 0) {
+  const queries = [
+    ...personalizedTrends.map(buildTrendSearchQuery),
+    xFixedTopicFallbackQuery,
+  ];
+  let remainingBudget = budget;
+  for (
+    let index = 0;
+    index < queries.length && remainingBudget >= 10;
+    index += 1
+  ) {
+    const remainingQueries = queries.length - index;
+    const queryBudget = Math.max(
+      10,
+      Math.floor(remainingBudget / remainingQueries),
+    );
     try {
-      const me = await client.getMe();
-      const posts = await client.getFollowingTimeline({
-        userId: me.id,
+      const posts = await client.searchRecent({
+        query: queries[index],
         startTime: start,
-        maxResults: timelineBudget,
+        maxResults: queryBudget,
+        sortOrder: "relevancy",
       });
       candidates.push(
-        ...posts.slice(0, timelineBudget).map((post) => ({
+        ...posts.slice(0, queryBudget).map((post) => ({
           post,
-          source: "following_timeline" as const,
+          source: "public_search" as const,
         })),
       );
+      remainingBudget -= queryBudget;
     } catch {
-      partialFailures.push("following_timeline_unavailable");
+      partialFailures.push("public_search_unavailable");
+      remainingBudget -= queryBudget;
     }
   }
 
@@ -143,6 +176,9 @@ export async function getDailyTechPosts(
         (item) => item.source === "following_timeline",
       ).length,
     },
+    trendSource:
+      personalizedTrends.length > 0 ? "personalized" : "fixed_topics",
+    personalizedTrends,
     responseLanguage: detectResponseLanguage(input.latestUserMessage ?? ""),
     partialFailures,
   };

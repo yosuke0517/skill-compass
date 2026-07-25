@@ -24,28 +24,52 @@ function candidate(
 }
 
 describe("rankTechPosts", () => {
-  it("targets a 70/30 public-search and following mix", () => {
+  it("ranks all sources by quality without reserving a following quota", () => {
     const candidates = [
-      candidate("1", "New LLM agent evaluation tooling"),
-      candidate("2", "PostgreSQL query planner deep dive"),
-      candidate("3", "Cloud observability tracing release"),
-      candidate("4", "Web authentication passkey update"),
-      candidate("5", "Backend distributed systems design"),
-      candidate("6", "React compiler engineering details", "following_timeline"),
-      candidate("7", "Kubernetes security policy guide", "following_timeline"),
+      candidate("1", "New LLM agent evaluation tooling", "public_search", {
+        likes: 500,
+        reposts: 80,
+        replies: 20,
+        quotes: 10,
+      }),
+      candidate("2", "PostgreSQL query planner deep dive", "public_search", {
+        likes: 400,
+        reposts: 60,
+        replies: 10,
+        quotes: 5,
+      }),
+      candidate("3", "Cloud observability tracing release", "public_search", {
+        likes: 300,
+        reposts: 50,
+        replies: 8,
+        quotes: 4,
+      }),
+      candidate("4", "Web authentication passkey update", "public_search", {
+        likes: 200,
+        reposts: 30,
+        replies: 6,
+        quotes: 3,
+      }),
+      candidate("5", "Backend distributed systems design", "public_search", {
+        likes: 100,
+        reposts: 20,
+        replies: 5,
+        quotes: 2,
+      }),
+      candidate("6", "React compiler engineering details", "following_timeline", {
+        likes: 2,
+        reposts: 0,
+        replies: 0,
+        quotes: 0,
+      }),
     ];
 
     const result = rankTechPosts({ candidates, limit: 5, now });
     expect(result).toHaveLength(5);
-    expect(
-      result.filter((item) => item.source === "public_search"),
-    ).toHaveLength(4);
-    expect(
-      result.filter((item) => item.source === "following_timeline"),
-    ).toHaveLength(1);
+    expect(result.every((item) => item.source === "public_search")).toBe(true);
   });
 
-  it("boosts concrete security advisories even with low engagement", () => {
+  it("labels concrete security advisories without overriding strong popularity", () => {
     const result = rankTechPosts({
       candidates: [
         candidate(
@@ -61,11 +85,11 @@ describe("rankTechPosts", () => {
           { likes: 10_000, reposts: 2_000, replies: 500, quotes: 300 },
         ),
       ],
-      limit: 1,
+      limit: 2,
       now,
     });
-    expect(result[0].post.id).toBe("10");
-    expect(result[0].post.reasons).toContain("concrete_security_update");
+    expect(result.map((item) => item.post.id)).toEqual(["11", "10"]);
+    expect(result[1].post.reasons).toContain("concrete_security_update");
   });
 
   it("filters low-value content and deduplicates text and canonical links", () => {

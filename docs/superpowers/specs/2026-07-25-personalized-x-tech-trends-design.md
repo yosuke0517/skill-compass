@@ -51,9 +51,11 @@ that entitlement.
    the query through a dedicated builder.
 5. Search representative Posts for the accepted trends with
    `sort_order=relevancy`, excluding reposts and replies.
-6. Fill remaining candidate capacity using separate fixed searches for AI,
-   Web/backend/database, cloud/observability, and security. Do not combine the
-   four topic groups with implicit AND.
+6. Fill remaining candidate capacity using one fixed fallback query that joins
+   AI, Web/backend/database, cloud/observability, and security with explicit
+   `OR`. Do not combine the four topic groups with implicit AND. One combined
+   request is required because Recent Search has a minimum page size of ten
+   and four separate requests could exceed the 30-Post daily budget.
 7. Rank the bounded candidate set and return up to the requested limit.
 
 The collector remains capped by `X_DAILY_POST_READ_BUDGET`. It must never
@@ -135,7 +137,7 @@ Use test-driven development to cover:
 - Personalized Trends success and technical allowlisting;
 - unsafe or nontechnical trend rejection;
 - `sort_order=relevancy` on representative Post searches;
-- four independent fixed-topic searches rather than one implicit-AND query;
+- one explicit-OR fixed-topic fallback rather than the old implicit-AND query;
 - entitlement, rate-limit, and temporary-failure fallback;
 - no fixed following-timeline quota;
 - quality threshold behavior and fewer-than-five results;

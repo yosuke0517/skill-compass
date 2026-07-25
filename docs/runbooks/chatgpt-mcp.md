@@ -252,6 +252,30 @@ Expected: ChatGPT calls `get_x_post`, answers in Japanese, links the original,
 separates the Post's claims from its interpretation, and includes a quoted Post
 or direct parent only when X makes it available.
 
+Verify the daily X digest:
+
+```text
+今日の技術ニュースを日本語で
+```
+
+Expected: `get_daily_tech_posts` first attempts the authenticated account's
+Personalized Trends. When X accepts that endpoint, the result reports
+`trendSource: "personalized"` and lists only allowlisted technical trend names.
+Representative Post searches use `sort_order=relevancy`.
+
+If the account, application, or provider does not allow Personalized Trends,
+the tool reports `trendSource: "fixed_topics"` and includes
+`personalized_trends_unavailable` in `partialFailures`. It then performs one
+bounded relevancy search joining AI, Web/backend/database,
+cloud/observability, and security terms with explicit `OR`.
+
+The total requested Post candidates must not exceed
+`X_DAILY_POST_READ_BUDGET`. The result may contain fewer than five items when
+the quality threshold is not met. A low-engagement concrete security advisory
+may be retained and labeled, but it must not be described as a popular Post.
+Neither provider error bodies nor X subscription details may appear in the MCP
+response or logs.
+
 Verify the Architecture app:
 
 ```text
