@@ -17,6 +17,13 @@ import {
 } from "drizzle-orm/mysql-core";
 
 export const difficultyValues = ["beginner", "intermediate", "advanced"] as const;
+export const questionCaseTypeValues = [
+  "basic_application",
+  "common_failure",
+  "design_tradeoff",
+  "debugging_performance",
+  "maintainability_safety",
+] as const;
 export const sourceTrustTierValues = ["tier1", "tier2", "tier3", "tier4"] as const;
 export const sourceStatusValues = ["active", "failed", "pending"] as const;
 export const jobStatusValues = ["pending", "running", "succeeded", "failed"] as const;
@@ -328,10 +335,21 @@ export const conceptSources = mysqlTable(
   (table) => [primaryKey({ columns: [table.conceptId, table.sourceId] })],
 );
 
+export type QuestionCaseType = (typeof questionCaseTypeValues)[number];
+
+export type QuestionArtifact = {
+  kind: "code" | "sql" | "schema" | "api" | "config" | "diagram";
+  title: string;
+  language?: string;
+  content: string;
+};
+
 export type QuestionChoice = {
-  id: string;
+  id: "a" | "b" | "c" | "d";
   label: string;
   correct: boolean;
+  explanation: string;
+  consequence: string;
 };
 
 export const questions = mysqlTable(
@@ -342,6 +360,12 @@ export const questions = mysqlTable(
       .notNull()
       .references(() => concepts.id),
     sourceId: varchar("source_id", { length: 64 }).references(() => sources.id),
+    scenario: text("scenario").notNull(),
+    artifacts: json("artifacts").$type<QuestionArtifact[]>().notNull(),
+    caseType: mysqlEnum("case_type", questionCaseTypeValues).notNull(),
+    decisionCriteria: json("decision_criteria").$type<string[]>().notNull(),
+    practicalNotes: json("practical_notes").$type<string[]>().notNull(),
+    checkQuestion: text("check_question").notNull(),
     prompt: text("prompt").notNull(),
     choices: json("choices").$type<QuestionChoice[]>().notNull(),
     difficulty: mysqlEnum("difficulty", difficultyValues).notNull(),
@@ -354,9 +378,12 @@ export const questions = mysqlTable(
 
 export const quizDays = mysqlTable("quiz_days", {
   id: varchar("id", { length: 64 }).primaryKey(),
+  userId: varchar("user_id", { length: 64 })
+    .notNull()
+    .references(() => users.id),
   quizDate: date("quiz_date").notNull(),
   preparedAt: datetime("prepared_at").notNull(),
-}, (table) => [uniqueIndex("quiz_days_quiz_date_idx").on(table.quizDate)]);
+}, (table) => [uniqueIndex("quiz_days_user_date_idx").on(table.userId, table.quizDate)]);
 
 export const quizDayQuestions = mysqlTable(
   "quiz_day_questions",
@@ -377,6 +404,9 @@ export const answers = mysqlTable(
   "answers",
   {
     id: varchar("id", { length: 64 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
     quizDayId: varchar("quiz_day_id", { length: 64 })
       .notNull()
       .references(() => quizDays.id),
@@ -394,8 +424,8 @@ export const answers = mysqlTable(
     answeredAt: datetime("answered_at").notNull(),
   },
   (table) => [
-    index("answers_quiz_day_idx").on(table.quizDayId),
-    index("answers_question_idx").on(table.questionId),
+    index("answers_user_quiz_day_idx").on(table.userId, table.quizDayId),
+    index("answers_user_question_idx").on(table.userId, table.questionId),
   ],
 );
 
@@ -403,25 +433,31 @@ export const scores = mysqlTable(
   "scores",
   {
     id: varchar("id", { length: 64 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
     subjectType: mysqlEnum("subject_type", scoreSubjectTypeValues).notNull(),
     subjectId: varchar("subject_id", { length: 64 }).notNull(),
     value: double("value").notNull(),
     updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
   },
-  (table) => [index("scores_subject_idx").on(table.subjectType, table.subjectId)],
+  (table) => [uniqueIndex("scores_user_subject_idx").on(table.userId, table.subjectType, table.subjectId)],
 );
 
 export const selfAssessments = mysqlTable(
   "self_assessments",
   {
     id: varchar("id", { length: 64 }).primaryKey(),
+    userId: varchar("user_id", { length: 64 })
+      .notNull()
+      .references(() => users.id),
     subjectType: mysqlEnum("subject_type", selfAssessmentSubjectTypeValues).notNull(),
     subjectId: varchar("subject_id", { length: 64 }).notNull(),
     rating: double("rating").notNull(),
     note: text("note"),
     assessedOn: date("assessed_on").notNull(),
   },
-  (table) => [index("self_assessments_subject_idx").on(table.subjectType, table.subjectId)],
+  (table) => [index("self_assessments_user_subject_idx").on(table.userId, table.subjectType, table.subjectId)],
 );
 
 export const sessions = mysqlTable("sessions", {

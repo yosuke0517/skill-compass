@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   auditLogs,
   categories,
@@ -14,6 +14,13 @@ import {
   translationCache,
   userEntitlementOverrides,
   users,
+  answers,
+  questions,
+  quizDays,
+  scores,
+  selfAssessments,
+  type QuestionArtifact,
+  type QuestionChoice,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -42,5 +49,44 @@ describe("schema", () => {
     expect(mcpOauthClients).toBeDefined();
     expect(mcpAuthorizationCodes).toBeDefined();
     expect(mcpAccessTokens).toBeDefined();
+  });
+
+  it("defines practical question fields and user-owned learning state", () => {
+    expect(Object.keys(questions)).toEqual(
+      expect.arrayContaining([
+        "scenario",
+        "artifacts",
+        "caseType",
+        "decisionCriteria",
+        "practicalNotes",
+        "checkQuestion",
+      ]),
+    );
+    expect(Object.keys(quizDays)).toContain("userId");
+    expect(Object.keys(answers)).toContain("userId");
+    expect(Object.keys(scores)).toContain("userId");
+    expect(Object.keys(selfAssessments)).toContain("userId");
+  });
+
+  it("types explained choices and constrained artifacts", () => {
+    const choice: QuestionChoice = {
+      id: "a",
+      label: "Use an index.",
+      correct: true,
+      explanation: "It supports the query pattern.",
+      consequence: "Reads become faster.",
+    };
+    const artifact: QuestionArtifact = {
+      kind: "sql",
+      title: "Query",
+      content: "SELECT * FROM orders;",
+    };
+
+    expect(choice.consequence).toBe("Reads become faster.");
+    expect(artifact.kind).toBe("sql");
+    expectTypeOf<QuestionChoice["id"]>().toEqualTypeOf<"a" | "b" | "c" | "d">();
+    expectTypeOf<QuestionArtifact["kind"]>().toEqualTypeOf<
+      "code" | "sql" | "schema" | "api" | "config" | "diagram"
+    >();
   });
 });
