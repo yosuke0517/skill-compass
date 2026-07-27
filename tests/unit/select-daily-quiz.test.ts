@@ -155,4 +155,33 @@ describe("selectDailyQuiz", () => {
 
     expect(selected.map((item) => item.question.id)).toContain("q9");
   });
+
+  it("keeps a recently assigned due question eligible when fresh alternatives exist", () => {
+    const selected = selectDailyQuiz(
+      selectionInput({
+        weakConceptIds: [],
+        dueQuestionIds: ["q9"],
+        recentlyAssignedQuestionIds: ["q9"],
+      }),
+    );
+
+    expect(selected.map((item) => item.question.id)).toContain("q9");
+  });
+
+  it("returns a balanced set from a large bank within the bounded search budget", { timeout: 1_000 }, () => {
+    const selected = selectDailyQuiz(
+      selectionInput({
+        questions: Array.from({ length: 70 }, (_, index) =>
+          makeQuestion(index, { categoryId: `category_${index}` }),
+        ),
+        weakConceptIds: [],
+        strongConceptIds: [],
+        recentlyAssignedQuestionIds: [],
+      }),
+    );
+
+    expect(selected).toHaveLength(5);
+    expect(new Set(selected.map((item) => item.question.caseType)).size).toBeGreaterThanOrEqual(4);
+    expect(selected.every((item) => item.question.active !== false)).toBe(true);
+  });
 });

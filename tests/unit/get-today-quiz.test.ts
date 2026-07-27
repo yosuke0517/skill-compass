@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTodayQuiz } from "@/lib/quiz/get-today-quiz";
+import { buildTodayQuiz, getDueQuestionIds } from "@/lib/quiz/get-today-quiz";
 
 describe("buildTodayQuiz", () => {
   it("marks answered and unanswered prepared questions in slot order", () => {
@@ -105,5 +105,20 @@ describe("buildTodayQuiz", () => {
 
     expect(quiz.progress).toEqual({ answered: 0, total: 1 });
     expect(quiz.questions.map((item) => item.question.id)).toEqual(["active"]);
+  });
+
+  it("uses only the latest answer for each question when deriving due reviews", () => {
+    const dueQuestionIds = getDueQuestionIds(
+      [
+        { id: "answer_old", questionId: "q1", answeredAt: "2026-07-01T00:00:00.000Z", nextReviewOn: "2026-07-05" },
+        { id: "answer_new", questionId: "q1", answeredAt: "2026-07-08T00:00:00.000Z", nextReviewOn: "2026-07-20" },
+        { id: "answer_due", questionId: "q2", answeredAt: "2026-07-08T00:00:00.000Z", nextReviewOn: "2026-07-08" },
+        { id: "answer_a", questionId: "q3", answeredAt: "2026-07-08T00:00:00.000Z", nextReviewOn: "2026-07-05" },
+        { id: "answer_z", questionId: "q3", answeredAt: "2026-07-08T00:00:00.000Z", nextReviewOn: "2026-07-20" },
+      ],
+      "2026-07-10",
+    );
+
+    expect(dueQuestionIds).toEqual(["q2"]);
   });
 });

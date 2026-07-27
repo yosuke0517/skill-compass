@@ -19,6 +19,7 @@ const difficultyFitRank: Record<QuizSelectionQuestion["difficulty"], number> = {
 };
 
 const MAX_SEARCH_CANDIDATES = 25;
+const MAX_SEARCH_NODES = 75_000;
 
 export function selectDailyQuiz(input: QuizSelectionInput): SelectedQuizQuestion[] {
   const selected: SelectedQuizQuestion[] = [];
@@ -44,7 +45,10 @@ export function selectDailyQuiz(input: QuizSelectionInput): SelectedQuizQuestion
   const remaining = 5 - selected.length;
   const candidates = activeQuestions.filter((question) => !selectedIds.has(question.id));
   const freshCandidates = candidates.filter((question) => !recentIds.has(question.id));
-  const eligible = freshCandidates.length > 0 ? freshCandidates : candidates;
+  const dueCandidates = candidates.filter((question) => input.dueQuestionIds.includes(question.id));
+  const eligible = freshCandidates.length > 0
+    ? uniqueQuestions([...dueCandidates, ...freshCandidates])
+    : candidates;
   const chosen = chooseBalancedCandidates(eligible, selected.map((item) => item.question), remaining, input, seed);
 
   for (const question of chosen) {
@@ -66,10 +70,7 @@ function chooseBalancedCandidates(
 
   const pool = buildSearchPool(candidates, input, seed);
   const enforceBalance = preparedQuestions.length + count === 5;
-  const balancedSelection = findBestCombination(pool, preparedQuestions, count, input, seed, enforceBalance)
-    ?? (enforceBalance && pool.length < candidates.length
-      ? findBestCombination(candidates, preparedQuestions, count, input, seed, true)
-      : undefined);
+  const balancedSelection = findBestCombination(pool, preparedQuestions, count, input, seed, enforceBalance);
 
   return balancedSelection
     ?? findBestCombination(pool, preparedQuestions, count, input, seed, false)
@@ -83,13 +84,14 @@ function buildSearchPool(candidates: QuizSelectionQuestion[], input: QuizSelecti
     if (question && !pool.some((candidate) => candidate.id === question.id)) pool.push(question);
   };
 
-  // Keep one best candidate for every balance dimension before filling with need-ranked candidates.
+  // Reserve representatives for the dimensions required by the five-question balance rule.
   for (const key of [
-    (question: QuizSelectionQuestion) => question.categoryId,
     (question: QuizSelectionQuestion) => question.caseType,
     (question: QuizSelectionQuestion) => question.correctChoiceId,
+    (question: QuizSelectionQuestion) => question.categoryId,
   ]) {
     for (const value of new Set(ranked.map(key))) {
+      if (pool.length >= MAX_SEARCH_CANDIDATES) return pool;
       add(ranked.find((question) => key(question) === value));
     }
   }
@@ -110,8 +112,16 @@ function findBestCombination(
   enforceBalance: boolean,
 ): QuizSelectionQuestion[] | undefined {
   let best: QuizSelectionQuestion[] | undefined;
+  let searchedNodes = 0;
+  let exhausted = false;
 
   const search = (start: number, chosen: QuizSelectionQuestion[]) => {
+    if (exhausted) return;
+    searchedNodes += 1;
+    if (searchedNodes > MAX_SEARCH_NODES) {
+      exhausted = true;
+      return;
+    }
     if (chosen.length === count) {
       const allQuestions = [...preparedQuestions, ...chosen];
       if (enforceBalance && !hasRequiredBalance(allQuestions)) return;
@@ -121,6 +131,7 @@ function findBestCombination(
 
     const needed = count - chosen.length;
     for (let index = start; index <= candidates.length - needed; index += 1) {
+      if (exhausted) return;
       const question = candidates[index];
       if (!question) continue;
       const allQuestions = [...preparedQuestions, ...chosen, question];
@@ -215,6 +226,10 @@ function selectionReason(question: QuizSelectionQuestion, input: QuizSelectionIn
 
 function maxCount(values: string[]): number {
   return Math.max(0, ...Array.from(new Set(values), (value) => values.filter((candidate) => candidate === value).length));
+}
+
+function uniqueQuestions(questions: QuizSelectionQuestion[]): QuizSelectionQuestion[] {
+  return Array.from(new Map(questions.map((question) => [question.id, question])).values());
 }
 
 function getTrustRank(question: QuizSelectionQuestion): number {

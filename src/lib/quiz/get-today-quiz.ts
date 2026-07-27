@@ -93,9 +93,7 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
         .filter((item): item is [string, string] => Boolean(item[1])),
     );
     const recentQuestionIds = answerRows.slice(-10).map((answer) => answer.questionId);
-    const dueQuestionIds = answerRows
-      .filter((answer) => answer.nextReviewOn && toDateKey(answer.nextReviewOn) <= today)
-      .map((answer) => answer.questionId);
+    const dueQuestionIds = getDueQuestionIds(answerRows, today);
     const conceptScores = scoreRows.filter((score) => score.subjectType === "concept");
     const weakConceptIds = conceptScores.filter((score) => score.value <= 0.5).map((score) => score.subjectId);
     const strongConceptIds = conceptScores.filter((score) => score.value >= 0.6).map((score) => score.subjectId);
@@ -190,6 +188,31 @@ export function buildTodayQuiz(input: BuildTodayQuizInput): TodayQuiz {
     },
     questions: items,
   };
+}
+
+export function getDueQuestionIds(
+  answerRows: Array<{ id: string; questionId: string; answeredAt: string | Date; nextReviewOn: string | Date | null }>,
+  today: string,
+): string[] {
+  const latestByQuestionId = new Map<string, (typeof answerRows)[number]>();
+
+  for (const answer of answerRows) {
+    const current = latestByQuestionId.get(answer.questionId);
+    if (!current || isLaterAnswer(answer, current)) latestByQuestionId.set(answer.questionId, answer);
+  }
+
+  return Array.from(latestByQuestionId.values())
+    .filter((answer) => answer.nextReviewOn !== null && toDateKey(answer.nextReviewOn) <= today)
+    .map((answer) => answer.questionId)
+    .sort();
+}
+
+function isLaterAnswer(
+  candidate: { id: string; answeredAt: string | Date },
+  current: { id: string; answeredAt: string | Date },
+): boolean {
+  const byAnsweredAt = new Date(candidate.answeredAt).getTime() - new Date(current.answeredAt).getTime();
+  return byAnsweredAt > 0 || (byAnsweredAt === 0 && candidate.id.localeCompare(current.id) > 0);
 }
 
 function toDateKey(value: string | Date): string {
