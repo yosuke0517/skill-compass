@@ -35,10 +35,12 @@ export async function submitQuizAnswerAction(formData: FormData) {
 }
 
 export async function addMoreQuizQuestionsAction(formData: FormData) {
+  const { requireCurrentUser } = await import("@/lib/access/current-user");
+  const user = await requireCurrentUser();
   const quizDayId = String(formData.get("quizDayId") ?? "");
   if (!quizDayId) redirect("/today");
 
-  await appendAdditionalQuizQuestions(quizDayId);
+  await appendAdditionalQuizQuestions(user.id, quizDayId);
 
   revalidatePath("/today");
   redirect("/today");

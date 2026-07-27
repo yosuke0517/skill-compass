@@ -12,14 +12,24 @@ const trustTierRank: Record<NonNullable<QuizSelectionQuestion["sourceTrustTier"]
   tier4: 3,
 };
 
+const difficultyFitRank: Record<QuizSelectionQuestion["difficulty"], number> = {
+  intermediate: 0,
+  beginner: 1,
+  advanced: 2,
+};
+
 export function selectDailyQuiz(input: QuizSelectionInput): SelectedQuizQuestion[] {
   const selected: SelectedQuizQuestion[] = [];
   const selectedIds = new Set<string>();
-  const recentIds = new Set(input.recentlyAnsweredQuestionIds);
+  const recentIds = new Set([
+    ...input.recentlyAnsweredQuestionIds,
+    ...input.recentlyAssignedQuestionIds,
+  ]);
   const activeQuestions = input.questions.filter((question) => question.active !== false);
+  const seed = `${input.userId}:${input.today}`;
 
   const addQuestion = (question: QuizSelectionQuestion | undefined, reason: QuizSelectionReason) => {
-    if (!question || selectedIds.has(question.id) || selected.length >= 5) return;
+    if (!question || question.active === false || selectedIds.has(question.id) || selected.length >= 5) return;
 
     selected.push({
       question,
@@ -29,140 +39,93 @@ export function selectDailyQuiz(input: QuizSelectionInput): SelectedQuizQuestion
     selectedIds.add(question.id);
   };
 
-  addQuestion(
-    pickQuestion({
-      questions: activeQuestions,
-      selectedIds,
-      recentIds,
-      predicate: (question) => input.weakConceptIds.includes(question.conceptId),
-      orderIds: input.weakConceptIds,
-      orderBy: "concept",
-    }),
-    "weakness",
-  );
-  addQuestion(
-    pickQuestion({
-      questions: activeQuestions,
-      selectedIds,
-      recentIds,
-      predicate: (question) => input.weakConceptIds.includes(question.conceptId),
-      orderIds: input.weakConceptIds,
-      orderBy: "concept",
-    }),
-    "weakness",
-  );
-  addQuestion(
-    pickQuestion({
-      questions: activeQuestions,
-      selectedIds,
-      recentIds,
-      predicate: (question) => input.strongConceptIds.includes(question.conceptId),
-      orderIds: input.strongConceptIds,
-      orderBy: "concept",
-    }),
-    "strength_extension",
-  );
-  addQuestion(
-    pickQuestion({
-      questions: activeQuestions,
-      selectedIds,
-      recentIds,
-      predicate: () => true,
-      orderBy: "trustThenCreated",
-    }),
-    "latest_catchup",
-  );
-  addQuestion(
-    pickQuestion({
-      questions: activeQuestions,
-      selectedIds,
-      recentIds,
-      predicate: (question) =>
-        input.underrepresentedCategoryIds.includes(question.categoryId) ||
-        input.gapCategoryIds.includes(question.categoryId),
-      orderIds: [...input.underrepresentedCategoryIds, ...input.gapCategoryIds],
-      orderBy: "category",
-    }),
-    "balancing",
-  );
-
   for (const prepared of input.existingPreparedQuestions ?? []) {
     addQuestion(prepared.question, prepared.reason);
   }
 
   while (selected.length < 5) {
-    const question = pickQuestion({
-      questions: activeQuestions,
-      selectedIds,
-      recentIds,
-      predicate: () => true,
-      orderBy: "trustThenCreated",
-    });
+    const question = pickQuestion({ activeQuestions, input, recentIds, seed, selectedIds, selected });
     if (!question) break;
-    addQuestion(question, "fallback");
+    addQuestion(question, selectionReason(question, input));
   }
 
-  return selected.slice(0, 5).map((item, index) => ({ ...item, slot: index + 1 }));
+  return selected.map((item, index) => ({ ...item, slot: index + 1 }));
 }
 
 type PickQuestionInput = {
-  questions: QuizSelectionQuestion[];
-  selectedIds: Set<string>;
+  activeQuestions: QuizSelectionQuestion[];
+  input: QuizSelectionInput;
   recentIds: Set<string>;
-  predicate: (question: QuizSelectionQuestion) => boolean;
-  orderIds?: string[];
-  orderBy: "concept" | "category" | "trustThenCreated";
+  seed: string;
+  selectedIds: Set<string>;
+  selected: SelectedQuizQuestion[];
 };
 
 function pickQuestion(input: PickQuestionInput): QuizSelectionQuestion | undefined {
-  const candidates = input.questions
-    .filter((question) => !input.selectedIds.has(question.id))
-    .filter(input.predicate)
-    .sort((left, right) => compareQuestions(left, right, input));
-
+  const candidates = input.activeQuestions.filter((question) => !input.selectedIds.has(question.id));
   if (candidates.length === 0) return undefined;
 
-  const nonRecent = candidates.filter((question) => !input.recentIds.has(question.id));
-  if (nonRecent.length > 0) return nonRecent[0];
+  // Do not reuse a recent item while any fresh active candidate remains.
+  const freshCandidates = candidates.filter((question) => !input.recentIds.has(question.id));
+  const eligible = freshCandidates.length > 0 ? freshCandidates : candidates;
 
-  const nonRecentFallback = input.questions
-    .filter((question) => !input.selectedIds.has(question.id))
-    .filter((question) => !input.recentIds.has(question.id))
-    .sort((left, right) => compareQuestions(left, right, { ...input, orderBy: "trustThenCreated" }));
-
-  return nonRecentFallback[0] ?? candidates[0];
+  return eligible.sort((left, right) => compareQuestions(left, right, input))[0];
 }
 
 function compareQuestions(left: QuizSelectionQuestion, right: QuizSelectionQuestion, input: PickQuestionInput): number {
-  if (input.orderBy === "concept") {
-    const byConcept = rank(left.conceptId, input.orderIds) - rank(right.conceptId, input.orderIds);
-    if (byConcept !== 0) return byConcept;
-  }
+  const byNeed = needRank(left, input.input) - needRank(right, input.input);
+  if (byNeed !== 0) return byNeed;
 
-  if (input.orderBy === "category") {
-    const byCategory = rank(left.categoryId, input.orderIds) - rank(right.categoryId, input.orderIds);
-    if (byCategory !== 0) return byCategory;
-  }
+  const byCategory = selectedCount(left.categoryId, input.selected, (question) => question.categoryId) - selectedCount(right.categoryId, input.selected, (question) => question.categoryId);
+  if (byCategory !== 0) return byCategory;
+
+  const byCaseType = selectedCount(left.caseType, input.selected, (question) => question.caseType) - selectedCount(right.caseType, input.selected, (question) => question.caseType);
+  if (byCaseType !== 0) return byCaseType;
+
+  const byCorrectChoiceId = selectedCount(left.correctChoiceId, input.selected, (question) => question.correctChoiceId) - selectedCount(right.correctChoiceId, input.selected, (question) => question.correctChoiceId);
+  if (byCorrectChoiceId !== 0) return byCorrectChoiceId;
 
   const byTrust = getTrustRank(left) - getTrustRank(right);
   if (byTrust !== 0) return byTrust;
 
-  const byCreated = getCreatedTime(right) - getCreatedTime(left);
-  if (byCreated !== 0) return byCreated;
+  const byDifficulty = difficultyFitRank[left.difficulty] - difficultyFitRank[right.difficulty];
+  if (byDifficulty !== 0) return byDifficulty;
+
+  const bySeed = stableHash(`${input.seed}:${left.id}`) - stableHash(`${input.seed}:${right.id}`);
+  if (bySeed !== 0) return bySeed;
 
   return left.id.localeCompare(right.id);
 }
 
-function rank(value: string, values: string[] | undefined): number {
-  const index = values?.indexOf(value) ?? -1;
-  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+function needRank(question: QuizSelectionQuestion, input: QuizSelectionInput): number {
+  if (input.weakConceptIds.includes(question.conceptId)) return 0;
+  if (input.strongConceptIds.includes(question.conceptId)) return 1;
+  if (input.underrepresentedCategoryIds.includes(question.categoryId) || input.gapCategoryIds.includes(question.categoryId)) return 2;
+  return 3;
+}
+
+function selectionReason(question: QuizSelectionQuestion, input: QuizSelectionInput): QuizSelectionReason {
+  if (input.weakConceptIds.includes(question.conceptId)) return "weakness";
+  if (input.strongConceptIds.includes(question.conceptId)) return "strength_extension";
+  if (input.underrepresentedCategoryIds.includes(question.categoryId) || input.gapCategoryIds.includes(question.categoryId)) {
+    return "balancing";
+  }
+  return "latest_catchup";
+}
+
+function selectedCount<T>(value: T, selected: SelectedQuizQuestion[], getValue: (question: QuizSelectionQuestion) => T): number {
+  return selected.filter((item) => getValue(item.question) === value).length;
 }
 
 function getTrustRank(question: QuizSelectionQuestion): number {
   return question.sourceTrustTier ? trustTierRank[question.sourceTrustTier] : Number.MAX_SAFE_INTEGER;
 }
 
-function getCreatedTime(question: QuizSelectionQuestion): number {
-  if (!question.createdAt) return 0;
-  return new Date(question.createdAt).getTime();
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }

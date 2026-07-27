@@ -4,6 +4,8 @@ export type QuizSelectionQuestion = {
   id: string;
   conceptId: string;
   categoryId: string;
+  caseType: "basic_application" | "common_failure" | "design_tradeoff" | "debugging_performance" | "maintainability_safety";
+  correctChoiceId: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   sourceTrustTier?: "tier1" | "tier2" | "tier3" | "tier4";
   active?: boolean;
@@ -17,6 +19,7 @@ export type SelectedQuizQuestion = {
 };
 
 export type QuizSelectionInput = {
+  userId: string;
   today: string;
   questions: QuizSelectionQuestion[];
   existingPreparedQuestions?: SelectedQuizQuestion[];
@@ -25,4 +28,5 @@ export type QuizSelectionInput = {
   underrepresentedCategoryIds: string[];
   gapCategoryIds: string[];
   recentlyAnsweredQuestionIds: string[];
+  recentlyAssignedQuestionIds: string[];
 };

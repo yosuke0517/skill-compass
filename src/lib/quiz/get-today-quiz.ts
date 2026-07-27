@@ -98,6 +98,8 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
       id: question.id,
       conceptId: question.conceptId,
       categoryId: categoryByConceptId.get(question.conceptId) ?? "uncategorized",
+      caseType: question.caseType,
+      correctChoiceId: question.choices.find((choice) => choice.correct)?.id ?? "",
       difficulty: question.difficulty,
       sourceTrustTier: question.sourceId ? sourceById.get(question.sourceId)?.trustTier : undefined,
       active: question.active,
@@ -105,6 +107,8 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
     }));
 
     const selected = selectDailyQuiz({
+      // This legacy reader remains user-unscoped until its Task 1 follow-up receives the current user.
+      userId: "user_local",
       today,
       questions: selectionQuestions,
       weakConceptIds,
@@ -112,6 +116,7 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
       underrepresentedCategoryIds: [],
       gapCategoryIds: [],
       recentlyAnsweredQuestionIds: recentQuestionIds,
+      recentlyAssignedQuestionIds: [],
     });
 
     if (selected.length > 0) {

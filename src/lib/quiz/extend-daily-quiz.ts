@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-import { conceptTags, questions, quizDayQuestions, sources, tags } from "@/db/schema";
+import { conceptTags, questions, quizDayQuestions, quizDays, sources, tags } from "@/db/schema";
 import type { QuizSelectionQuestion, QuizSelectionReason, SelectedQuizQuestion } from "./types";
 
 const trustTierRank: Record<NonNullable<QuizSelectionQuestion["sourceTrustTier"]>, number> = {
@@ -16,6 +16,7 @@ export const ADDITIONAL_QUIZ_COUNT = 5;
 export type AdditionalQuizSelectionInput = {
   questions: QuizSelectionQuestion[];
   preparedQuestionIds: string[];
+  recentlyAssignedQuestionIds?: string[];
   currentTotal: number;
   maxTotal?: number;
   addCount?: number;
@@ -28,9 +29,13 @@ export function selectAdditionalQuizQuestions(input: AdditionalQuizSelectionInpu
   if (remainingSlots === 0) return [];
 
   const preparedIds = new Set(input.preparedQuestionIds);
-  return input.questions
+  const candidates = input.questions
     .filter((question) => question.active !== false)
-    .filter((question) => !preparedIds.has(question.id))
+    .filter((question) => !preparedIds.has(question.id));
+  const recentIds = new Set(input.recentlyAssignedQuestionIds ?? []);
+  const freshCandidates = candidates.filter((question) => !recentIds.has(question.id));
+
+  return (freshCandidates.length > 0 ? freshCandidates : candidates)
     .sort(compareQuestionPriority)
     .slice(0, remainingSlots)
     .map((question, index) => ({
@@ -40,8 +45,15 @@ export function selectAdditionalQuizQuestions(input: AdditionalQuizSelectionInpu
     }));
 }
 
-export async function appendAdditionalQuizQuestions(quizDayId: string) {
+export async function appendAdditionalQuizQuestions(userId: string, quizDayId: string) {
   const { db } = await import("@/db/client");
+  const [quizDay] = await db
+    .select()
+    .from(quizDays)
+    .where(and(eq(quizDays.id, quizDayId), eq(quizDays.userId, userId)))
+    .limit(1);
+  if (!quizDay) throw new Error("quiz_not_found");
+
   const preparedRows = await db.select().from(quizDayQuestions).where(eq(quizDayQuestions.quizDayId, quizDayId));
   const currentTotal = preparedRows.length;
 
@@ -49,11 +61,16 @@ export async function appendAdditionalQuizQuestions(quizDayId: string) {
     return { added: 0, total: currentTotal, limit: DAILY_QUIZ_LIMIT };
   }
 
-  const [questionRows, sourceRows, conceptTagRows, tagRows] = await Promise.all([
+  const [questionRows, sourceRows, conceptTagRows, tagRows, recentlyAssignedRows] = await Promise.all([
     db.select().from(questions),
     db.select().from(sources),
     db.select().from(conceptTags),
     db.select().from(tags),
+    db
+      .select({ questionId: quizDayQuestions.questionId })
+      .from(quizDayQuestions)
+      .innerJoin(quizDays, eq(quizDayQuestions.quizDayId, quizDays.id))
+      .where(eq(quizDays.userId, userId)),
   ]);
   const sourceById = new Map(sourceRows.map((source) => [source.id, source]));
   const tagById = new Map(tagRows.map((tag) => [tag.id, tag]));
@@ -66,6 +83,8 @@ export async function appendAdditionalQuizQuestions(quizDayId: string) {
     id: question.id,
     conceptId: question.conceptId,
     categoryId: categoryByConceptId.get(question.conceptId) ?? "uncategorized",
+    caseType: question.caseType,
+    correctChoiceId: question.choices.find((choice) => choice.correct)?.id ?? "",
     difficulty: question.difficulty,
     sourceTrustTier: question.sourceId ? sourceById.get(question.sourceId)?.trustTier : undefined,
     active: question.active,
@@ -74,6 +93,7 @@ export async function appendAdditionalQuizQuestions(quizDayId: string) {
   const selected = selectAdditionalQuizQuestions({
     questions: selectionQuestions,
     preparedQuestionIds: preparedRows.map((row) => row.questionId),
+    recentlyAssignedQuestionIds: recentlyAssignedRows.map((row) => row.questionId),
     currentTotal,
   });
 

@@ -1,12 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { selectAdditionalQuizQuestions } from "@/lib/quiz/extend-daily-quiz";
+const { selectMock } = vi.hoisted(() => ({ selectMock: vi.fn() }));
+
+vi.mock("@/db/client", () => ({
+  db: { select: selectMock },
+}));
+
+import { appendAdditionalQuizQuestions, selectAdditionalQuizQuestions } from "@/lib/quiz/extend-daily-quiz";
+import { quizDays } from "@/db/schema";
 import type { QuizSelectionQuestion } from "@/lib/quiz/types";
 
 const questions: QuizSelectionQuestion[] = Array.from({ length: 40 }, (_, index) => ({
   id: `q${index + 1}`,
   conceptId: `concept_${index + 1}`,
   categoryId: "cat_backend",
+  caseType: "basic_application",
+  correctChoiceId: "a",
   difficulty: "intermediate",
   sourceTrustTier: index % 2 === 0 ? "tier1" : "tier3",
   active: true,
@@ -39,5 +48,34 @@ describe("selectAdditionalQuizQuestions", () => {
     });
 
     expect(selected).toEqual([]);
+  });
+
+  it("never appends inactive legacy questions", () => {
+    const selected = selectAdditionalQuizQuestions({
+      questions: [
+        { ...questions[0]!, active: false },
+        { ...questions[1]!, active: false },
+        { ...questions[2]!, active: false },
+      ],
+      preparedQuestionIds: [],
+      currentTotal: 0,
+    });
+
+    expect(selected).toEqual([]);
+  });
+});
+
+describe("appendAdditionalQuizQuestions", () => {
+  it("rejects a quiz day owned by another user before reading assignments", async () => {
+    selectMock.mockImplementation(() => ({
+      from: (table: unknown) => {
+        expect(table).toBe(quizDays);
+        return {
+          where: () => ({ limit: async () => [] }),
+        };
+      },
+    }));
+
+    await expect(appendAdditionalQuizQuestions("user_b", "quiz_user_a")).rejects.toThrow("quiz_not_found");
   });
 });
