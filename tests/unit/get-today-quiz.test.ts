@@ -1,6 +1,31 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTodayQuiz, getDueQuestionIds } from "@/lib/quiz/get-today-quiz";
+import {
+  buildTodayQuiz,
+  createQuizDayId,
+  getDueQuestionIds,
+  resolveQuizDayId,
+} from "@/lib/quiz/get-today-quiz";
+
+describe("createQuizDayId", () => {
+  it("creates a deterministic owner-specific identifier for the same day", () => {
+    const quizA = createQuizDayId("user_a", "2026-07-09");
+    const quizB = createQuizDayId("user_b", "2026-07-09");
+
+    expect(quizA).toMatch(/^quiz_[a-f0-9]{12}_20260709$/);
+    expect(quizA).toBe(createQuizDayId("user_a", "2026-07-09"));
+    expect(quizA).not.toBe(quizB);
+  });
+
+  it("reuses an owned legacy ID when that user already has the unique quiz date", () => {
+    expect(resolveQuizDayId("user_local", "2026-07-09", "quiz_2026-07-09")).toBe(
+      "quiz_2026-07-09",
+    );
+    expect(resolveQuizDayId("user_a", "2026-07-09")).toBe(
+      createQuizDayId("user_a", "2026-07-09"),
+    );
+  });
+});
 
 describe("buildTodayQuiz", () => {
   it("marks answered and unanswered prepared questions in slot order", () => {

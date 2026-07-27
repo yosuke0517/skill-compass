@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { requireCurrentUser } from "@/lib/access/current-user";
 import { appendAdditionalQuizQuestions } from "@/lib/quiz/extend-daily-quiz";
 import { submitTodayAnswer } from "@/lib/quiz/submit-answer";
 
 export async function submitQuizAnswerAction(formData: FormData) {
+  const user = await requireCurrentUser();
   const quizDayId = String(formData.get("quizDayId") ?? "");
   const questionId = String(formData.get("questionId") ?? "");
   const selectedChoiceId = String(formData.get("selectedChoiceId") ?? "");
@@ -19,6 +21,7 @@ export async function submitQuizAnswerAction(formData: FormData) {
 
   try {
     await submitTodayAnswer({
+      userId: user.id,
       quizDayId,
       questionId,
       selectedChoiceId,
@@ -35,7 +38,6 @@ export async function submitQuizAnswerAction(formData: FormData) {
 }
 
 export async function addMoreQuizQuestionsAction(formData: FormData) {
-  const { requireCurrentUser } = await import("@/lib/access/current-user");
   const user = await requireCurrentUser();
   const quizDayId = String(formData.get("quizDayId") ?? "");
   if (!quizDayId) redirect("/today");

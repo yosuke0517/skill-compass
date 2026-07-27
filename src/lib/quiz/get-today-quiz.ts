@@ -1,4 +1,5 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { createHash } from "node:crypto";
 
 import {
   answers,
@@ -60,31 +61,56 @@ export type BuildTodayQuizInput = {
   }>;
 };
 
-export async function getTodayQuiz(today = toDateKey(new Date())): Promise<TodayQuiz> {
+export async function getTodayQuiz(userId: string, today = toDateKey(new Date())): Promise<TodayQuiz> {
   const { db } = await import("@/db/client");
-  const userId = "user_local";
-  const quizDayId = `quiz_${today}`;
+  const generatedQuizDayId = createQuizDayId(userId, today);
+  const quizDate = new Date(`${today}T00:00:00.000Z`);
 
   await db
     .insert(quizDays)
     .ignore()
     .values({
-      id: quizDayId,
-      quizDate: new Date(`${today}T00:00:00.000Z`),
+      id: generatedQuizDayId,
+      userId,
+      quizDate,
       preparedAt: new Date(),
     });
 
-  let preparedRows = await db.select().from(quizDayQuestions).where(eq(quizDayQuestions.quizDayId, quizDayId));
+  const [ownedQuizDay] = await db
+    .select({ id: quizDays.id })
+    .from(quizDays)
+    .where(and(eq(quizDays.userId, userId), eq(quizDays.quizDate, quizDate)))
+    .limit(1);
+  if (!ownedQuizDay) throw new Error("today_quiz_not_found");
+  const quizDayId = resolveQuizDayId(userId, today, ownedQuizDay.id);
+
+  let preparedRows = await loadPreparedQuestions(db, userId, quizDayId);
 
   if (preparedRows.length === 0) {
-    const [questionRows, sourceRows, conceptTagRows, tagRows, scoreRows, answerRows] = await Promise.all([
+    const [questionRows, sourceRows, conceptTagRows, tagRows, scoreRows, answerRows, recentQuizDayRows] = await Promise.all([
       db.select().from(questions),
       db.select().from(sources),
       db.select().from(conceptTags),
       db.select().from(tags),
       db.select().from(scores).where(eq(scores.userId, userId)),
-      db.select().from(answers).where(eq(answers.userId, userId)),
+      db.select().from(answers).where(eq(answers.userId, userId)).orderBy(desc(answers.answeredAt)),
+      db
+        .select({ id: quizDays.id })
+        .from(quizDays)
+        .where(eq(quizDays.userId, userId))
+        .orderBy(desc(quizDays.quizDate))
+        .limit(7),
     ]);
+    const recentQuizDayIds = recentQuizDayRows
+      .map((quizDay) => quizDay.id)
+      .filter((id) => id !== quizDayId);
+    const recentAssignmentRows =
+      recentQuizDayIds.length > 0
+        ? await db
+            .select({ questionId: quizDayQuestions.questionId })
+            .from(quizDayQuestions)
+            .where(inArray(quizDayQuestions.quizDayId, recentQuizDayIds))
+        : [];
     const sourceById = new Map(sourceRows.map((source) => [source.id, source]));
     const tagById = new Map(tagRows.map((tag) => [tag.id, tag]));
     const categoryByConceptId = new Map(
@@ -92,7 +118,7 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
         .map((link) => [link.conceptId, tagById.get(link.tagId)?.categoryId])
         .filter((item): item is [string, string] => Boolean(item[1])),
     );
-    const recentQuestionIds = answerRows.slice(-10).map((answer) => answer.questionId);
+    const recentQuestionIds = answerRows.slice(0, 10).map((answer) => answer.questionId);
     const dueQuestionIds = getDueQuestionIds(answerRows, today);
     const conceptScores = scoreRows.filter((score) => score.subjectType === "concept");
     const weakConceptIds = conceptScores.filter((score) => score.value <= 0.5).map((score) => score.subjectId);
@@ -118,7 +144,7 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
       underrepresentedCategoryIds: [],
       gapCategoryIds: [],
       recentlyAnsweredQuestionIds: recentQuestionIds,
-      recentlyAssignedQuestionIds: [],
+      recentlyAssignedQuestionIds: recentAssignmentRows.map((assignment) => assignment.questionId),
       dueQuestionIds,
     });
 
@@ -136,13 +162,16 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
         );
     }
 
-    preparedRows = await db.select().from(quizDayQuestions).where(eq(quizDayQuestions.quizDayId, quizDayId));
+    preparedRows = await loadPreparedQuestions(db, userId, quizDayId);
   }
 
   const questionIds = preparedRows.map((item) => item.questionId);
   const [questionRows, answerRows] = await Promise.all([
     questionIds.length > 0 ? db.select().from(questions).where(inArray(questions.id, questionIds)) : [],
-    db.select().from(answers).where(eq(answers.quizDayId, quizDayId)),
+    db
+      .select()
+      .from(answers)
+      .where(and(eq(answers.userId, userId), eq(answers.quizDayId, quizDayId))),
   ]);
 
   return buildTodayQuiz({
@@ -151,6 +180,37 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
     questions: questionRows,
     answers: answerRows,
   });
+}
+
+type DbClient = Awaited<typeof import("@/db/client")>["db"];
+
+async function loadPreparedQuestions(db: DbClient, userId: string, quizDayId: string) {
+  return db
+    .select({
+      quizDayId: quizDayQuestions.quizDayId,
+      questionId: quizDayQuestions.questionId,
+      slot: quizDayQuestions.slot,
+      reason: quizDayQuestions.reason,
+    })
+    .from(quizDayQuestions)
+    .innerJoin(
+      quizDays,
+      and(eq(quizDays.id, quizDayQuestions.quizDayId), eq(quizDays.userId, userId)),
+    )
+    .where(eq(quizDayQuestions.quizDayId, quizDayId));
+}
+
+export function createQuizDayId(userId: string, today: string): string {
+  const owner = createHash("sha256").update(userId).digest("hex").slice(0, 12);
+  return `quiz_${owner}_${today.replaceAll("-", "")}`;
+}
+
+export function resolveQuizDayId(
+  userId: string,
+  today: string,
+  persistedQuizDayId?: string,
+): string {
+  return persistedQuizDayId ?? createQuizDayId(userId, today);
 }
 
 export function buildTodayQuiz(input: BuildTodayQuizInput): TodayQuiz {

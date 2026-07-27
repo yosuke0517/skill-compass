@@ -38,7 +38,7 @@ export type SubmitTodayForUserInput = SubmitAnswerInput & {
 
 type TodayServiceDeps = {
   allowedUserId: string;
-  getQuiz?: (today?: string) => Promise<TodayQuiz>;
+  getQuiz?: (userId: string, today?: string) => Promise<TodayQuiz>;
   submitAnswer?: (
     input: Omit<SubmitAnswerInput, "today"> & { today?: string },
   ) => Promise<SubmitAnswerResult>;
@@ -49,7 +49,7 @@ export async function getTodayForUser(
   deps: TodayServiceDeps,
 ): Promise<McpTodayResult> {
   assertAllowedUser(input.userId, deps.allowedUserId);
-  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.today);
+  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, input.today);
   const next = quiz.questions.find((item) => item.answer === null);
 
   return {
@@ -96,7 +96,7 @@ export async function submitTodayForUser(
   deps: TodayServiceDeps,
 ): Promise<SubmitAnswerResult> {
   assertAllowedUser(input.userId, deps.allowedUserId);
-  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.today);
+  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, input.today);
 
   if (quiz.quizDayId !== input.quizDayId) {
     throw new Error("today_quiz_not_found");
@@ -111,6 +111,7 @@ export async function submitTodayForUser(
   }
 
   return (deps.submitAnswer ?? submitTodayAnswer)({
+    userId: input.userId,
     quizDayId: input.quizDayId,
     questionId: input.questionId,
     selectedChoiceId: input.selectedChoiceId,

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
   getTodayQuiz: vi.fn(),
+  requireCurrentUser: vi.fn(),
 }));
 
 vi.mock("@/lib/assistant/provider", () => ({
@@ -12,11 +13,15 @@ vi.mock("@/lib/assistant/provider", () => ({
 vi.mock("@/lib/quiz/get-today-quiz", () => ({
   getTodayQuiz: mocks.getTodayQuiz,
 }));
+vi.mock("@/lib/access/current-user", () => ({
+  requireCurrentUser: mocks.requireCurrentUser,
+}));
 
 import { POST } from "@/app/api/assistant/today/route";
 
 describe("POST /api/assistant/today", () => {
   it("builds provider input with only the requested active question", async () => {
+    mocks.requireCurrentUser.mockResolvedValue({ id: "user_a" });
     mocks.getTodayQuiz.mockResolvedValue({
       quizDate: "2026-07-12",
       progress: { answered: 1, total: 2 },
@@ -46,11 +51,16 @@ describe("POST /api/assistant/today", () => {
     const response = await POST(
       new Request("http://localhost/api/assistant/today", {
         method: "POST",
-        body: JSON.stringify({ message: "Explain this question", questionId: "question-two" }),
+        body: JSON.stringify({
+          message: "Explain this question",
+          questionId: "question-two",
+          userId: "user_b",
+        }),
       }),
     );
 
     expect(response.status).toBe(200);
+    expect(mocks.getTodayQuiz).toHaveBeenCalledWith("user_a");
     expect(mocks.ask).toHaveBeenCalledWith(
       expect.objectContaining({
         questions: [

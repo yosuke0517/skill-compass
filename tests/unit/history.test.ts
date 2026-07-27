@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import { buildHistoryArchive, buildHistoryDay, buildHistorySearchResults } from "@/lib/history/get-history";
 
 const rows = {
+  userId: "user_a",
   quizDays: [
-    { id: "quiz_2026-07-10", quizDate: "2026-07-10" },
-    { id: "quiz_2026-07-09", quizDate: "2026-07-09" },
+    { id: "quiz_2026-07-10", userId: "user_a", quizDate: "2026-07-10" },
+    { id: "quiz_2026-07-09", userId: "user_a", quizDate: "2026-07-09" },
+    { id: "quiz_user_b_2026-07-10", userId: "user_b", quizDate: "2026-07-10" },
   ],
   answers: [
     {
+      userId: "user_a",
       quizDayId: "quiz_2026-07-10",
       questionId: "q_index",
       selectedChoiceId: "a",
@@ -18,6 +21,7 @@ const rows = {
       answeredAt: "2026-07-10T12:00:00.000Z",
     },
     {
+      userId: "user_a",
       quizDayId: "quiz_2026-07-10",
       questionId: "q_proxy",
       selectedChoiceId: "b",
@@ -28,6 +32,7 @@ const rows = {
       answeredAt: "2026-07-10T12:00:00.000Z",
     },
     {
+      userId: "user_a",
       quizDayId: "quiz_2026-07-09",
       questionId: "q_token",
       selectedChoiceId: "a",
@@ -36,6 +41,17 @@ const rows = {
       correct: true,
       feedback: "Good.",
       answeredAt: "2026-07-09T12:00:00.000Z",
+    },
+    {
+      userId: "user_b",
+      quizDayId: "quiz_user_b_2026-07-10",
+      questionId: "q_other",
+      selectedChoiceId: "a",
+      confidence: 5,
+      reasoning: "This belongs to another user.",
+      correct: true,
+      feedback: "Other user's feedback.",
+      answeredAt: "2026-07-10T13:00:00.000Z",
     },
   ],
   questions: [
@@ -63,11 +79,18 @@ const rows = {
       prompt: "What is a design token used for?",
       choices: [{ id: "a", label: "Named design data.", correct: true }],
     },
+    {
+      id: "q_other",
+      conceptId: "concept_other",
+      prompt: "Other user's private question?",
+      choices: [{ id: "a", label: "Private answer.", correct: true }],
+    },
   ],
   concepts: [
     { id: "concept_index", title: "index design" },
     { id: "concept_proxy", title: "reverse proxy" },
     { id: "concept_token", title: "design token" },
+    { id: "concept_other", title: "other private concept" },
   ],
 };
 
@@ -148,6 +171,7 @@ describe("buildHistorySearchResults", () => {
       },
     ]);
     expect(buildHistorySearchResults(rows, "reverse proxy")).toHaveLength(1);
+    expect(buildHistorySearchResults(rows, "other user")).toEqual([]);
     expect(buildHistorySearchResults(rows, "missing term")).toEqual([]);
   });
 });

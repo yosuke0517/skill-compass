@@ -11,7 +11,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "questionId is required" }, { status: 400 });
   }
 
-  const translated = await translateTodayQuizQuestion(questionId);
+  const { requireCurrentUser } = await import("@/lib/access/current-user");
+  const user = await requireCurrentUser();
+  const translated = await translateTodayQuizQuestion(user.id, questionId);
   if (!translated) {
     return NextResponse.json({ error: "question not found" }, { status: 404 });
   }

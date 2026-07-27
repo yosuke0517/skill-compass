@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAssistantProvider } from "@/lib/assistant/provider";
 import { buildTodayAssistantInput } from "@/lib/assistant/today-assistant";
 import type { TodayAssistantMessage } from "@/lib/assistant/types";
+import { requireCurrentUser } from "@/lib/access/current-user";
 import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 
 const maxMessageLength = 1200;
@@ -21,7 +22,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "questionId is required" }, { status: 400 });
   }
 
-  const quiz = await getTodayQuiz();
+  const user = await requireCurrentUser();
+  const quiz = await getTodayQuiz(user.id);
   const activeQuestion = quiz.questions.find((item) => item.question.id === questionId);
   if (!activeQuestion) {
     return NextResponse.json({ error: "question not found" }, { status: 404 });

@@ -1,9 +1,11 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { answers, concepts, questions, quizDays } from "@/db/schema";
 
 export type HistoryBuildInput = {
-  quizDays: Array<{ id: string; quizDate: string | Date }>;
+  userId: string;
+  quizDays: Array<{ id: string; userId: string; quizDate: string | Date }>;
   answers: Array<{
+    userId: string;
     quizDayId: string;
     questionId: string;
     selectedChoiceId: string;
@@ -86,15 +88,20 @@ export type HistoryPageData = {
   searchResults: HistorySearchResult[];
 };
 
-export async function getHistoryArchive(selectedDay?: string, searchQuery = ""): Promise<HistoryPageData> {
+export async function getHistoryArchive(
+  userId: string,
+  selectedDay?: string,
+  searchQuery = "",
+): Promise<HistoryPageData> {
   const { db } = await import("@/db/client");
   const [quizDayRows, answerRows, questionRows, conceptRows] = await Promise.all([
-    db.select().from(quizDays).orderBy(desc(quizDays.quizDate)),
-    db.select().from(answers).orderBy(desc(answers.answeredAt)),
+    db.select().from(quizDays).where(eq(quizDays.userId, userId)).orderBy(desc(quizDays.quizDate)),
+    db.select().from(answers).where(eq(answers.userId, userId)).orderBy(desc(answers.answeredAt)),
     db.select().from(questions),
     db.select().from(concepts),
   ]);
   const input = {
+    userId,
     quizDays: quizDayRows,
     answers: answerRows,
     questions: questionRows,
@@ -114,11 +121,13 @@ export async function getHistoryArchive(selectedDay?: string, searchQuery = ""):
 }
 
 export function buildHistorySearchResults(input: HistoryBuildInput, query: string): HistorySearchResult[] {
-  const quizDayById = new Map(input.quizDays.map((quizDay) => [quizDay.id, quizDay]));
+  const quizDaysForUser = input.quizDays.filter((quizDay) => quizDay.userId === input.userId);
+  const answersForUser = input.answers.filter((answer) => answer.userId === input.userId);
+  const quizDayById = new Map(quizDaysForUser.map((quizDay) => [quizDay.id, quizDay]));
   const questionById = new Map(input.questions.map((question) => [question.id, question]));
   const conceptById = new Map(input.concepts.map((concept) => [concept.id, concept]));
 
-  return input.answers
+  return answersForUser
     .map((answer) => {
       const question = questionById.get(answer.questionId);
       const conceptTitle = question ? conceptById.get(question.conceptId)?.title ?? "Unknown concept" : "Unknown concept";
@@ -139,10 +148,11 @@ export function buildHistorySearchResults(input: HistoryBuildInput, query: strin
 }
 
 export function buildHistoryArchive(input: HistoryBuildInput): HistoryArchiveData {
-  const quizDayById = new Map(input.quizDays.map((quizDay) => [quizDay.id, quizDay]));
+  const quizDaysForUser = input.quizDays.filter((quizDay) => quizDay.userId === input.userId);
+  const quizDayById = new Map(quizDaysForUser.map((quizDay) => [quizDay.id, quizDay]));
   const daySummaries = new Map<string, { answered: number; correct: number }>();
 
-  for (const answer of input.answers) {
+  for (const answer of input.answers.filter((item) => item.userId === input.userId)) {
     const quizDay = quizDayById.get(answer.quizDayId);
     const day = quizDay ? toDateKey(quizDay.quizDate) : toDateKey(answer.answeredAt);
     const current = daySummaries.get(day) ?? { answered: 0, correct: 0 };
@@ -204,12 +214,18 @@ export function buildHistoryArchive(input: HistoryBuildInput): HistoryArchiveDat
 
 export function buildHistoryDay(input: HistoryBuildInput, day: string): HistoryDayData {
   const quizDayIds = new Set(
-    input.quizDays.filter((quizDay) => toDateKey(quizDay.quizDate) === day).map((quizDay) => quizDay.id),
+    input.quizDays
+      .filter((quizDay) => quizDay.userId === input.userId && toDateKey(quizDay.quizDate) === day)
+      .map((quizDay) => quizDay.id),
   );
   const questionById = new Map(input.questions.map((question) => [question.id, question]));
   const conceptById = new Map(input.concepts.map((concept) => [concept.id, concept]));
   const dayAnswers = input.answers
-    .filter((answer) => quizDayIds.has(answer.quizDayId) || toDateKey(answer.answeredAt) === day)
+    .filter(
+      (answer) =>
+        answer.userId === input.userId &&
+        (quizDayIds.has(answer.quizDayId) || toDateKey(answer.answeredAt) === day),
+    )
     .sort((left, right) => toDateKey(left.answeredAt).localeCompare(toDateKey(right.answeredAt)));
   const details = dayAnswers.map((answer) => {
     const question = questionById.get(answer.questionId);

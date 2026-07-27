@@ -1,8 +1,10 @@
 import { saveSelfAssessmentAction } from "@/app/actions/self-assessments";
+import { requireCurrentUser } from "@/lib/access/current-user";
 import { getSkillsData } from "@/lib/skills/get-skills";
 
 export default async function SkillsPage() {
-  const data = await getSkillsData();
+  const user = await requireCurrentUser();
+  const data = await getSkillsData(user.id);
 
   return (
     <>

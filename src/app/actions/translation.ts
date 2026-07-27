@@ -12,10 +12,12 @@ import { translateTodayQuizQuestion } from "@/lib/translation/translate-today-qu
 import { createDrizzleTranslationRepository, type TranslationRepository } from "@/lib/translation/translate-text";
 
 export async function translateQuizCardAction(formData: FormData) {
+  const { requireCurrentUser } = await import("@/lib/access/current-user");
+  const user = await requireCurrentUser();
   const questionId = String(formData.get("questionId") ?? "");
   if (!questionId) redirect("/today");
 
-  const translated = await translateTodayQuizQuestion(questionId);
+  const translated = await translateTodayQuizQuestion(user.id, questionId);
   if (!translated) redirect("/today");
   await markQuestionAsTranslated(questionId);
 
@@ -24,7 +26,9 @@ export async function translateQuizCardAction(formData: FormData) {
 }
 
 export async function translateQuizCardInlineAction(questionId: string): Promise<TranslatedQuizCard> {
-  const translated = await translateTodayQuizQuestion(questionId);
+  const { requireCurrentUser } = await import("@/lib/access/current-user");
+  const user = await requireCurrentUser();
+  const translated = await translateTodayQuizQuestion(user.id, questionId);
   if (!translated) redirect("/today");
   await markQuestionAsTranslated(questionId);
   return translated;

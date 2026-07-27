@@ -3,13 +3,15 @@ import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 import { getTranslatedQuizCards } from "@/app/actions/translation";
 import { addMoreQuizQuestionsAction } from "@/app/actions/quiz";
 import { DAILY_QUIZ_LIMIT } from "@/lib/quiz/extend-daily-quiz";
+import { requireCurrentUser } from "@/lib/access/current-user";
 
 export default async function TodayPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const [{ error }, quiz] = await Promise.all([searchParams, getTodayQuiz()]);
+  const [{ error }, user] = await Promise.all([searchParams, requireCurrentUser()]);
+  const quiz = await getTodayQuiz(user.id);
   const translations = await getTranslatedQuizCards(quiz.questions);
   const completedCurrentSet =
     quiz.progress.total > 0 && quiz.progress.answered === quiz.progress.total;

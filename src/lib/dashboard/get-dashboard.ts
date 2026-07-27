@@ -8,6 +8,7 @@ import {
   selfAssessments,
   tags,
 } from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import { calculateGap } from "@/lib/scoring/gaps";
 
 export type DashboardData = {
@@ -27,15 +28,28 @@ export type DashboardData = {
 };
 
 export type DashboardBuildInput = {
+  userId: string;
   today: string;
   categories: Array<{ id: string; name: string; displayOrder: number }>;
-  quizDays: Array<{ id: string; quizDate: string | Date }>;
+  quizDays: Array<{ id: string; userId: string; quizDate: string | Date }>;
   quizDayQuestions: Array<{ quizDayId: string; questionId: string }>;
-  answers: Array<{ quizDayId: string; questionId: string; correct: boolean | null; answeredAt: string | Date }>;
+  answers: Array<{
+    userId: string;
+    quizDayId: string;
+    questionId: string;
+    correct: boolean | null;
+    answeredAt: string | Date;
+  }>;
   concepts: Array<{ id: string; title: string }>;
   tags: Array<{ id: string; name: string }>;
-  scores: Array<{ subjectType: "category" | "tag" | "concept"; subjectId: string; value: number }>;
+  scores: Array<{
+    userId: string;
+    subjectType: "category" | "tag" | "concept";
+    subjectId: string;
+    value: number;
+  }>;
   selfAssessments: Array<{
+    userId: string;
     subjectType: "category" | "tag";
     subjectId: string;
     rating: number;
@@ -43,12 +57,14 @@ export type DashboardBuildInput = {
   }>;
 };
 
-export async function getDashboardData(today = toDateKey(new Date())): Promise<DashboardData> {
+export async function getDashboardData(
+  userId: string,
+  today = toDateKey(new Date()),
+): Promise<DashboardData> {
   const { db } = await import("@/db/client");
   const [
     categoryRows,
     quizDayRows,
-    quizDayQuestionRows,
     answerRows,
     conceptRows,
     tagRows,
@@ -56,16 +72,24 @@ export async function getDashboardData(today = toDateKey(new Date())): Promise<D
     selfAssessmentRows,
   ] = await Promise.all([
     db.select().from(categories),
-    db.select().from(quizDays),
-    db.select().from(quizDayQuestions),
-    db.select().from(answers),
+    db.select().from(quizDays).where(eq(quizDays.userId, userId)),
+    db.select().from(answers).where(eq(answers.userId, userId)),
     db.select().from(concepts),
     db.select().from(tags),
-    db.select().from(scores),
-    db.select().from(selfAssessments),
+    db.select().from(scores).where(eq(scores.userId, userId)),
+    db.select().from(selfAssessments).where(eq(selfAssessments.userId, userId)),
   ]);
+  const ownedQuizDayIds = quizDayRows.map((quizDay) => quizDay.id);
+  const quizDayQuestionRows =
+    ownedQuizDayIds.length > 0
+      ? await db
+          .select()
+          .from(quizDayQuestions)
+          .where(inArray(quizDayQuestions.quizDayId, ownedQuizDayIds))
+      : [];
 
   return buildDashboardData({
+    userId,
     today,
     categories: categoryRows,
     quizDays: quizDayRows,
@@ -79,10 +103,18 @@ export async function getDashboardData(today = toDateKey(new Date())): Promise<D
 }
 
 export function buildDashboardData(input: DashboardBuildInput): DashboardData {
-  const scoreBySubject = new Map(input.scores.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]));
+  const quizDaysForUser = input.quizDays.filter((quizDay) => quizDay.userId === input.userId);
+  const answersForUser = input.answers.filter((answer) => answer.userId === input.userId);
+  const scoresForUser = input.scores.filter((score) => score.userId === input.userId);
+  const selfAssessmentsForUser = input.selfAssessments.filter(
+    (assessment) => assessment.userId === input.userId,
+  );
+  const scoreBySubject = new Map(
+    scoresForUser.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]),
+  );
   const latestSelfBySubject = new Map<string, DashboardBuildInput["selfAssessments"][number]>();
 
-  for (const assessment of input.selfAssessments) {
+  for (const assessment of selfAssessmentsForUser) {
     const key = `${assessment.subjectType}:${assessment.subjectId}`;
     const current = latestSelfBySubject.get(key);
     if (!current || getTime(assessment.assessedOn) > getTime(current.assessedOn)) {
@@ -90,7 +122,7 @@ export function buildDashboardData(input: DashboardBuildInput): DashboardData {
     }
   }
 
-  const todayQuizDay = input.quizDays.find((quizDay) => toDateKey(quizDay.quizDate) === input.today);
+  const todayQuizDay = quizDaysForUser.find((quizDay) => toDateKey(quizDay.quizDate) === input.today);
   const todayQuizDayId = todayQuizDay?.id;
   const todayQuestionIds = new Set(
     input.quizDayQuestions
@@ -98,12 +130,12 @@ export function buildDashboardData(input: DashboardBuildInput): DashboardData {
       .map((item) => item.questionId),
   );
   const todayAnsweredIds = new Set(
-    input.answers
+    answersForUser
       .filter((answer) => answer.quizDayId === todayQuizDayId)
       .map((answer) => answer.questionId),
   );
 
-  const weeklyAnswers = input.answers.filter((answer) => {
+  const weeklyAnswers = answersForUser.filter((answer) => {
     const days = daysBetween(toDateKey(answer.answeredAt), input.today);
     return days >= 0 && days <= 6 && answer.correct !== null;
   });
@@ -130,7 +162,7 @@ export function buildDashboardData(input: DashboardBuildInput): DashboardData {
       answered: [...todayAnsweredIds].filter((questionId) => todayQuestionIds.has(questionId)).length,
       total: todayQuestionIds.size,
     },
-    streakDays: calculateStreakDays(input.answers, input.today),
+    streakDays: calculateStreakDays(answersForUser, input.today),
     weeklyAccuracy: weeklyAnswers.length === 0 ? 0 : round(correctWeeklyAnswers.length / weeklyAnswers.length),
     weakPoints: input.concepts
       .map((concept) => ({

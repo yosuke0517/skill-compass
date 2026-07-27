@@ -6,11 +6,13 @@ const mocks = vi.hoisted(() => ({
     throw new Error(`redirect:${path}`);
   }),
   submitTodayAnswer: vi.fn(),
+  requireCurrentUser: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/quiz/submit-answer", () => ({ submitTodayAnswer: mocks.submitTodayAnswer }));
+vi.mock("@/lib/access/current-user", () => ({ requireCurrentUser: mocks.requireCurrentUser }));
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
 
@@ -18,6 +20,7 @@ describe("submitQuizAnswerAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.submitTodayAnswer.mockResolvedValue(undefined);
+    mocks.requireCurrentUser.mockResolvedValue({ id: "user_a" });
   });
 
   it("accepts and persists an empty optional reasoning field", async () => {
@@ -26,10 +29,12 @@ describe("submitQuizAnswerAction", () => {
     formData.set("questionId", "question_typescript");
     formData.set("selectedChoiceId", "choice_b");
     formData.set("confidence", "4");
+    formData.set("userId", "user_b");
 
     await expect(submitQuizAnswerAction(formData)).rejects.toThrow("redirect:/today");
 
     expect(mocks.submitTodayAnswer).toHaveBeenCalledWith({
+      userId: "user_a",
       quizDayId: "quiz_2026-07-12",
       questionId: "question_typescript",
       selectedChoiceId: "choice_b",

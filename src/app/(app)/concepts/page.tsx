@@ -1,7 +1,9 @@
+import { requireCurrentUser } from "@/lib/access/current-user";
 import { getConceptsData } from "@/lib/concepts/get-concepts";
 
 export default async function ConceptsPage() {
-  const data = await getConceptsData();
+  const user = await requireCurrentUser();
+  const data = await getConceptsData(user.id);
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { categories, scores, selfAssessments, tags } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { calculateGap } from "@/lib/scoring/gaps";
 import type { SkillGap } from "@/lib/scoring/types";
 
@@ -17,12 +18,14 @@ type TagRow = {
 };
 
 type ScoreRow = {
+  userId: string;
   subjectType: "category" | "tag" | "concept";
   subjectId: string;
   value: number;
 };
 
 type SelfAssessmentRow = {
+  userId: string;
   subjectType: "category" | "tag";
   subjectId: string;
   rating: number;
@@ -42,22 +45,24 @@ export type SkillsData = {
 };
 
 export type BuildSkillsInput = {
+  userId: string;
   categories: CategoryRow[];
   tags: TagRow[];
   scores: ScoreRow[];
   selfAssessments: SelfAssessmentRow[];
 };
 
-export async function getSkillsData(): Promise<SkillsData> {
+export async function getSkillsData(userId: string): Promise<SkillsData> {
   const { db } = await import("@/db/client");
   const [categoryRows, tagRows, scoreRows, selfAssessmentRows] = await Promise.all([
     db.select().from(categories),
     db.select().from(tags),
-    db.select().from(scores),
-    db.select().from(selfAssessments),
+    db.select().from(scores).where(eq(scores.userId, userId)),
+    db.select().from(selfAssessments).where(eq(selfAssessments.userId, userId)),
   ]);
 
   return buildSkillsData({
+    userId,
     categories: categoryRows,
     tags: tagRows,
     scores: scoreRows,
@@ -66,10 +71,16 @@ export async function getSkillsData(): Promise<SkillsData> {
 }
 
 export function buildSkillsData(input: BuildSkillsInput): SkillsData {
-  const scoreBySubject = new Map(input.scores.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]));
+  const scoresForUser = input.scores.filter((score) => score.userId === input.userId);
+  const selfAssessmentsForUser = input.selfAssessments.filter(
+    (assessment) => assessment.userId === input.userId,
+  );
+  const scoreBySubject = new Map(
+    scoresForUser.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]),
+  );
   const latestSelfBySubject = new Map<string, SelfAssessmentRow>();
 
-  for (const assessment of input.selfAssessments) {
+  for (const assessment of selfAssessmentsForUser) {
     const key = `${assessment.subjectType}:${assessment.subjectId}`;
     const current = latestSelfBySubject.get(key);
     if (!current || getTime(assessment.assessedOn) > getTime(current.assessedOn)) {

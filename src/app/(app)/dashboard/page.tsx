@@ -1,8 +1,10 @@
 import { DashboardSummary } from "@/components/dashboard/dashboard-summary";
+import { requireCurrentUser } from "@/lib/access/current-user";
 import { getDashboardData } from "@/lib/dashboard/get-dashboard";
 
 export default async function DashboardPage() {
-  const dashboard = await getDashboardData();
+  const user = await requireCurrentUser();
+  const dashboard = await getDashboardData(user.id);
 
   return (
     <>

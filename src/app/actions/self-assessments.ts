@@ -2,10 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createHash } from "node:crypto";
 
 import { selfAssessments } from "@/db/schema";
+import { requireCurrentUser } from "@/lib/access/current-user";
 
 export async function saveSelfAssessmentAction(formData: FormData) {
+  const user = await requireCurrentUser();
   const subjectId = String(formData.get("subjectId") ?? "");
   const rating = Number(formData.get("rating") ?? Number.NaN);
 
@@ -15,9 +18,15 @@ export async function saveSelfAssessmentAction(formData: FormData) {
 
   const { db } = await import("@/db/client");
   const assessedOn = new Date();
+  const owner = createHash("sha256").update(user.id).digest("hex").slice(0, 12);
+  const event = createHash("sha256")
+    .update(`${user.id}:${subjectId}:${assessedOn.toISOString()}:${Date.now()}`)
+    .digest("hex")
+    .slice(0, 24);
 
   await db.insert(selfAssessments).values({
-    id: `self_${subjectId}_${assessedOn.toISOString().slice(0, 10)}_${Date.now().toString(36)}`,
+    id: `self_${owner}_${event}`,
+    userId: user.id,
     subjectType: "category",
     subjectId,
     rating,

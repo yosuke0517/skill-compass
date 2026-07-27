@@ -8,14 +8,21 @@ import { buildSourcesData } from "@/lib/sources/get-sources";
 describe("management screen read models", () => {
   it("builds skills by category with tag scores and self gaps", () => {
     const data = buildSkillsData({
+      userId: "user_a",
       categories: [{ id: "cat_frontend", name: "Frontend", description: "UI", displayOrder: 1 }],
       tags: [{ id: "tag_ts", categoryId: "cat_frontend", name: "TypeScript", description: "Types" }],
       scores: [
-        { subjectType: "category", subjectId: "cat_frontend", value: 0.55 },
-        { subjectType: "tag", subjectId: "tag_ts", value: 0.7 },
+        { userId: "user_a", subjectType: "category", subjectId: "cat_frontend", value: 0.55 },
+        { userId: "user_a", subjectType: "tag", subjectId: "tag_ts", value: 0.7 },
       ],
       selfAssessments: [
-        { subjectType: "category", subjectId: "cat_frontend", rating: 0.8, assessedOn: "2026-07-09" },
+        {
+          userId: "user_a",
+          subjectType: "category",
+          subjectId: "cat_frontend",
+          rating: 0.8,
+          assessedOn: "2026-07-09",
+        },
       ],
     });
 
@@ -36,6 +43,7 @@ describe("management screen read models", () => {
 
   it("builds concepts with tags, source counts, scores, and next review", () => {
     const data = buildConceptsData({
+      userId: "user_a",
       concepts: [{ id: "concept_proxy", title: "reverse proxy", summary: "Routes traffic.", currentUnderstanding: "TLS and routing." }],
       tags: [{ id: "tag_net", name: "Networking" }],
       conceptTags: [{ conceptId: "concept_proxy", tagId: "tag_net" }],
@@ -43,8 +51,15 @@ describe("management screen read models", () => {
         { conceptId: "concept_proxy", sourceId: "source_mdn" },
         { conceptId: "concept_proxy", sourceId: "source_docs" },
       ],
-      scores: [{ subjectType: "concept", subjectId: "concept_proxy", value: 0.42 }],
-      answers: [{ questionId: "q_proxy", nextReviewOn: "2026-07-11" }],
+      scores: [
+        {
+          userId: "user_a",
+          subjectType: "concept",
+          subjectId: "concept_proxy",
+          value: 0.42,
+        },
+      ],
+      answers: [{ userId: "user_a", questionId: "q_proxy", nextReviewOn: "2026-07-11" }],
       questions: [{ id: "q_proxy", conceptId: "concept_proxy" }],
     });
 

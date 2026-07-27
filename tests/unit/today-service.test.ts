@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { createQuizDayId } from "@/lib/quiz/get-today-quiz";
 import { getTodayForUser, submitTodayForUser } from "@/lib/quiz/today-service";
 import type { TodayQuiz } from "@/lib/quiz/get-today-quiz";
 
@@ -104,6 +105,27 @@ describe("getTodayForUser", () => {
       ),
     ).rejects.toThrow("today_forbidden");
   });
+
+  it("loads separate Today assignments for two authenticated users", async () => {
+    const getQuiz = vi.fn(async (userId: string, today = "2026-07-24") => ({
+      ...quiz,
+      quizDayId: createQuizDayId(userId, today),
+      quizDate: today,
+    }));
+
+    const quizA = await getTodayForUser(
+      { userId: "user_a", today: "2026-07-24" },
+      { allowedUserId: "user_a", getQuiz },
+    );
+    const quizB = await getTodayForUser(
+      { userId: "user_b", today: "2026-07-24" },
+      { allowedUserId: "user_b", getQuiz },
+    );
+
+    expect(quizA.nextQuestion?.quizDayId).not.toBe(quizB.nextQuestion?.quizDayId);
+    expect(getQuiz).toHaveBeenNthCalledWith(1, "user_a", "2026-07-24");
+    expect(getQuiz).toHaveBeenNthCalledWith(2, "user_b", "2026-07-24");
+  });
 });
 
 describe("submitTodayForUser", () => {
@@ -135,6 +157,7 @@ describe("submitTodayForUser", () => {
     );
 
     expect(submitAnswer).toHaveBeenCalledWith({
+      userId: "user_1",
       quizDayId: "quiz_2026-07-24",
       questionId: "q2",
       selectedChoiceId: "b",
@@ -164,5 +187,33 @@ describe("submitTodayForUser", () => {
         },
       ),
     ).rejects.toThrow("today_choice_not_found");
+  });
+
+  it("rejects another user's quiz assignment before submission", async () => {
+    const quizAId = createQuizDayId("user_a", "2026-07-24");
+    const submitAnswer = vi.fn();
+
+    await expect(
+      submitTodayForUser(
+        {
+          userId: "user_b",
+          quizDayId: quizAId,
+          questionId: "q2",
+          selectedChoiceId: "b",
+          confidence: 3,
+          reasoning: "Forged owner quiz.",
+          today: "2026-07-24",
+        },
+        {
+          allowedUserId: "user_b",
+          getQuiz: async (userId, today = "2026-07-24") => ({
+            ...quiz,
+            quizDayId: createQuizDayId(userId, today),
+          }),
+          submitAnswer,
+        },
+      ),
+    ).rejects.toThrow("today_quiz_not_found");
+    expect(submitAnswer).not.toHaveBeenCalled();
   });
 });

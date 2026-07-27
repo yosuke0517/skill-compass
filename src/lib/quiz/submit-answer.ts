@@ -1,13 +1,22 @@
 import { and, eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
-import { answers, conceptTags, questions, scores, tags } from "@/db/schema";
+import {
+  answers,
+  conceptTags,
+  questions,
+  quizDayQuestions,
+  quizDays,
+  scores,
+  tags,
+} from "@/db/schema";
 import { getLlmProvider } from "@/lib/llm/provider";
 import type { LlmProvider } from "@/lib/llm/types";
 
 import { evaluateAnswer, type EvaluatedAnswer, type EvaluatableQuestion } from "./evaluate-answer";
 
 export type SubmitAnswerInput = {
+  userId: string;
   today: string;
   quizDayId: string;
   questionId: string;
@@ -35,10 +44,28 @@ export type AnswerEvaluationUpdate = {
 };
 
 export type SubmitAnswerRepository = {
-  getQuestion(questionId: string): Promise<(EvaluatableQuestion & { conceptId: string }) | null>;
-  saveRawAnswer(answer: SavedRawAnswer): Promise<void>;
-  updateAnswerEvaluation(answerId: string, evaluation: AnswerEvaluationUpdate): Promise<void>;
-  updateConceptScore(update: { subjectType: "concept"; subjectId: string; delta: number }): Promise<void>;
+  getQuestion(input: {
+    userId: string;
+    quizDayId: string;
+    questionId: string;
+  }): Promise<(EvaluatableQuestion & { conceptId: string }) | null>;
+  findAnswerId(input: {
+    userId: string;
+    quizDayId: string;
+    questionId: string;
+  }): Promise<string | null>;
+  saveRawAnswer(userId: string, answer: SavedRawAnswer): Promise<void>;
+  updateAnswerEvaluation(
+    userId: string,
+    answerId: string,
+    evaluation: AnswerEvaluationUpdate,
+  ): Promise<void>;
+  updateConceptScore(update: {
+    userId: string;
+    subjectType: "concept";
+    subjectId: string;
+    delta: number;
+  }): Promise<void>;
 };
 
 export type SubmitAnswerResult = EvaluatedAnswer & {
@@ -51,11 +78,20 @@ export async function submitAnswer(
   repo: SubmitAnswerRepository,
   provider: LlmProvider,
 ): Promise<SubmitAnswerResult> {
-  const question = await repo.getQuestion(input.questionId);
+  const question = await repo.getQuestion({
+    userId: input.userId,
+    quizDayId: input.quizDayId,
+    questionId: input.questionId,
+  });
   if (!question) throw new Error(`Question ${input.questionId} was not found.`);
 
-  const answerId = createAnswerId(input.quizDayId, input.questionId);
-  await repo.saveRawAnswer({
+  const answerId =
+    (await repo.findAnswerId({
+      userId: input.userId,
+      quizDayId: input.quizDayId,
+      questionId: input.questionId,
+    })) ?? createAnswerId(input.userId, input.quizDayId, input.questionId);
+  await repo.saveRawAnswer(input.userId, {
     id: answerId,
     quizDayId: input.quizDayId,
     questionId: input.questionId,
@@ -76,7 +112,7 @@ export async function submitAnswer(
   );
   const nextReviewOn = addDays(input.today, evaluation.scoreDelta.nextReviewDays);
 
-  await repo.updateAnswerEvaluation(answerId, {
+  await repo.updateAnswerEvaluation(input.userId, answerId, {
     correct: evaluation.correct,
     reasoningQuality: evaluation.reasoningQuality,
     feedback: evaluation.feedback,
@@ -84,6 +120,7 @@ export async function submitAnswer(
     nextReviewOn,
   });
   await repo.updateConceptScore({
+    userId: input.userId,
     subjectType: "concept",
     subjectId: question.conceptId,
     delta: evaluation.scoreDelta.delta,
@@ -114,9 +151,32 @@ async function getDbClient() {
 
 export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
   return {
-    async getQuestion(questionId) {
+    async getQuestion(input) {
       const db = await getDbClient();
-      const [question] = await db.select().from(questions).where(eq(questions.id, questionId)).limit(1);
+      const [quizDay] = await db
+        .select({ id: quizDays.id })
+        .from(quizDays)
+        .where(and(eq(quizDays.id, input.quizDayId), eq(quizDays.userId, input.userId)))
+        .limit(1);
+      if (!quizDay) return null;
+
+      const [assignment] = await db
+        .select({ questionId: quizDayQuestions.questionId })
+        .from(quizDayQuestions)
+        .where(
+          and(
+            eq(quizDayQuestions.quizDayId, input.quizDayId),
+            eq(quizDayQuestions.questionId, input.questionId),
+          ),
+        )
+        .limit(1);
+      if (!assignment) return null;
+
+      const [question] = await db
+        .select()
+        .from(questions)
+        .where(eq(questions.id, assignment.questionId))
+        .limit(1);
       if (!question) return null;
 
       return {
@@ -126,12 +186,28 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
         choices: question.choices,
       };
     },
-    async saveRawAnswer(answer) {
+    async findAnswerId(input) {
+      const db = await getDbClient();
+      const [answer] = await db
+        .select({ id: answers.id })
+        .from(answers)
+        .where(
+          and(
+            eq(answers.userId, input.userId),
+            eq(answers.quizDayId, input.quizDayId),
+            eq(answers.questionId, input.questionId),
+          ),
+        )
+        .limit(1);
+      return answer?.id ?? null;
+    },
+    async saveRawAnswer(userId, answer) {
       const db = await getDbClient();
       await db
         .insert(answers)
         .values({
           id: answer.id,
+          userId,
           quizDayId: answer.quizDayId,
           questionId: answer.questionId,
           selectedChoiceId: answer.selectedChoiceId,
@@ -139,20 +215,16 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
           reasoning: answer.reasoning,
           answeredAt: answer.answeredAt,
         })
-        .$returningId()
-        .catch(async () => {
-          await db
-            .update(answers)
-            .set({
-              selectedChoiceId: answer.selectedChoiceId,
-              confidence: answer.confidence,
-              reasoning: answer.reasoning,
-              answeredAt: answer.answeredAt,
-            })
-            .where(and(eq(answers.quizDayId, answer.quizDayId), eq(answers.questionId, answer.questionId)));
+        .onDuplicateKeyUpdate({
+          set: {
+            selectedChoiceId: answer.selectedChoiceId,
+            confidence: answer.confidence,
+            reasoning: answer.reasoning,
+            answeredAt: answer.answeredAt,
+          },
         });
     },
-    async updateAnswerEvaluation(answerId, evaluation) {
+    async updateAnswerEvaluation(userId, answerId, evaluation) {
       const db = await getDbClient();
       await db
         .update(answers)
@@ -163,17 +235,19 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
           scoreDelta: evaluation.scoreDelta,
           nextReviewOn: new Date(`${evaluation.nextReviewOn}T00:00:00.000Z`),
         })
-        .where(eq(answers.id, answerId));
+        .where(and(eq(answers.id, answerId), eq(answers.userId, userId)));
     },
     async updateConceptScore(update) {
       const db = await getDbClient();
-      await bumpScore(db, "concept", update.subjectId, update.delta);
+      await bumpScore(db, update.userId, "concept", update.subjectId, update.delta);
 
       const linkedTags = await db.select().from(conceptTags).where(eq(conceptTags.conceptId, update.subjectId));
       for (const linkedTag of linkedTags) {
-        await bumpScore(db, "tag", linkedTag.tagId, update.delta * 0.5);
+        await bumpScore(db, update.userId, "tag", linkedTag.tagId, update.delta * 0.5);
         const [tag] = await db.select().from(tags).where(eq(tags.id, linkedTag.tagId)).limit(1);
-        if (tag) await bumpScore(db, "category", tag.categoryId, update.delta * 0.25);
+        if (tag) {
+          await bumpScore(db, update.userId, "category", tag.categoryId, update.delta * 0.25);
+        }
       }
     },
   };
@@ -183,24 +257,37 @@ type DbClient = Awaited<ReturnType<typeof getDbClient>>;
 
 async function bumpScore(
   db: DbClient,
+  userId: string,
   subjectType: "category" | "tag" | "concept",
   subjectId: string,
   delta: number,
 ) {
-  const id = `score_${subjectId}`;
+  const id = createScoreId(userId, subjectType, subjectId);
   const [current] = await db
     .select()
     .from(scores)
-    .where(and(eq(scores.subjectType, subjectType), eq(scores.subjectId, subjectId)))
+    .where(
+      and(
+        eq(scores.userId, userId),
+        eq(scores.subjectType, subjectType),
+        eq(scores.subjectId, subjectId),
+      ),
+    )
     .limit(1);
   const nextValue = clampScore((current?.value ?? 0.45) + delta);
 
   if (current) {
-    await db.update(scores).set({ value: nextValue }).where(eq(scores.id, current.id));
+    await db
+      .update(scores)
+      .set({ value: nextValue })
+      .where(and(eq(scores.id, current.id), eq(scores.userId, userId)));
     return;
   }
 
-  await db.insert(scores).values({ id, subjectType, subjectId, value: nextValue });
+  await db
+    .insert(scores)
+    .values({ id, userId, subjectType, subjectId, value: nextValue })
+    .onDuplicateKeyUpdate({ set: { value: nextValue } });
 }
 
 function addDays(day: string, days: number): string {
@@ -217,7 +304,21 @@ function clampScore(value: number): number {
   return Number(Math.min(1, Math.max(0, value)).toFixed(3));
 }
 
-function createAnswerId(quizDayId: string, questionId: string): string {
+function createAnswerId(userId: string, quizDayId: string, questionId: string): string {
+  const owner = createHash("sha256").update(userId).digest("hex").slice(0, 12);
   const digest = createHash("sha256").update(`${quizDayId}:${questionId}`).digest("hex").slice(0, 24);
-  return `answer_${digest}`;
+  return `answer_${owner}_${digest}`;
+}
+
+function createScoreId(
+  userId: string,
+  subjectType: "category" | "tag" | "concept",
+  subjectId: string,
+): string {
+  const owner = createHash("sha256").update(userId).digest("hex").slice(0, 12);
+  const digest = createHash("sha256")
+    .update(`${subjectType}:${subjectId}`)
+    .digest("hex")
+    .slice(0, 24);
+  return `score_${owner}_${digest}`;
 }

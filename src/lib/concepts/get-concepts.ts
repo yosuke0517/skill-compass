@@ -1,4 +1,5 @@
 import { answers, conceptSources, concepts, conceptTags, questions, scores, tags } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 type ConceptRow = {
   id: string;
@@ -10,9 +11,14 @@ type ConceptRow = {
 type TagRow = { id: string; name: string };
 type ConceptTagRow = { conceptId: string; tagId: string };
 type ConceptSourceRow = { conceptId: string; sourceId: string };
-type ScoreRow = { subjectType: "category" | "tag" | "concept"; subjectId: string; value: number };
+type ScoreRow = {
+  userId: string;
+  subjectType: "category" | "tag" | "concept";
+  subjectId: string;
+  value: number;
+};
 type QuestionRow = { id: string; conceptId: string };
-type AnswerRow = { questionId: string; nextReviewOn: string | Date | null };
+type AnswerRow = { userId: string; questionId: string; nextReviewOn: string | Date | null };
 
 export type ConceptsData = {
   concepts: Array<{
@@ -28,6 +34,7 @@ export type ConceptsData = {
 };
 
 export type BuildConceptsInput = {
+  userId: string;
   concepts: ConceptRow[];
   tags: TagRow[];
   conceptTags: ConceptTagRow[];
@@ -37,7 +44,7 @@ export type BuildConceptsInput = {
   answers: AnswerRow[];
 };
 
-export async function getConceptsData(): Promise<ConceptsData> {
+export async function getConceptsData(userId: string): Promise<ConceptsData> {
   const { db } = await import("@/db/client");
   const [conceptRows, tagRows, conceptTagRows, conceptSourceRows, scoreRows, questionRows, answerRows] =
     await Promise.all([
@@ -45,12 +52,13 @@ export async function getConceptsData(): Promise<ConceptsData> {
       db.select().from(tags),
       db.select().from(conceptTags),
       db.select().from(conceptSources),
-      db.select().from(scores),
+      db.select().from(scores).where(eq(scores.userId, userId)),
       db.select().from(questions),
-      db.select().from(answers),
+      db.select().from(answers).where(eq(answers.userId, userId)),
     ]);
 
   return buildConceptsData({
+    userId,
     concepts: conceptRows,
     tags: tagRows,
     conceptTags: conceptTagRows,
@@ -62,14 +70,18 @@ export async function getConceptsData(): Promise<ConceptsData> {
 }
 
 export function buildConceptsData(input: BuildConceptsInput): ConceptsData {
+  const scoresForUser = input.scores.filter((score) => score.userId === input.userId);
+  const answersForUser = input.answers.filter((answer) => answer.userId === input.userId);
   const tagById = new Map(input.tags.map((tag) => [tag.id, tag.name]));
-  const scoreBySubject = new Map(input.scores.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]));
+  const scoreBySubject = new Map(
+    scoresForUser.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]),
+  );
   const conceptIdByQuestionId = new Map(input.questions.map((question) => [question.id, question.conceptId]));
 
   return {
     concepts: input.concepts
       .map((concept) => {
-        const reviewDates = input.answers
+        const reviewDates = answersForUser
           .filter((answer) => conceptIdByQuestionId.get(answer.questionId) === concept.id && answer.nextReviewOn)
           .map((answer) => toDateKey(answer.nextReviewOn))
           .sort();

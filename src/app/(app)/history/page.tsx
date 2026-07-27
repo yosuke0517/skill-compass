@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BookOpenCheck, CheckCircle2, Search } from "lucide-react";
+import { requireCurrentUser } from "@/lib/access/current-user";
 import { getHistoryArchive } from "@/lib/history/get-history";
 
 export default async function HistoryPage({
@@ -7,8 +8,8 @@ export default async function HistoryPage({
 }: {
   searchParams: Promise<{ day?: string; q?: string }>;
 }) {
-  const params = await searchParams;
-  const data = await getHistoryArchive(params.day, params.q);
+  const [params, user] = await Promise.all([searchParams, requireCurrentUser()]);
+  const data = await getHistoryArchive(user.id, params.day, params.q);
 
   return (
     <div className="screen-stack history-page">
