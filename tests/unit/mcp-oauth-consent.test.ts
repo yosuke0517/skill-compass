@@ -25,7 +25,7 @@ describe("MCP OAuth consent copy", () => {
     });
   });
 
-  it("keeps the existing learning consent for the learning resource", () => {
+  it("describes the current public-search X capability for the learning resource", () => {
     const consent = getMcpConsent("https://example.com/mcp", resources);
 
     expect(consent?.summary).toContain("Today progress");
@@ -34,8 +34,10 @@ describe("MCP OAuth consent copy", () => {
       "Read public X Posts and retrieve a bounded daily technical digest",
     );
     expect(consent?.capabilities).toContain(
-      "Temporarily inspect your X following timeline without storing the timeline or followed-account list",
+      "Use Personalized Trends signals to guide bounded recent public X searches",
     );
+    expect(JSON.stringify(consent)).not.toContain("following timeline");
+    expect(JSON.stringify(consent)).not.toContain("following-timeline");
   });
 
   it("rejects an unknown resource", () => {

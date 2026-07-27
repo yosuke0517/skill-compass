@@ -85,6 +85,13 @@ describe("Skill Compass MCP tools", () => {
     expect(getTodayTool?.description).toContain("scenario");
     expect(getTodayTool?.description).toContain("never call submit_today_answer");
 
+    const dailyTechTool = result.tools.find(
+      (tool) => tool.name === "get_daily_tech_posts",
+    );
+    expect(dailyTechTool?.description).toContain("Personalized Trends");
+    expect(dailyTechTool?.description).toContain("recent public X search");
+    expect(dailyTechTool?.description).not.toContain("following timeline");
+
     const submitTool = result.tools.find((tool) => tool.name === "submit_today_answer");
     expect(Object.keys(submitTool?.inputSchema.properties ?? {}).sort()).toEqual([
       "confidence",

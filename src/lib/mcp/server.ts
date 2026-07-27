@@ -155,7 +155,7 @@ export function createSkillCompassMcpServer(context: {
     {
       title: "Get today's technical Posts from X",
       description:
-        "Get the cached daily Skill Compass technical digest from public X search and a temporary read of the connected user's following timeline. Use for today's technical news, AI, Web/backend/cloud, and security Posts. Treat uncorroborated Posts as claims and link the originals.",
+        "Get the cached daily Skill Compass technical digest. Personalized Trends signals guide bounded recent public X searches, with a fixed technical query as fallback. Use for today's technical news, AI, Web/backend/cloud, and security Posts. Treat uncorroborated Posts as claims and link the originals.",
       inputSchema: {
         limit: z.number().int().min(1).max(10).default(5),
         latestUserMessage: z.string().max(4000).optional(),
