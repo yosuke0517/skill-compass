@@ -13,10 +13,34 @@ describe("Gemini quiz choice generator", () => {
         return new Response(
           JSON.stringify({
             candidates: [{ content: { parts: [{ text: JSON.stringify([
-              { id: "a", label: "A plausible correct answer.", correct: true },
-              { id: "b", label: "A plausible misconception.", correct: false },
-              { id: "c", label: "A nearby but incorrect answer.", correct: false },
-              { id: "d", label: "An unrelated implementation detail.", correct: false },
+              {
+                id: "a",
+                label: "A plausible correct answer.",
+                correct: true,
+                explanation: "It matches the protocol boundary described in the source.",
+                consequence: "The client can discover and invoke a bounded capability.",
+              },
+              {
+                id: "b",
+                label: "A plausible misconception.",
+                correct: false,
+                explanation: "It confuses protocol interoperability with unrestricted authorization.",
+                consequence: "The client would receive more authority than the task requires.",
+              },
+              {
+                id: "c",
+                label: "A nearby but incorrect answer.",
+                correct: false,
+                explanation: "It describes model quality rather than a tool protocol.",
+                consequence: "Tool discovery remains undefined.",
+              },
+              {
+                id: "d",
+                label: "An unrelated implementation detail.",
+                correct: false,
+                explanation: "It belongs to application storage, not the MCP boundary.",
+                consequence: "The proposed detail does not connect clients to tools.",
+              },
             ]) }] } }],
           }),
         );
@@ -32,7 +56,13 @@ describe("Gemini quiz choice generator", () => {
 
     expect(choices).toHaveLength(4);
     expect(choices.filter((choice) => choice.correct)).toHaveLength(1);
+    expect(choices[0]).toMatchObject({
+      explanation: "It matches the protocol boundary described in the source.",
+      consequence: "The client can discover and invoke a bounded capability.",
+    });
     expect(requestPrompt).toContain("protocol for connecting model-powered clients");
+    expect(requestPrompt).toContain("explanation");
+    expect(requestPrompt).toContain("consequence");
   });
 
   it("rejects a response with more than one correct choice", async () => {
@@ -41,10 +71,10 @@ describe("Gemini quiz choice generator", () => {
       model: "test-model",
       fetch: async () => new Response(JSON.stringify({
         candidates: [{ content: { parts: [{ text: JSON.stringify([
-          { id: "a", label: "First", correct: true },
-          { id: "b", label: "Second", correct: true },
-          { id: "c", label: "Third", correct: false },
-          { id: "d", label: "Fourth", correct: false },
+          { id: "a", label: "First", correct: true, explanation: "First reason", consequence: "First result" },
+          { id: "b", label: "Second", correct: true, explanation: "Second reason", consequence: "Second result" },
+          { id: "c", label: "Third", correct: false, explanation: "Third reason", consequence: "Third result" },
+          { id: "d", label: "Fourth", correct: false, explanation: "Fourth reason", consequence: "Fourth result" },
         ]) }] } }],
       })),
     });
@@ -52,5 +82,29 @@ describe("Gemini quiz choice generator", () => {
     await expect(generator.generate({ prompt: "Question", conceptTitle: "Concept", conceptSummary: "Summary", rationale: "Rationale" })).rejects.toThrow(
       "exactly one correct answer",
     );
+  });
+
+  it.each(["explanation", "consequence"] as const)("rejects a choice with an empty %s", async (field) => {
+    const responseChoices = [
+      { id: "a", label: "First", correct: true, explanation: "First reason", consequence: "First result" },
+      { id: "b", label: "Second", correct: false, explanation: "Second reason", consequence: "Second result" },
+      { id: "c", label: "Third", correct: false, explanation: "Third reason", consequence: "Third result" },
+      { id: "d", label: "Fourth", correct: false, explanation: "Fourth reason", consequence: "Fourth result" },
+    ];
+    responseChoices[2][field] = " ";
+    const generator = createGeminiChoiceGenerator({
+      apiKey: "test-key",
+      model: "test-model",
+      fetch: async () => new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: JSON.stringify(responseChoices) }] } }],
+      })),
+    });
+
+    await expect(generator.generate({
+      prompt: "Question",
+      conceptTitle: "Concept",
+      conceptSummary: "Summary",
+      rationale: "Rationale",
+    })).rejects.toThrow("invalid shape");
   });
 });

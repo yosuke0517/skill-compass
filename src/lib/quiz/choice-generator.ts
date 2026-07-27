@@ -60,9 +60,10 @@ export function createKeychainGeminiChoiceGenerator(options: {
 function buildChoicePrompt(input: ChoiceGenerationInput): string {
   return [
     "You create high-quality multiple-choice questions for an engineering learning app.",
-    "Return ONLY a JSON array with exactly four objects. Each object must have: id (a, b, c, or d), label (string), correct (boolean).",
+    "Return ONLY a JSON array with exactly four objects. Each object must have: id (a, b, c, or d), label (string), correct (boolean), explanation (string), consequence (string).",
     "Exactly one object must have correct=true.",
     "The three incorrect choices must be plausible misconceptions or near-misses, not jokes, trivia, or obviously absurd statements.",
+    "For every choice, explain why it fits or violates the scenario and state its concrete practical consequence.",
     "Do not use 'all of the above', 'none of the above', or overlapping choices.",
     "Keep each choice concise and make every choice answer the question directly.",
     "Stay strictly within the domain described by the concept summary. Do not reinterpret abbreviations using an unrelated industry meaning.",
@@ -85,10 +86,27 @@ function parseChoices(text: string): QuestionChoice[] {
     const id = candidate.id;
     const label = candidate.label;
     const correct = candidate.correct;
-    if (id !== ["a", "b", "c", "d"][index] || typeof label !== "string" || !label.trim() || typeof correct !== "boolean") {
+    const explanation = candidate.explanation;
+    const consequence = candidate.consequence;
+    if (
+      id !== ["a", "b", "c", "d"][index]
+      || typeof label !== "string"
+      || !label.trim()
+      || typeof correct !== "boolean"
+      || typeof explanation !== "string"
+      || !explanation.trim()
+      || typeof consequence !== "string"
+      || !consequence.trim()
+    ) {
       throw new Error("Generated choice has an invalid shape.");
     }
-    return { id, label: label.trim(), correct };
+    return {
+      id: id as QuestionChoice["id"],
+      label: label.trim(),
+      correct,
+      explanation: explanation.trim(),
+      consequence: consequence.trim(),
+    };
   });
 
   if (choices.filter((choice) => choice.correct).length !== 1) throw new Error("Generated choice set must have exactly one correct answer.");
