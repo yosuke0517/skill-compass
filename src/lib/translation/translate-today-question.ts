@@ -15,6 +15,7 @@ export async function translateTodayQuizQuestion(
     {
       question: item.question,
       feedback: item.answer?.feedback ?? null,
+      revealReview: item.answer !== null,
     },
     createDrizzleTranslationRepository(),
     getTranslationProvider(),

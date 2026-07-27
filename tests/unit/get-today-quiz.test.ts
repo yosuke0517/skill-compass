@@ -7,6 +7,14 @@ import {
   resolveQuizDayId,
 } from "@/lib/quiz/get-today-quiz";
 
+const practicalFields = {
+  scenario: "A practical engineering scenario.",
+  artifacts: [],
+  decisionCriteria: ["Use the stated case constraint."],
+  practicalNotes: ["Verify the decision in production."],
+  checkQuestion: "Which condition determines the answer?",
+};
+
 describe("createQuizDayId", () => {
   it("creates a deterministic owner-specific identifier for the same day", () => {
     const quizA = createQuizDayId("user_a", "2026-07-09");
@@ -39,15 +47,33 @@ describe("buildTodayQuiz", () => {
         {
           id: "q1",
           conceptId: "c1",
+          ...practicalFields,
           prompt: "Question 1?",
-          choices: [{ id: "a", label: "Answer", correct: true }],
+          choices: [
+            {
+              id: "a",
+              label: "Answer",
+              correct: true,
+              explanation: "It meets the condition.",
+              consequence: "The system remains correct.",
+            },
+          ],
           rationale: "Because.",
         },
         {
           id: "q2",
           conceptId: "c2",
+          ...practicalFields,
           prompt: "Question 2?",
-          choices: [{ id: "b", label: "Other", correct: true }],
+          choices: [
+            {
+              id: "b",
+              label: "Other",
+              correct: true,
+              explanation: "It meets the condition.",
+              consequence: "The system remains correct.",
+            },
+          ],
           rationale: "Because.",
         },
       ],
@@ -79,8 +105,17 @@ describe("buildTodayQuiz", () => {
         {
           id: "q1",
           conceptId: "c1",
+          ...practicalFields,
           prompt: "Question 1?",
-          choices: [{ id: "a", label: "Answer", correct: true }],
+          choices: [
+            {
+              id: "a",
+              label: "Answer",
+              correct: true,
+              explanation: "It meets the condition.",
+              consequence: "The system remains correct.",
+            },
+          ],
           rationale: "Because.",
         },
       ],
@@ -111,16 +146,34 @@ describe("buildTodayQuiz", () => {
         {
           id: "legacy",
           conceptId: "c_legacy",
+          ...practicalFields,
           prompt: "Legacy question?",
-          choices: [{ id: "a", label: "Answer", correct: true }],
+          choices: [
+            {
+              id: "a",
+              label: "Answer",
+              correct: true,
+              explanation: "Legacy explanation.",
+              consequence: "Legacy consequence.",
+            },
+          ],
           rationale: "Legacy rationale.",
           active: false,
         },
         {
           id: "active",
           conceptId: "c_active",
+          ...practicalFields,
           prompt: "Active question?",
-          choices: [{ id: "a", label: "Answer", correct: true }],
+          choices: [
+            {
+              id: "a",
+              label: "Answer",
+              correct: true,
+              explanation: "It meets the condition.",
+              consequence: "The system remains correct.",
+            },
+          ],
           rationale: "Active rationale.",
           active: true,
         },

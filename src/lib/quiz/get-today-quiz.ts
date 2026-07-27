@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import {
   answers,
   conceptTags,
+  type QuestionArtifact,
+  type QuestionChoice,
   questions,
   quizDayQuestions,
   quizDays,
@@ -21,9 +23,14 @@ export type TodayQuizQuestion = {
   question: {
     id: string;
     conceptId: string;
+    scenario: string;
+    artifacts: QuestionArtifact[];
     prompt: string;
-    choices: Array<{ id: string; label: string; correct: boolean }>;
+    choices: QuestionChoice[];
+    decisionCriteria: string[];
     rationale: string;
+    practicalNotes: string[];
+    checkQuestion: string;
   };
   answer: {
     selectedChoiceId: string;
@@ -46,9 +53,14 @@ export type BuildTodayQuizInput = {
   questions: Array<{
     id: string;
     conceptId: string;
+    scenario: string;
+    artifacts: QuestionArtifact[];
     prompt: string;
-    choices: Array<{ id: string; label: string; correct: boolean }>;
+    choices: QuestionChoice[];
+    decisionCriteria: string[];
     rationale: string;
+    practicalNotes: string[];
+    checkQuestion: string;
     active?: boolean;
   }>;
   answers: Array<{

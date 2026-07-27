@@ -19,12 +19,29 @@ const quizQuestions: TodayQuizQuestion[] = [
     question: {
       id: "q1",
       conceptId: "concept-1",
+      scenario: "",
+      artifacts: [],
       prompt: "What does a reverse proxy usually do?",
       choices: [
-        { id: "a", label: "Forwards client requests.", correct: true },
-        { id: "b", label: "Compiles frontend assets.", correct: false },
+        {
+          id: "a",
+          label: "Forwards client requests.",
+          correct: true,
+          explanation: "",
+          consequence: "",
+        },
+        {
+          id: "b",
+          label: "Compiles frontend assets.",
+          correct: false,
+          explanation: "",
+          consequence: "",
+        },
       ],
-      rationale: "It sits in front of upstream services.",
+      decisionCriteria: [],
+      rationale: "",
+      practicalNotes: [],
+      checkQuestion: "",
     },
     answer: {
       selectedChoiceId: "a",
@@ -39,12 +56,29 @@ const quizQuestions: TodayQuizQuestion[] = [
     question: {
       id: "q2",
       conceptId: "concept-2",
+      scenario: "",
+      artifacts: [],
       prompt: "What does a cache key include?",
       choices: [
-        { id: "a", label: "Only the translated text.", correct: false },
-        { id: "b", label: "The source text and translation context.", correct: true },
+        {
+          id: "a",
+          label: "Only the translated text.",
+          correct: false,
+          explanation: "",
+          consequence: "",
+        },
+        {
+          id: "b",
+          label: "The source text and translation context.",
+          correct: true,
+          explanation: "",
+          consequence: "",
+        },
       ],
-      rationale: "The context matters for correctness.",
+      decisionCriteria: [],
+      rationale: "",
+      practicalNotes: [],
+      checkQuestion: "",
     },
     answer: null,
   },
@@ -108,12 +142,28 @@ describe("getTranslatedQuizCards", () => {
     expect(await getTranslatedQuizCards(quizQuestions, repo, "deterministic")).toEqual({
       q1: {
         questionId: "q1",
+        scenario: null,
+        artifacts: [],
         prompt: "リバースプロキシは通常何をしますか。",
         feedback: "リンク先のソースを見直してください。",
+        decisionCriteria: [],
+        rationale: null,
+        practicalNotes: [],
+        checkQuestion: null,
         unavailable: false,
         choices: [
-          { id: "a", label: "クライアントのリクエストを転送します。" },
-          { id: "b", label: "フロントエンド資産をコンパイルします。" },
+          {
+            id: "a",
+            label: "クライアントのリクエストを転送します。",
+            explanation: null,
+            consequence: null,
+          },
+          {
+            id: "b",
+            label: "フロントエンド資産をコンパイルします。",
+            explanation: null,
+            consequence: null,
+          },
         ],
       },
     });
@@ -125,12 +175,18 @@ describe("getTranslatedQuizCards", () => {
     expect(await getTranslatedQuizCards(quizQuestions, createRepo([]), "deterministic")).toEqual({
       q2: {
         questionId: "q2",
+        scenario: null,
+        artifacts: [],
         prompt: null,
         feedback: null,
+        decisionCriteria: null,
+        rationale: null,
+        practicalNotes: null,
+        checkQuestion: null,
         unavailable: true,
         choices: [
-          { id: "a", label: null },
-          { id: "b", label: null },
+          { id: "a", label: null, explanation: null, consequence: null },
+          { id: "b", label: null, explanation: null, consequence: null },
         ],
       },
     });

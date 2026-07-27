@@ -323,26 +323,56 @@ test("user can answer a daily quiz question", async ({ page }) => {
   await expect(page).toHaveURL(/\/today/);
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
 
-  const firstUnanswered = page
-    .locator(".quiz-card")
-    .filter({ has: page.getByRole("button", { name: "Submit answer" }) })
-    .first();
-  const unansweredCount = await firstUnanswered.count();
+  const navigator = page.getByLabel("Quiz questions");
+  const activeCard = navigator.locator('.quiz-card[aria-current="step"]');
+  await expect(activeCard.locator(".quiz-scenario")).toBeVisible();
+  await expect(activeCard.locator(".quiz-scenario p").last()).not.toBeEmpty();
+
+  const questionIndicators = navigator.getByRole("button", { name: /^Go to question \d+,/ });
+  let foundArtifact = false;
+  for (let index = 0; index < (await questionIndicators.count()); index += 1) {
+    await questionIndicators.nth(index).click();
+    if ((await activeCard.locator(".question-artifact").count()) > 0) {
+      foundArtifact = true;
+      await expect(activeCard.locator(".question-artifact pre code").first()).not.toBeEmpty();
+      break;
+    }
+  }
+  expect(foundArtifact).toBe(true);
+
+  let unansweredCount = await activeCard.getByRole("button", { name: "Submit answer" }).count();
+
+  if (unansweredCount === 0) {
+    const unansweredIndicator = navigator.locator(".quiz-card-indicators .unanswered").first();
+    if ((await unansweredIndicator.count()) > 0) {
+      await unansweredIndicator.click();
+      unansweredCount = await activeCard.getByRole("button", { name: "Submit answer" }).count();
+    }
+  }
 
   if (unansweredCount > 0) {
-    const submittedQuestionId = await firstUnanswered.getByRole("heading").getAttribute("id");
-    await firstUnanswered.locator('input[name="selectedChoiceId"]').first().check();
-    await firstUnanswered.locator('input[name="confidence"][value="4"]').check();
-    await firstUnanswered.getByRole("button", { name: "Submit answer" }).click();
+    const submittedQuestionId = await activeCard.getByRole("heading", { level: 2 }).getAttribute("id");
+    await activeCard.locator('input[name="selectedChoiceId"]').first().check();
+    await activeCard.locator('input[name="confidence"][value="4"]').check();
+    await activeCard
+      .locator('textarea[name="reasoning"]')
+      .fill("I compared the explicit scenario constraints with each option.");
+    await activeCard.getByRole("button", { name: "Submit answer" }).click();
     await expect(page).toHaveURL(/\/today/);
-    const activeCard = page.locator('.quiz-card[aria-current="step"]');
     for (let index = 0; index < 30; index += 1) {
-      if ((await activeCard.getByRole("heading").getAttribute("id")) === submittedQuestionId) break;
+      if (
+        (await activeCard.getByRole("heading", { level: 2 }).getAttribute("id")) ===
+        submittedQuestionId
+      )
+        break;
       const previous = page.getByRole("button", { name: "Previous question" });
       if (await previous.isDisabled()) break;
       await previous.click();
     }
-    await expect(activeCard.getByRole("heading")).toHaveAttribute("id", submittedQuestionId ?? "");
+    await expect(activeCard.getByRole("heading", { level: 2 })).toHaveAttribute(
+      "id",
+      submittedQuestionId ?? "",
+    );
   }
 
   const answeredCard = page.locator('.quiz-card[aria-current="step"]');
@@ -356,6 +386,16 @@ test("user can answer a daily quiz question", async ({ page }) => {
   ).toBeVisible();
   await expect(answeredCard.locator(".answer-badge.selected")).toBeVisible();
   await expect(answeredCard.locator(".answer-badge.correct")).toBeVisible();
+  await expect(
+    answeredCard.locator(".practical-answer-review > section > h3"),
+  ).toHaveText([
+    "Result",
+    "Decision point",
+    "Why",
+    "Options",
+    "Practical notes",
+    "Check your understanding",
+  ]);
 });
 
 test("answering a skipped card preserves its review until the user advances", async ({

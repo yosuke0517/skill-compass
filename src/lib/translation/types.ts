@@ -1,4 +1,15 @@
-export type TranslationPurpose = "quiz_prompt" | "quiz_choice" | "quiz_feedback";
+export type TranslationPurpose =
+  | "quiz_scenario"
+  | "quiz_artifact_title"
+  | "quiz_prompt"
+  | "quiz_choice"
+  | "quiz_decision_criterion"
+  | "quiz_rationale"
+  | "quiz_choice_explanation"
+  | "quiz_choice_consequence"
+  | "quiz_practical_note"
+  | "quiz_check_question"
+  | "quiz_feedback";
 
 export type TranslationGlossaryEntry = {
   source: string;

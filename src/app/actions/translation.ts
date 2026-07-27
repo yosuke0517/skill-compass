@@ -65,6 +65,7 @@ export async function getTranslatedQuizCards(
         {
           question: item.question,
           feedback: item.answer?.feedback ?? null,
+          revealReview: item.answer !== null,
         },
         repo,
         cacheScope,

@@ -127,8 +127,21 @@ test("translation shows an in-card loading state while pending", async ({ page }
       contentType: "application/json",
       body: JSON.stringify({
         questionId: "question_api_contract_change",
+        scenario: "API変更を安全に進めるシナリオ",
+        artifacts: [],
         prompt: "API変更の翻訳",
-        choices: [{ id: "a", label: "選択肢" }],
+        choices: [
+          {
+            id: "a",
+            label: "選択肢",
+            explanation: null,
+            consequence: null,
+          },
+        ],
+        decisionCriteria: null,
+        rationale: null,
+        practicalNotes: null,
+        checkQuestion: null,
         feedback: null,
         unavailable: false,
       }),

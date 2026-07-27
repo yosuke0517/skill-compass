@@ -8,6 +8,7 @@ import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { ConfidenceInput } from "./confidence-input";
+import { QuestionArtifacts } from "./question-artifacts";
 import { QuizTranslationPanel } from "./quiz-translation-panel";
 
 type QuizQuestionCardProps = {
@@ -63,8 +64,22 @@ export function QuizQuestionCard({
           questionId: item.question.id,
           value: {
             questionId: item.question.id,
+            scenario: null,
+            artifacts: item.question.artifacts.map((artifact) => ({
+              ...artifact,
+              title: null,
+            })),
             prompt: null,
-            choices: item.question.choices.map((choice) => ({ id: choice.id, label: null })),
+            choices: item.question.choices.map((choice) => ({
+              id: choice.id,
+              label: null,
+              explanation: null,
+              consequence: null,
+            })),
+            decisionCriteria: null,
+            rationale: null,
+            practicalNotes: null,
+            checkQuestion: null,
             feedback: null,
             unavailable: true,
           },
@@ -84,6 +99,13 @@ export function QuizQuestionCard({
           <strong>{reasonLabels[item.reason] ?? item.reason}</strong>
         </div>
       </div>
+      <section className="quiz-scenario" aria-labelledby={`quiz-scenario-${item.question.id}`}>
+        <p className="eyebrow" id={`quiz-scenario-${item.question.id}`}>
+          Scenario
+        </p>
+        <p>{item.question.scenario}</p>
+      </section>
+      <QuestionArtifacts artifacts={item.question.artifacts} />
       <h2 ref={activeCardFocusRef} id={`quiz-question-${item.question.id}`} tabIndex={-1}>
         {item.question.prompt}
       </h2>
@@ -110,8 +132,24 @@ export function QuizQuestionCard({
       {currentTranslation ? <QuizTranslationPanel translation={currentTranslation} /> : null}
 
       {answered ? (
-        <>
-          <section className="answer-review" aria-label="Answer review">
+        <div className="practical-answer-review" aria-label="Answer review">
+          <section className="answer-review">
+            <h3>Result</h3>
+            <div className="answer-feedback">
+              {item.answer?.correct ? (
+                <CheckCircle2 size={20} aria-hidden="true" />
+              ) : (
+                <CircleHelp size={20} aria-hidden="true" />
+              )}
+              <div>
+                <p>{item.answer?.correct ? "Correct" : "Review"}</p>
+                <span>
+                  {item.answer?.correct
+                    ? "Your decision matches the case constraints."
+                    : "Compare your decision with the stated constraints."}
+                </span>
+              </div>
+            </div>
             <div className="answer-review-summary">
               <span>Your answer</span>
               <strong>
@@ -123,7 +161,25 @@ export function QuizQuestionCard({
               <span>Correct answer</span>
               <strong>{correctChoice?.label ?? "Not configured"}</strong>
             </div>
+          </section>
 
+          <section className="practical-review-section">
+            <h3>Decision point</h3>
+            <ul>
+              {item.question.decisionCriteria.map((criterion) => (
+                <li key={criterion}>{criterion}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="practical-review-section">
+            <h3>Why</h3>
+            <p>{item.question.rationale}</p>
+            {item.answer?.feedback ? <p className="evaluation-feedback">{item.answer.feedback}</p> : null}
+          </section>
+
+          <section className="practical-review-section">
+            <h3>Options</h3>
             <div className="answered-choice-list">
               {item.question.choices.map((choice, index) => {
                 const selected = choice.id === item.answer?.selectedChoiceId;
@@ -142,24 +198,30 @@ export function QuizQuestionCard({
                       {selected ? <span className="answer-badge selected">Your answer</span> : null}
                       {correct ? <span className="answer-badge correct">Correct</span> : null}
                     </div>
+                    <div className="answered-choice-teaching">
+                      <p>{choice.explanation}</p>
+                      <span>{choice.consequence}</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </section>
 
-          <div className="answer-feedback">
-            {item.answer?.correct ? (
-              <CheckCircle2 size={20} aria-hidden="true" />
-            ) : (
-              <CircleHelp size={20} aria-hidden="true" />
-            )}
-            <div>
-              <p>{item.answer?.correct ? "Correct" : "Review"}</p>
-              <span>{item.answer?.feedback}</span>
-            </div>
-          </div>
-        </>
+          <section className="practical-review-section">
+            <h3>Practical notes</h3>
+            <ul>
+              {item.question.practicalNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="practical-review-section understanding-check">
+            <h3>Check your understanding</h3>
+            <p>{item.question.checkQuestion}</p>
+          </section>
+        </div>
       ) : (
         <form
           action={submitQuizAnswerAction}
