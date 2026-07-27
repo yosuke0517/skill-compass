@@ -29,4 +29,5 @@ export type QuizSelectionInput = {
   gapCategoryIds: string[];
   recentlyAnsweredQuestionIds: string[];
   recentlyAssignedQuestionIds: string[];
+  dueQuestionIds: string[];
 };

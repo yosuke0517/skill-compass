@@ -43,6 +43,7 @@ function selectionInput(overrides: Partial<Parameters<typeof selectDailyQuiz>[0]
     gapCategoryIds: [],
     recentlyAnsweredQuestionIds: [],
     recentlyAssignedQuestionIds: ["q0"],
+    dueQuestionIds: [],
     ...overrides,
   };
 }
@@ -93,5 +94,65 @@ describe("selectDailyQuiz", () => {
 
     expect(selected).toHaveLength(1);
     expect(selected.map((item) => item.question.id)).toEqual(["q0"]);
+  });
+
+  it("skips inactive prepared legacy questions before filling active slots", () => {
+    const selected = selectDailyQuiz(
+      selectionInput({
+        existingPreparedQuestions: [
+          {
+            question: makeQuestion(99, { id: "legacy_prepared", active: false }),
+            slot: 1,
+            reason: "fallback",
+          },
+        ],
+      }),
+    );
+
+    expect(selected).toHaveLength(5);
+    expect(selected.map((item) => item.question.id)).not.toContain("legacy_prepared");
+  });
+
+  it("keeps weak questions while using nonweak questions to satisfy feasible balance constraints", () => {
+    const weakQuestions = Array.from({ length: 5 }, (_, index) =>
+      makeQuestion(index, {
+        id: `weak_${index}`,
+        conceptId: `weak_${index}`,
+        categoryId: "backend",
+        caseType: "basic_application",
+        correctChoiceId: "a",
+      }),
+    );
+    const balancedQuestions = [
+      makeQuestion(10, { id: "balanced_frontend", categoryId: "frontend", caseType: "common_failure", correctChoiceId: "b" }),
+      makeQuestion(11, { id: "balanced_sql", categoryId: "sql", caseType: "design_tradeoff", correctChoiceId: "c" }),
+      makeQuestion(12, { id: "balanced_security", categoryId: "security", caseType: "debugging_performance", correctChoiceId: "d" }),
+    ];
+
+    const selected = selectDailyQuiz(
+      selectionInput({
+        questions: [...weakQuestions, ...balancedQuestions],
+        weakConceptIds: weakQuestions.map((question) => question.conceptId),
+        recentlyAssignedQuestionIds: [],
+      }),
+    );
+
+    expect(selected).toHaveLength(5);
+    expect(selected.filter((item) => item.question.id.startsWith("weak_")).length).toBe(2);
+    expect(maxCount(selected.map((item) => item.question.categoryId))).toBeLessThanOrEqual(2);
+    expect(new Set(selected.map((item) => item.question.caseType)).size).toBeGreaterThanOrEqual(4);
+    expect(maxCount(selected.map((item) => item.question.correctChoiceId))).toBeLessThanOrEqual(2);
+  });
+
+  it("prioritizes due review questions alongside weak concepts", () => {
+    const selected = selectDailyQuiz(
+      selectionInput({
+        weakConceptIds: [],
+        dueQuestionIds: ["q9"],
+        recentlyAssignedQuestionIds: [],
+      }),
+    );
+
+    expect(selected.map((item) => item.question.id)).toContain("q9");
   });
 });

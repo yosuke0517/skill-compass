@@ -74,4 +74,36 @@ describe("buildTodayQuiz", () => {
     expect(quiz.progress).toEqual({ answered: 0, total: 1 });
     expect(quiz.questions[0]?.answer).toBeNull();
   });
+
+  it("does not return inactive prepared legacy questions", () => {
+    const quiz = buildTodayQuiz({
+      quizDay: { id: "quiz_2026-07-09", quizDate: "2026-07-09" },
+      preparedQuestions: [
+        { quizDayId: "quiz_2026-07-09", questionId: "legacy", slot: 1, reason: "fallback" },
+        { quizDayId: "quiz_2026-07-09", questionId: "active", slot: 2, reason: "weakness" },
+      ],
+      questions: [
+        {
+          id: "legacy",
+          conceptId: "c_legacy",
+          prompt: "Legacy question?",
+          choices: [{ id: "a", label: "Answer", correct: true }],
+          rationale: "Legacy rationale.",
+          active: false,
+        },
+        {
+          id: "active",
+          conceptId: "c_active",
+          prompt: "Active question?",
+          choices: [{ id: "a", label: "Answer", correct: true }],
+          rationale: "Active rationale.",
+          active: true,
+        },
+      ],
+      answers: [],
+    });
+
+    expect(quiz.progress).toEqual({ answered: 0, total: 1 });
+    expect(quiz.questions.map((item) => item.question.id)).toEqual(["active"]);
+  });
 });

@@ -48,6 +48,7 @@ export type BuildTodayQuizInput = {
     prompt: string;
     choices: Array<{ id: string; label: string; correct: boolean }>;
     rationale: string;
+    active?: boolean;
   }>;
   answers: Array<{
     quizDayId: string;
@@ -61,6 +62,7 @@ export type BuildTodayQuizInput = {
 
 export async function getTodayQuiz(today = toDateKey(new Date())): Promise<TodayQuiz> {
   const { db } = await import("@/db/client");
+  const userId = "user_local";
   const quizDayId = `quiz_${today}`;
 
   await db
@@ -80,8 +82,8 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
       db.select().from(sources),
       db.select().from(conceptTags),
       db.select().from(tags),
-      db.select().from(scores),
-      db.select().from(answers),
+      db.select().from(scores).where(eq(scores.userId, userId)),
+      db.select().from(answers).where(eq(answers.userId, userId)),
     ]);
     const sourceById = new Map(sourceRows.map((source) => [source.id, source]));
     const tagById = new Map(tagRows.map((tag) => [tag.id, tag]));
@@ -91,6 +93,9 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
         .filter((item): item is [string, string] => Boolean(item[1])),
     );
     const recentQuestionIds = answerRows.slice(-10).map((answer) => answer.questionId);
+    const dueQuestionIds = answerRows
+      .filter((answer) => answer.nextReviewOn && toDateKey(answer.nextReviewOn) <= today)
+      .map((answer) => answer.questionId);
     const conceptScores = scoreRows.filter((score) => score.subjectType === "concept");
     const weakConceptIds = conceptScores.filter((score) => score.value <= 0.5).map((score) => score.subjectId);
     const strongConceptIds = conceptScores.filter((score) => score.value >= 0.6).map((score) => score.subjectId);
@@ -107,8 +112,7 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
     }));
 
     const selected = selectDailyQuiz({
-      // This legacy reader remains user-unscoped until its Task 1 follow-up receives the current user.
-      userId: "user_local",
+      userId,
       today,
       questions: selectionQuestions,
       weakConceptIds,
@@ -117,6 +121,7 @@ export async function getTodayQuiz(today = toDateKey(new Date())): Promise<Today
       gapCategoryIds: [],
       recentlyAnsweredQuestionIds: recentQuestionIds,
       recentlyAssignedQuestionIds: [],
+      dueQuestionIds,
     });
 
     if (selected.length > 0) {
@@ -157,7 +162,7 @@ export function buildTodayQuiz(input: BuildTodayQuizInput): TodayQuiz {
 
   for (const prepared of input.preparedQuestions.slice().sort((left, right) => left.slot - right.slot)) {
     const question = questionById.get(prepared.questionId);
-    if (!question) continue;
+    if (!question || question.active === false) continue;
 
     const savedAnswer = answerByQuestionId.get(prepared.questionId);
     const answer = savedAnswer?.correct === null ? undefined : savedAnswer;
