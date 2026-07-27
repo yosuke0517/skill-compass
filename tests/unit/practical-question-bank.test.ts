@@ -42,6 +42,12 @@ function searchableText(item: ReviewedQuestion) {
   ].join("\n");
 }
 
+function correctIdSequence(categoryId: string) {
+  return reviewedQuestionBank
+    .filter((item) => item.categoryId === categoryId)
+    .map((item) => item.choices.find(({ correct }) => correct)!.id);
+}
+
 describe("reviewed practical question bank", () => {
   it("publishes the 70 stable IDs with ten questions in every category", () => {
     expect(reviewedQuestionBank).toHaveLength(70);
@@ -86,6 +92,24 @@ describe("reviewed practical question bank", () => {
     }, {});
 
     expect(correctIdCounts).toEqual({ a: 18, b: 17, c: 17, d: 18 });
+  });
+
+  it("does not repeat a short correct-ID period within any category", () => {
+    for (const categoryId of [
+      "cs_foundations",
+      "web_backend",
+      "frontend",
+      "infrastructure",
+      "security",
+      "software_design",
+      "ai_engineering",
+    ]) {
+      const sequence = correctIdSequence(categoryId);
+      const repeatingPeriods = [1, 2, 3, 4, 5].filter((period) =>
+        sequence.every((id, index) => index < period || id === sequence[index - period]));
+
+      expect(repeatingPeriods, `${categoryId}: ${sequence.join(",")}`).toEqual([]);
+    }
   });
 
   it("makes the orders composite-index decision from the concrete query shape", () => {
@@ -150,6 +174,47 @@ describe("reviewed practical question bank", () => {
     expect(searchableText(question("q_ai_09"))).toMatch(/eval|regression|held.out|test set/i);
     expect(searchableText(question("q_ai_05"))).toMatch(/permission|approval|side effect|tool/i);
     expect(searchableText(question("q_ai_07"))).toMatch(/schema|capabilit|least privilege|allowlist/i);
+  });
+
+  it("publishes a satisfiable invoice schema with constrained required properties", () => {
+    const artifact = question("q_ai_02").artifacts.find(({ kind }) => kind === "schema");
+    const schema = JSON.parse(artifact!.content) as {
+      type: string;
+      required: string[];
+      additionalProperties: boolean;
+      properties: Record<string, Record<string, unknown>>;
+    };
+
+    expect(schema).toMatchObject({
+      type: "object",
+      required: ["currency", "amount", "dueDate"],
+      additionalProperties: false,
+      properties: {
+        currency: { type: "string", enum: ["USD", "EUR", "JPY"] },
+        amount: { type: "number", exclusiveMinimum: 0 },
+        dueDate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      },
+    });
+  });
+
+  it("uses credible operational near-misses instead of joke or irrelevant distractors", () => {
+    const allLabels = reviewedQuestionBank.flatMap((item) => item.choices.map(({ label }) => label)).join("\n");
+
+    expect(allLabels).not.toMatch(/citation font size|developer laptops?|unused modules?|disable database audit logs/i);
+    expect(searchableText(question("q_ai_03"))).toMatch(/generation prompt|context window|rerank/i);
+    expect(searchableText(question("q_infra_01"))).toMatch(/Kubernetes|self.host|managed/i);
+    expect(searchableText(question("q_design_06"))).toMatch(/shared utility|generic abstraction|extract/i);
+    expect(searchableText(question("q_sec_10"))).toMatch(/network allowlist|query allowlist|shared read.only/i);
+  });
+
+  it("assigns representative scenarios to semantic case types", () => {
+    expect(question("q_cs_09").caseType).toBe("debugging_performance");
+    expect(question("q_web_04").caseType).toBe("common_failure");
+    expect(question("q_front_04").caseType).toBe("maintainability_safety");
+    expect(question("q_infra_09").caseType).toBe("basic_application");
+    expect(question("q_sec_09").caseType).toBe("common_failure");
+    expect(question("q_design_08").caseType).toBe("basic_application");
+    expect(question("q_ai_01").caseType).toBe("design_tradeoff");
   });
 });
 
