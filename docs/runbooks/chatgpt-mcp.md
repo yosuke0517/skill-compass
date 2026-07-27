@@ -143,7 +143,8 @@ launchctl print gui/$(id -u)/xyz.finegate.skill-compass-tunnel
 1. Add `https://agent.finegate.xyz/mcp` as the remote Skill Compass MCP app/server.
 2. ChatGPT discovers the OAuth metadata and dynamically registers its callback.
 3. Log in to the permitted Skill Compass account.
-4. Review the requested Today, Podcast, public X Post, and temporary following-timeline access and select **Connect**.
+4. Review the requested Today, Podcast, public X Post, and
+   personalized-trend-guided public-search access and select **Connect**.
 5. Confirm ChatGPT lists exactly:
    - `get_today`
    - `submit_today_answer`
@@ -220,15 +221,18 @@ are called.
 
 Public Post snapshots may be cached for 24 hours without a Skill Compass user
 ID. A daily result may be cached per user and Tokyo local date for 24 hours.
-The raw following timeline, its order, followed-account list, discarded
-candidates, request headers, and provider tokens are not persisted.
+Selected technical trend names and selected public-search Posts may appear in
+that daily cache. Discarded public-search candidates, request headers, and
+provider tokens are not persisted. The current collector does not call a
+personal-feed endpoint.
 
-The daily collector reads at most 30 unique Post candidates, targets a 70/30
-public-search/following-timeline mix, and returns at most ten selected Posts.
-The scheduled task requests five. The X Developer Console is authoritative for
-current usage and pricing; review it if X changes endpoint prices. At the
-design-time estimate, the 30-Post daily ceiling was approximately USD 4.50 per
-30-day month.
+The daily collector uses allowlisted Personalized Trends to guide bounded
+recent public searches, always includes a fixed technical fallback query, reads
+at most 30 unique public-search candidates, and returns at most ten selected
+Posts. The scheduled task requests five. The X Developer Console is
+authoritative for current usage and pricing; review it if X changes endpoint
+prices. At the design-time estimate, the 30-Post daily ceiling was
+approximately USD 4.50 per 30-day month.
 
 ## Functional verification
 
@@ -288,7 +292,11 @@ Expected: English current architecture without a production hostname, absolute p
 このMCPから秘匿情報や個人情報が抜かれにくいのはなぜ？限界も含めて説明して。
 ```
 
-Expected: Japanese explanation covering the static-manifest boundary, fixed tool schemas, allowlisted responses, authentication, absence of filesystem/database capabilities, and the residual risk of unsafe future manifest or tool changes. It must not claim that disclosure is impossible.
+Expected: Japanese explanation covering the static-manifest answer boundary,
+fixed tool schemas, allowlisted responses, database-backed HTTP authentication,
+the answer tools' lack of learning-state, user-record, filesystem, storage, or
+provider-query capabilities, and the residual risk of unsafe future manifest
+or tool changes. It must not claim that disclosure is impossible.
 
 ```text
 技術面接で「Skill CompassのMCP認証をどう設計したか」に2分で答えたい。
@@ -400,7 +408,11 @@ Run the task manually once after editing it:
 
 ## Architecture manifest review
 
-The Architecture MCP has no general repository retrieval. It can return only the checked-in public-safe manifest through fixed response shapes.
+The Architecture MCP answer tools have no general repository retrieval and can
+return only the checked-in public-safe manifest through fixed response shapes.
+The HTTP layer is a separate boundary that authenticates bearer tokens and
+checks the current user through persistent auth/application records before any
+answer tool runs.
 
 Whenever that manifest changes:
 

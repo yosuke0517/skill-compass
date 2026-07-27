@@ -9,7 +9,7 @@ export const architectureManifest = {
     "Authenticated Web sessions and MCP bearer tokens identify the learner before shared domain services read or change learning state.",
     "A scheduled preparation call places a complete five-question lesson packet into a ChatGPT conversation so Voice/Live can teach from conversation context without calling tools or submitting answers.",
     "Podcast generation and X technical-news collection run through bounded service and worker interfaces, while generated audio is kept in object storage.",
-    "The Architecture MCP reads only a reviewed static manifest and has no database, filesystem, learning-service, storage, or provider capability.",
+    "After database-backed HTTP authentication, the Architecture MCP answer tools read only reviewed static manifest data and cannot query learning state or user records, filesystem content, storage, or provider APIs.",
   ],
   components: [
     {
@@ -46,7 +46,7 @@ export const architectureManifest = {
       id: "architecture-mcp",
       name: "Architecture MCP",
       responsibility:
-        "Answers architecture, security, privacy, and interview questions from reviewed public-safe facts only.",
+        "Answers architecture, security, privacy, and interview questions from reviewed public-safe facts after the HTTP authentication boundary approves the request.",
     },
     {
       id: "object-storage",
@@ -140,15 +140,38 @@ export const architectureManifest = {
       status: "implemented",
       topics: ["mcp", "pii", "secrets", "security", "interview"],
       statement:
-        "The Architecture MCP can read only this reviewed static manifest and has no database, filesystem, learning-service, storage, or provider dependency.",
+        "The Architecture MCP answer tools read only reviewed static manifest data and cannot query learning state or user records, filesystem content, storage, or provider APIs.",
       reasoning:
-        "Prompt injection cannot invoke capabilities that the server never exposes, and responses are assembled from allowlisted fields.",
+        "After HTTP authentication, the answer builders receive the reviewed manifest and assemble responses from allowlisted fields without a learning or user-data repository.",
       limitation:
         "Human review and safety tests reduce, but cannot eliminate, the risk of sensitive text being added to the manifest later.",
       evidence: [
         "Architecture MCP server",
         "Architecture response builders",
         "Manifest safety tests",
+      ],
+    },
+    {
+      id: "architecture-http-authentication",
+      status: "implemented",
+      topics: [
+        "mcp",
+        "authentication",
+        "authorization",
+        "pii",
+        "security",
+        "interview",
+      ],
+      statement:
+        "The Architecture MCP HTTP authentication boundary verifies bearer access through persisted OAuth token and current-user records before the static answer tools run.",
+      reasoning:
+        "The endpoint rejects unauthenticated callers before creating the MCP server, while the approved tool call receives no learning or user-data repository.",
+      limitation:
+        "The endpoint is not database-independent: only the post-authentication answer tools are isolated from learning-state and user-record queries.",
+      evidence: [
+        "Architecture MCP HTTP handler",
+        "OAuth bearer authentication service",
+        "Current-user access check",
       ],
     },
     {
@@ -276,15 +299,15 @@ export const architectureManifest = {
       status: "implemented",
       topics: ["system", "data_flow", "x_news", "security", "interview"],
       statement:
-        "The daily technical-news flow combines bounded public X search with a temporary read of the authenticated account's following timeline, ranks the candidates, and caches the resulting digest.",
+        "The daily technical-news flow selects personalized technical trends when available, uses them to guide recent public X search alongside a fixed technical fallback query, then ranks and caches the public-search candidates.",
       reasoning:
-        "Public relevance and personal context can be combined without turning the following timeline into durable source content.",
+        "The personalized signal changes search queries, not the candidate source; every ranked candidate currently comes from public recent search.",
       limitation:
         "X posts are claims rather than verified facts, access depends on provider entitlement, and the digest must preserve links and uncertainty labels.",
       evidence: [
         "X daily digest service",
-        "Trend query builder",
-        "Daily digest cache",
+        "Personalized trend selector",
+        "Public-search source-mix tests",
       ],
     },
     {

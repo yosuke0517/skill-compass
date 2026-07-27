@@ -43,7 +43,6 @@
       body {
         min-width: 320px;
         margin: 0;
-        overflow-x: hidden;
         color: var(--ink);
         background: var(--paper);
         font-family: var(--body);
@@ -845,17 +844,20 @@
         }
 
         .toplinks {
-          gap: 12px;
-          white-space: nowrap;
+          width: 100%;
+          flex-wrap: wrap;
+          gap: 5px 14px;
+          line-height: 1.35;
+          white-space: normal;
         }
 
-        .toplinks a {
-          display: none;
-        }
-
-        .toplinks a:nth-child(3),
-        .toplinks a:nth-child(5) {
-          display: block;
+        .topbar-inner {
+          min-height: 0;
+          align-items: flex-start;
+          flex-direction: column;
+          justify-content: center;
+          gap: 7px;
+          padding: 10px 0;
         }
 
         .boundary-table-wrap {
@@ -1252,7 +1254,7 @@
                 </div>
                 <div class="map-box">
                   <strong>Architecture MCP</strong>
-                  <span>静的な公開manifestのみ。DB能力なし</span>
+                  <span>HTTP認証後、回答ツールは公開manifestのみ参照</span>
                 </div>
               </div>
             </figure>
@@ -1310,11 +1312,11 @@
                   <span class="status current">実装済み</span>
                 </div>
                 <p>
-                  公開検索と、認証されたアカウントのfollowing timelineを一時的に読み、
-                  技術関連度と反応を組み合わせて日次digestへ。投稿は事実ではなく主張として扱います。
+                  Personalized Trendsから技術トピックを選び、固定トピックのfallbackとともに
+                  recent public searchをrelevancy順で実行。現在の候補はすべて公開検索から得ます。
                 </p>
                 <div class="product-flow">
-                  PUBLIC + PERSONAL CONTEXT → RANK → CACHE → EXPLAIN WITH LINKS
+                  PERSONALIZED TRENDS → PUBLIC SEARCH → RANK → CACHE → EXPLAIN
                 </div>
               </article>
 
@@ -1325,7 +1327,8 @@
                 </div>
                 <p>
                   技術面接で構成・セキュリティ・プライバシー・トレードオフを質問可能。
-                  回答元は人がレビューした公開manifestだけで、学習DBやファイルへ接続しません。
+                  HTTP入口はOAuth tokenとcurrent-user recordを確認し、認証後の回答ツールは
+                  公開manifestだけから回答して学習状態やユーザー情報をqueryしません。
                 </p>
                 <div class="product-flow">
                   QUESTION → TOPIC MATCH → ALLOWLISTED FACTS → CURRENT / PLANNED
@@ -1348,7 +1351,8 @@
             <h2>「読ませない」より先に、「能力を持たせない」。</h2>
             <p class="section-lede">
               認証だけに依存せず、コンテンツ、個人状態、ツール能力を三つの境界に分けます。
-              Architecture MCPには、そもそもDB・ファイル・Providerを読む機能がありません。
+              Architecture MCPのHTTP入口は認証DBを使いますが、認証後の回答ツールには
+              学習状態・ユーザー情報・ファイル・Providerを読む機能を渡しません。
             </p>
 
             <div class="boundary-table-wrap">
@@ -1383,8 +1387,8 @@
                   <tr>
                     <td data-label="境界">Architecture MCP</td>
                     <td data-label="保持">静的な公開manifest</td>
-                    <td data-label="制御">DB・filesystem・storage・provider能力なし</td>
-                    <td data-label="効果">prompt injectionが命令を変えても、存在しない能力は呼び出せない。</td>
+                    <td data-label="制御">HTTP入口でauth DB確認。回答ツールはlearning/user queryなし</td>
+                    <td data-label="効果">認証を保ちつつ、prompt injectionから学習・個人データへの経路を持たせない。</td>
                   </tr>
                   <tr>
                     <td data-label="境界">外部Provider</td>
