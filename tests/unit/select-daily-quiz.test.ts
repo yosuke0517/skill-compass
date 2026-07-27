@@ -207,6 +207,68 @@ describe("selectDailyQuiz", () => {
     expect(selectedIds).toEqual(expect.arrayContaining(freshIds));
   });
 
+  it("reserves balance representatives before homogeneous preferred rows exhaust the bounded pool", () => {
+    const homogeneousWeakQuestions = Array.from({ length: 40 }, (_, index) =>
+      makeQuestion(index, {
+        categoryId: "backend",
+        caseType: "basic_application",
+        correctChoiceId: "a",
+      }),
+    );
+    const balanceRepresentatives = [
+      makeQuestion(40, {
+        categoryId: "frontend",
+        caseType: "common_failure",
+        correctChoiceId: "b",
+      }),
+      makeQuestion(41, {
+        categoryId: "sql",
+        caseType: "design_tradeoff",
+        correctChoiceId: "c",
+      }),
+      makeQuestion(42, {
+        categoryId: "security",
+        caseType: "debugging_performance",
+        correctChoiceId: "d",
+      }),
+      makeQuestion(43, {
+        categoryId: "infrastructure",
+        caseType: "maintainability_safety",
+        correctChoiceId: "b",
+      }),
+    ];
+    const remainingQuestions = Array.from({ length: 26 }, (_, offset) =>
+      makeQuestion(offset + 44, {
+        categoryId: "backend",
+        caseType: "basic_application",
+        correctChoiceId: "a",
+      }),
+    );
+    const questions = [
+      ...homogeneousWeakQuestions,
+      ...balanceRepresentatives,
+      ...remainingQuestions,
+    ];
+    const input = selectionInput({
+      questions,
+      weakConceptIds: homogeneousWeakQuestions.map((question) => question.conceptId),
+      strongConceptIds: [],
+      recentlyAssignedQuestionIds: [],
+      recentlyAnsweredQuestionIds: [],
+      dueQuestionIds: ["q0"],
+    });
+
+    const selected = selectDailyQuiz(input);
+
+    expect(selected).toHaveLength(5);
+    expect(selected.map((item) => item.question.id)).toContain("q0");
+    expect(selected.filter((item) => item.question.categoryId === "backend")).toHaveLength(2);
+    expect(new Set(selected.map((item) => item.question.caseType)).size).toBeGreaterThanOrEqual(4);
+    expect(maxCount(selected.map((item) => item.question.categoryId))).toBeLessThanOrEqual(2);
+    expect(maxCount(selected.map((item) => item.question.correctChoiceId))).toBeLessThanOrEqual(2);
+    expect(selectDailyQuiz(input)).toEqual(selected);
+  });
+
   it("returns a balanced set from a large bank within the bounded search budget", { timeout: 1_000 }, () => {
     const selected = selectDailyQuiz(
       selectionInput({

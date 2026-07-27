@@ -106,11 +106,6 @@ function buildSearchPool(
     if (question && !pool.some((candidate) => candidate.id === question.id)) pool.push(question);
   };
 
-  for (const question of ranked) {
-    if (pool.length >= MAX_SEARCH_CANDIDATES) break;
-    if (preferredIds.has(question.id)) add(question);
-  }
-
   // Reserve representatives for the dimensions required by the five-question balance rule.
   for (const key of [
     (question: QuizSelectionQuestion) => question.caseType,
@@ -121,6 +116,10 @@ function buildSearchPool(
       if (pool.length >= MAX_SEARCH_CANDIDATES) return pool;
       add(ranked.find((question) => key(question) === value));
     }
+  }
+  for (const question of ranked) {
+    if (pool.length >= MAX_SEARCH_CANDIDATES) break;
+    if (preferredIds.has(question.id)) add(question);
   }
   for (const question of ranked) {
     if (pool.length >= MAX_SEARCH_CANDIDATES) break;

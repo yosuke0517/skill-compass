@@ -28,6 +28,29 @@ questions even when eligible recent active rows could fill the requested five.
 RED coverage proved the previous 2/5 result in both selectors and proved that
 two fresh rows could disappear outside the bounded pool in a 70-row bank.
 
+### Re-review fix: reserve balance dimensions before bulk preferred fill
+
+A second whole-branch review found that the bounded pool still bulk-filled all
+preferred rows before reserving balance representatives. With 70 fresh rows,
+40 high-need rows sharing one category, case type, and answer ID could occupy
+all 25 search slots. The hard category and answer constraints then made every
+five-row combination invalid, even though balanced fresh candidates existed
+later in the ranked bank.
+
+- The bounded pool now reserves the best deterministic representative for
+  case type, answer ID, and category before bulk-filling preferred rows.
+- Representative lookup still uses the existing due/need, trust, difficulty,
+  and user/date ranking, and combination scoring continues to maximize
+  preferred questions before other scores.
+- The 25-candidate and 75,000-node bounds are unchanged.
+- A 70-row pathological regression verifies five balanced results, stable
+  ordering, and inclusion of the due question from the homogeneous high-need
+  group.
+
+The new test was RED with a zero-question result before the ordering change
+and GREEN afterward. Existing partial-fresh fallback, due precedence, large
+bank, deterministic, and balance tests remain green.
+
 ## 2. Active-only Dashboard and finalized-only progress
 
 Root cause: Dashboard loaded assignment IDs without joining question
@@ -125,7 +148,7 @@ state.
 ## Verification
 
 - Focused RED/GREEN suites: passed.
-- Full Vitest suite: **65 files, 293 tests passed**.
+- Full Vitest suite: **65 files, 294 tests passed**.
 - `TZ=UTC` boundary suite: **4 files, 10 tests passed**.
 - `TZ=Asia/Tokyo` boundary suite: **6 files, 26 tests passed**.
 - TypeScript: passed.
