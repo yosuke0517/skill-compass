@@ -106,6 +106,13 @@
       "when": 1784907600000,
       "tag": "0015_x_daily_tech_digest_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "5",
+      "when": 1785150512000,
+      "tag": "0016_practical_user_scoped_today",
+      "breakpoints": true
     }
   ]
 }
