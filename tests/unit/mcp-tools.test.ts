@@ -14,6 +14,22 @@ async function connectTestServer() {
     posts: [],
     partialFailures: [],
   });
+  const getToday = vi.fn().mockResolvedValue({
+    quizDate: "2026-07-24",
+    progress: { answered: 0, total: 5 },
+    complete: false,
+    nextQuestion: {
+      quizDayId: "quiz_2026-07-24",
+      questionId: "q1",
+      slot: 1,
+      scenario: "A practical scenario with explicit constraints.",
+      artifacts: [],
+      prompt: "Question",
+      choices: [{ id: "a", label: "Choice" }],
+    },
+    instructorPack: [],
+  });
+  const submitToday = vi.fn().mockResolvedValue({ feedback: "Saved" });
   const server = createSkillCompassMcpServer({
     user: {
       id: "user_1",
@@ -24,19 +40,8 @@ async function connectTestServer() {
       entitlements: new Set(["podcast.chat", "podcast.generate"]),
     },
     services: {
-      getToday: async () => ({
-        quizDate: "2026-07-24",
-        progress: { answered: 0, total: 5 },
-        complete: false,
-        nextQuestion: {
-          quizDayId: "quiz_2026-07-24",
-          questionId: "q1",
-          slot: 1,
-          prompt: "Question",
-          choices: [{ id: "a", label: "Choice" }],
-        },
-      }),
-      submitToday: async () => ({ feedback: "Saved" }),
+      getToday,
+      submitToday,
       listEpisodes: async () => [],
       getEpisode: async () => ({ id: "episode_1" }),
       askPodcast: async () => ({ answer: "Answer", provider: "test" }),
@@ -47,7 +52,14 @@ async function connectTestServer() {
   const client = new Client({ name: "test-client", version: "1.0.0" });
   await server.connect(serverTransport);
   await client.connect(clientTransport);
-  return { client, server, getXPost, getDailyTechPosts };
+  return {
+    client,
+    server,
+    getToday,
+    submitToday,
+    getXPost,
+    getDailyTechPosts,
+  };
 }
 
 describe("Skill Compass MCP tools", () => {
@@ -67,6 +79,22 @@ describe("Skill Compass MCP tools", () => {
     ]);
     expect(JSON.stringify(result.tools)).not.toContain("userId");
     expect(JSON.stringify(result.tools).toLowerCase()).not.toContain("token");
+
+    const getTodayTool = result.tools.find((tool) => tool.name === "get_today");
+    expect(getTodayTool?.description).toContain("all five");
+    expect(getTodayTool?.description).toContain("scenario");
+    expect(getTodayTool?.description).toContain("never call submit_today_answer");
+
+    const submitTool = result.tools.find((tool) => tool.name === "submit_today_answer");
+    expect(Object.keys(submitTool?.inputSchema.properties ?? {}).sort()).toEqual([
+      "confidence",
+      "latestUserMessage",
+      "questionId",
+      "quizDayId",
+      "reasoning",
+      "selectedChoiceId",
+    ]);
+    expect(submitTool?.description).toContain("Never use during scheduled preparation");
     await client.close();
     await server.close();
   });
@@ -108,14 +136,20 @@ describe("Skill Compass MCP tools", () => {
   });
 
   it("calls get_today and returns structured content", async () => {
-    const { client, server } = await connectTestServer();
+    const { client, server, getToday, submitToday } = await connectTestServer();
     const result = await client.callTool({ name: "get_today", arguments: {} });
 
     expect(result.structuredContent).toMatchObject({
       quizDate: "2026-07-24",
       complete: false,
       progress: { answered: 0, total: 5 },
+      nextQuestion: {
+        scenario: "A practical scenario with explicit constraints.",
+        artifacts: [],
+      },
     });
+    expect(getToday).toHaveBeenCalledTimes(1);
+    expect(submitToday).not.toHaveBeenCalled();
     await client.close();
     await server.close();
   });

@@ -2,129 +2,185 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createQuizDayId } from "@/lib/quiz/get-today-quiz";
 import { getTodayForUser, submitTodayForUser } from "@/lib/quiz/today-service";
-import type { TodayQuiz } from "@/lib/quiz/get-today-quiz";
+import type { TodayQuiz, TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
 
 const quiz: TodayQuiz = {
   quizDayId: "quiz_2026-07-24",
   quizDate: "2026-07-24",
-  progress: { answered: 1, total: 2 },
+  progress: { answered: 1, total: 5 },
   questions: [
-    {
-      slot: 1,
-      reason: "weakness",
-      question: {
-        id: "q1",
-        conceptId: "concept_1",
-        scenario: "An answered practical scenario.",
-        artifacts: [],
-        prompt: "Answered question",
-        choices: [
-          {
-            id: "a",
-            label: "A",
-            correct: true,
-            explanation: "A matches the constraints.",
-            consequence: "The system meets its requirement.",
-          },
-        ],
-        decisionCriteria: ["Use the explicit requirement."],
-        rationale: "Hidden rationale",
-        practicalNotes: ["Verify the result."],
-        checkQuestion: "What was the deciding requirement?",
-      },
+    makeQuizQuestion(1, {
       answer: {
         selectedChoiceId: "a",
         correct: true,
         feedback: "Correct",
         scoreDelta: 0.1,
       },
-    },
-    {
-      slot: 2,
+    }),
+    makeQuizQuestion(2, {
       reason: "catch_up",
       question: {
         id: "q2",
         conceptId: "concept_2",
         scenario: "A query is slow under a known access pattern.",
-        artifacts: [],
+        artifacts: [
+          {
+            kind: "sql",
+            title: "Frequent query",
+            language: "sql",
+            content: "SELECT * FROM orders WHERE customer_id = ?;",
+          },
+        ],
         prompt: "Choose the correct index.",
         choices: [
           {
+            id: "a",
+            label: "Index status alone",
+            correct: false,
+            explanation: "q2 explanation a: status is not the leading filter.",
+            consequence: "q2 consequence a: rows for all customers remain candidates.",
+          },
+          {
             id: "b",
-            label: "Composite index",
+            label: "Index customer_id",
             correct: true,
-            explanation: "It matches the filter and ordering.",
-            consequence: "The query scans fewer rows.",
+            explanation: "q2 explanation b: it matches the explicit equality filter.",
+            consequence: "q2 consequence b: the query can seek to one customer's rows.",
           },
           {
             id: "c",
             label: "No index",
             correct: false,
-            explanation: "The query still scans the table.",
-            consequence: "Latency grows with the table.",
+            explanation: "q2 explanation c: the table scan remains.",
+            consequence: "q2 consequence c: latency grows with the table.",
+          },
+          {
+            id: "d",
+            label: "Index the order ID only",
+            correct: false,
+            explanation: "q2 explanation d: the query does not filter by order ID.",
+            consequence: "q2 consequence d: the new index does not serve this access path.",
           },
         ],
-        decisionCriteria: ["Match the index to the access pattern."],
-        rationale: "A composite index matches the query.",
-        practicalNotes: ["Confirm the plan with EXPLAIN."],
-        checkQuestion: "Which leading column is filtered first?",
+        decisionCriteria: ["q2 decision criterion: customer_id is the equality filter."],
+        rationale: "q2 hidden rationale: index the explicit equality filter.",
+        practicalNotes: ["q2 practical note: confirm the plan with EXPLAIN."],
+        checkQuestion: "q2 check: which column is filtered?",
       },
-      answer: null,
-    },
+    }),
+    makeQuizQuestion(3),
+    makeQuizQuestion(4),
+    makeQuizQuestion(5),
   ],
 };
 
 describe("getTodayForUser", () => {
-  it("returns a complete instructor pack for a tool-free Live session", async () => {
+  it("projects the next unanswered question without hidden teaching data", async () => {
+    const quizWithDatabaseOnlyFields = {
+      ...quiz,
+      questions: quiz.questions.map((item) => ({
+        ...item,
+        question: {
+          ...item.question,
+          artifacts: item.question.artifacts.map((artifact) =>
+            Object.assign({}, artifact, {
+              databaseOnlyArtifactField: "database-only-artifact-value",
+            }),
+          ),
+          choices: item.question.choices.map((choice) =>
+            Object.assign({}, choice, {
+              databaseOnlyChoiceField: "database-only-choice-value",
+            }),
+          ),
+        },
+      })),
+    };
+    const result = await getTodayForUser(
+      { userId: "user_1", today: "2026-07-24" },
+      {
+        allowedUserId: "user_1",
+        getQuiz: async () => quizWithDatabaseOnlyFields,
+      },
+    );
+
+    expect(result.nextQuestion).toEqual({
+      quizDayId: "quiz_2026-07-24",
+      questionId: "q2",
+      slot: 2,
+      scenario: "A query is slow under a known access pattern.",
+      artifacts: [
+        {
+          kind: "sql",
+          title: "Frequent query",
+          language: "sql",
+          content: "SELECT * FROM orders WHERE customer_id = ?;",
+        },
+      ],
+      prompt: "Choose the correct index.",
+      choices: [
+        { id: "a", label: "Index status alone" },
+        { id: "b", label: "Index customer_id" },
+        { id: "c", label: "No index" },
+        { id: "d", label: "Index the order ID only" },
+      ],
+    });
+
+    const serialized = JSON.stringify(result.nextQuestion);
+    expect(serialized).not.toContain("correctChoiceId");
+    expect(serialized).not.toContain("q2 hidden rationale");
+    expect(serialized).not.toContain("q2 decision criterion");
+    expect(serialized).not.toContain("q2 explanation a");
+    expect(serialized).not.toContain("q2 consequence a");
+    expect(serialized).not.toContain("q2 practical note");
+    expect(serialized).not.toContain("q2 check");
+    expect(JSON.stringify(result)).not.toContain("database-only");
+  });
+
+  it("returns all five complete instructor rows for a tool-free Live session", async () => {
     const result = await getTodayForUser(
       { userId: "user_1", today: "2026-07-24" },
       { allowedUserId: "user_1", getQuiz: async () => quiz },
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       quizDate: "2026-07-24",
-      progress: { answered: 1, total: 2 },
+      progress: { answered: 1, total: 5 },
       complete: false,
-      nextQuestion: {
-        quizDayId: "quiz_2026-07-24",
-        questionId: "q2",
-        slot: 2,
-        prompt: "Choose the correct index.",
-        choices: [
-          { id: "b", label: "Composite index" },
-          { id: "c", label: "No index" },
-        ],
-      },
-      instructorPack: [
-        {
-          quizDayId: "quiz_2026-07-24",
-          questionId: "q1",
-          slot: 1,
-          prompt: "Answered question",
-          choices: [{ id: "a", label: "A" }],
-          correctChoiceId: "a",
-          rationale: "Hidden rationale",
-          existingAnswer: {
-            selectedChoiceId: "a",
-            correct: true,
-            feedback: "Correct",
-          },
-        },
-        {
-          quizDayId: "quiz_2026-07-24",
-          questionId: "q2",
-          slot: 2,
-          prompt: "Choose the correct index.",
-          choices: [
-            { id: "b", label: "Composite index" },
-            { id: "c", label: "No index" },
-          ],
-          correctChoiceId: "b",
-          rationale: "A composite index matches the query.",
-          existingAnswer: null,
-        },
-      ],
     });
+    expect(result.instructorPack).toHaveLength(5);
+
+    for (const row of result.instructorPack) {
+      expect(row).toMatchObject({
+        quizDayId: "quiz_2026-07-24",
+        questionId: expect.any(String),
+        slot: expect.any(Number),
+        scenario: expect.any(String),
+        artifacts: expect.any(Array),
+        prompt: expect.any(String),
+        correctChoiceId: expect.stringMatching(/^[a-d]$/),
+        decisionCriteria: expect.any(Array),
+        rationale: expect.any(String),
+        practicalNotes: expect.any(Array),
+        checkQuestion: expect.any(String),
+      });
+      expect(row.choices).toHaveLength(4);
+      expect(
+        row.choices.every(
+          (choice) =>
+            Boolean(choice.id) &&
+            Boolean(choice.label) &&
+            Boolean(choice.explanation) &&
+            Boolean(choice.consequence),
+        ),
+      ).toBe(true);
+    }
+
+    expect(result.instructorPack[0]?.existingAnswer).toEqual({
+      selectedChoiceId: "a",
+      correct: true,
+      feedback: "Correct",
+    });
+    expect(result.instructorPack.slice(1).every((row) => row.existingAnswer === null)).toBe(true);
   });
 
   it("rejects a user other than the configured owner", async () => {
@@ -157,6 +213,47 @@ describe("getTodayForUser", () => {
     expect(getQuiz).toHaveBeenNthCalledWith(2, "user_b", "2026-07-24");
   });
 });
+
+function makeQuizQuestion(
+  slot: number,
+  overrides: Partial<TodayQuizQuestion> = {},
+): TodayQuizQuestion {
+  const correctId = ["a", "b", "c", "d"][(slot - 1) % 4] as "a" | "b" | "c" | "d";
+  const question = {
+    id: `q${slot}`,
+    conceptId: `concept_${slot}`,
+    scenario: `Scenario ${slot} with all stated constraints.`,
+    artifacts: [
+      {
+        kind: "config" as const,
+        title: `Configuration ${slot}`,
+        language: "text",
+        content: `setting_${slot}=enabled`,
+      },
+    ],
+    prompt: `Practical decision ${slot}?`,
+    choices: (["a", "b", "c", "d"] as const).map((id) => ({
+      id,
+      label: `Choice ${id.toUpperCase()} for question ${slot}`,
+      correct: id === correctId,
+      explanation: `Question ${slot} explanation ${id}.`,
+      consequence: `Question ${slot} consequence ${id}.`,
+    })),
+    decisionCriteria: [`Question ${slot} explicit deciding condition.`],
+    rationale: `Question ${slot} rationale grounded in its condition.`,
+    practicalNotes: [`Question ${slot} implementation note.`],
+    checkQuestion: `Question ${slot} understanding check?`,
+    ...overrides.question,
+  };
+
+  return {
+    slot,
+    reason: "weakness",
+    answer: null,
+    ...overrides,
+    question,
+  };
+}
 
 describe("submitTodayForUser", () => {
   it("validates the current quiz and delegates to the existing submitter", async () => {

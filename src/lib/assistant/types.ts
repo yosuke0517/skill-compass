@@ -1,7 +1,11 @@
+import type { QuestionArtifact } from "@/db/schema";
+
 export type TodayAssistantQuestion = {
   slot: number;
+  scenario: string;
+  artifacts: QuestionArtifact[];
   prompt: string;
-  choices: string[];
+  choices: Array<{ id: string; label: string }>;
   answerFeedback: string | null;
 };
 

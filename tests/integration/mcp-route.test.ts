@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { handleMcpRequest } from "@/lib/mcp/http-handler";
 
@@ -70,6 +70,7 @@ describe("MCP HTTP handler", () => {
   });
 
   it("initializes for an authenticated user", async () => {
+    const createServices = vi.fn(async () => services);
     const response = await handleMcpRequest(
       new Request("https://agent.finegate.xyz/mcp", {
         method: "POST",
@@ -92,11 +93,12 @@ describe("MCP HTTP handler", () => {
       {
         resourceUrl: "https://agent.finegate.xyz/mcp",
         authenticate: async () => user,
-        createServices: async () => services,
+        createServices,
       },
     );
 
     expect(response.status).toBe(200);
+    expect(createServices).toHaveBeenCalledWith(user);
     await expect(response.json()).resolves.toMatchObject({
       jsonrpc: "2.0",
       id: 1,

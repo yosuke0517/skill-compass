@@ -1,4 +1,10 @@
-import { getTodayQuiz, type TodayQuiz } from "./get-today-quiz";
+import type { QuestionArtifact } from "@/db/schema";
+
+import {
+  getTodayQuiz,
+  type TodayQuiz,
+  type TodayQuizQuestion,
+} from "./get-today-quiz";
 import {
   submitTodayAnswer,
   type SubmitAnswerInput,
@@ -9,27 +15,43 @@ export type McpTodayResult = {
   quizDate: string;
   progress: { answered: number; total: number };
   complete: boolean;
-  nextQuestion: {
-    quizDayId: string;
-    questionId: string;
-    slot: number;
-    prompt: string;
-    choices: Array<{ id: string; label: string }>;
-  } | null;
-  instructorPack: Array<{
-    quizDayId: string;
-    questionId: string;
-    slot: number;
-    prompt: string;
-    choices: Array<{ id: string; label: string }>;
-    correctChoiceId: string;
-    rationale: string;
-    existingAnswer: {
-      selectedChoiceId: string;
-      correct: boolean | null;
-      feedback: string | null;
-    } | null;
+  nextQuestion: LearnerQuestion | null;
+  instructorPack: InstructorQuestion[];
+};
+
+export type LearnerQuestion = {
+  quizDayId: string;
+  questionId: string;
+  slot: number;
+  scenario: string;
+  artifacts: QuestionArtifact[];
+  prompt: string;
+  choices: Array<{ id: string; label: string }>;
+};
+
+export type InstructorQuestion = {
+  quizDayId: string;
+  questionId: string;
+  slot: number;
+  scenario: string;
+  artifacts: QuestionArtifact[];
+  prompt: string;
+  choices: Array<{
+    id: string;
+    label: string;
+    explanation: string;
+    consequence: string;
   }>;
+  correctChoiceId: string;
+  decisionCriteria: string[];
+  rationale: string;
+  practicalNotes: string[];
+  checkQuestion: string;
+  existingAnswer: {
+    selectedChoiceId: string;
+    correct: boolean | null;
+    feedback: string | null;
+  } | null;
 };
 
 export type SubmitTodayForUserInput = SubmitAnswerInput & {
@@ -56,39 +78,72 @@ export async function getTodayForUser(
     quizDate: quiz.quizDate,
     progress: quiz.progress,
     complete: next === undefined,
-    nextQuestion: next
-      ? {
-          quizDayId: quiz.quizDayId,
-          questionId: next.question.id,
-          slot: next.slot,
-          prompt: next.question.prompt,
-          choices: next.question.choices.map((choice) => ({
-            id: choice.id,
-            label: choice.label,
-          })),
-        }
-      : null,
-    instructorPack: quiz.questions.map((item) => ({
-      quizDayId: quiz.quizDayId,
-      questionId: item.question.id,
-      slot: item.slot,
-      prompt: item.question.prompt,
-      choices: item.question.choices.map((choice) => ({
-        id: choice.id,
-        label: choice.label,
-      })),
-      correctChoiceId:
-        item.question.choices.find((choice) => choice.correct)?.id ?? "",
-      rationale: item.question.rationale,
-      existingAnswer: item.answer
-        ? {
-            selectedChoiceId: item.answer.selectedChoiceId,
-            correct: item.answer.correct,
-            feedback: item.answer.feedback,
-          }
-        : null,
+    nextQuestion: next ? toLearnerQuestion(quiz.quizDayId, next) : null,
+    instructorPack: quiz.questions.map((item) =>
+      toInstructorQuestion(quiz.quizDayId, item),
+    ),
+  };
+}
+
+export function toLearnerQuestion(
+  quizDayId: string,
+  item: TodayQuizQuestion,
+): LearnerQuestion {
+  return {
+    quizDayId,
+    questionId: item.question.id,
+    slot: item.slot,
+    scenario: item.question.scenario,
+    artifacts: item.question.artifacts.map(toPublicArtifact),
+    prompt: item.question.prompt,
+    choices: item.question.choices.map((choice) => ({
+      id: choice.id,
+      label: choice.label,
     })),
   };
+}
+
+export function toInstructorQuestion(
+  quizDayId: string,
+  item: TodayQuizQuestion,
+): InstructorQuestion {
+  return {
+    quizDayId,
+    questionId: item.question.id,
+    slot: item.slot,
+    scenario: item.question.scenario,
+    artifacts: item.question.artifacts.map(toPublicArtifact),
+    prompt: item.question.prompt,
+    choices: item.question.choices.map((choice) => ({
+      id: choice.id,
+      label: choice.label,
+      explanation: choice.explanation,
+      consequence: choice.consequence,
+    })),
+    correctChoiceId:
+      item.question.choices.find((choice) => choice.correct)?.id ?? "",
+    decisionCriteria: item.question.decisionCriteria.slice(),
+    rationale: item.question.rationale,
+    practicalNotes: item.question.practicalNotes.slice(),
+    checkQuestion: item.question.checkQuestion,
+    existingAnswer: item.answer
+      ? {
+          selectedChoiceId: item.answer.selectedChoiceId,
+          correct: item.answer.correct,
+          feedback: item.answer.feedback,
+        }
+      : null,
+  };
+}
+
+function toPublicArtifact(artifact: QuestionArtifact): QuestionArtifact {
+  const projected: QuestionArtifact = {
+    kind: artifact.kind,
+    title: artifact.title,
+    content: artifact.content,
+  };
+  if (artifact.language) projected.language = artifact.language;
+  return projected;
 }
 
 export async function submitTodayForUser(

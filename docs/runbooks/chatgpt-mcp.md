@@ -314,19 +314,70 @@ Keep two independent tasks so an X outage cannot delay Today or Podcast:
 Add these instructions to the 07:00 task:
 
 ```text
-Immediately call get_today and list_podcast_episodes. Publish all five Today
-questions and a compact INSTRUCTOR DATA section containing quizDayId,
-questionId, correctChoiceId, rationale, and existingAnswer. Do not submit an
-answer during preparation.
+Immediately prepare today's Skill Compass lesson packet in this task
+conversation. Perform the work now; do not create, update, describe, or confirm
+a scheduled task.
 
+PREPARATION
+1. Call get_today exactly once. Do not call it again during this preparation.
+2. Call list_podcast_episodes exactly once and classify the latest episode as
+   ready, queued, processing, failed, or absent.
+3. Never call submit_today_answer during preparation.
+4. If either read tool fails or returns incomplete data, state that fact. Do
+   not infer missing lesson or Podcast data.
+5. Publish one self-contained packet containing:
+   - quiz date and progress;
+   - all five LEARNER QUESTIONS in slot order, each with quizDayId, questionId,
+     slot, scenario, artifacts, prompt, and choice IDs and labels;
+   - an INSTRUCTOR DATA section with all five rows, each containing
+     quizDayId, questionId, slot, correctChoiceId, decisionCriteria, rationale,
+     every choice explanation and consequence, practicalNotes, checkQuestion,
+     and existingAnswer; and
+   - the latest Podcast status.
+Preparation ends after publishing the packet. Do not answer a question and do
+not persist any learner state.
+
+VOICE/LIVE TEACHING
 When the user opens Voice/Live in this same conversation and says
-「Skill CompassのTodayやりたい」, teach one question at a time from the packet.
-Collect choice, confidence 1-5, and reasoning; reveal correctness and rationale
-only after the learner commits. At the end, output a SYNC PACK.
+「Skill CompassのTodayやりたい」, use only the prepared packet and teach one
+question at a time. Do not attempt to call an app during Voice/Live.
 
+For each question:
+1. Present its scenario, only the artifacts needed for the decision, its
+   prompt, and choice IDs and labels.
+2. Ask for the selected choice, confidence from 1 to 5, and reasoning.
+3. Withhold correctness and all INSTRUCTOR DATA until the learner commits.
+4. If the learner asks for help, give a bounded hint based only on a condition
+   explicitly stated in the learner question's scenario, artifacts, or prompt.
+   Never add a premise and never expose or paraphrase a hidden answer field.
+5. If the reasoning is weak, ask why a plausible alternative is not suitable
+   before revealing the answer.
+6. After commitment, teach in this order:
+   - correctness;
+   - the decisive stated condition;
+   - practical implementation or operational use;
+   - the consequence of the learner's chosen wrong option, when applicable;
+   - why the relevant alternatives are unsuitable; and
+   - the stored understanding check.
+If an instructor row is incomplete, name the incomplete item and move on.
+Never invent a constraint or reinterpret the reviewed answer.
+
+SYNC PACK
+At the end of Voice/Live, output a SYNC PACK containing one item per completed
+question with exactly:
+- quizDayId
+- questionId
+- selectedChoiceId
+- confidence
+- reasoning
+
+Do not include partial items. Producing the SYNC PACK does not submit it.
+
+NORMAL-CHAT SYNC
 After Voice/Live ends, when the user sends
-「今日の回答をSkill Compassに同期して」 as normal text, submit each complete
-SYNC PACK item with submit_today_answer.
+「今日の回答をSkill Compassに同期して」 as normal text, call
+submit_today_answer once for each complete SYNC PACK item. Do not submit an
+item whose choice, confidence, or reasoning is missing.
 
 When the user asks how Skill Compass was built, or asks about its architecture,
 security, privacy, technical tradeoffs, or MCP data boundaries, use the Skill

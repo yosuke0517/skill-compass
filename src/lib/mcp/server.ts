@@ -39,7 +39,7 @@ export function createSkillCompassMcpServer(context: {
     {
       title: "Get Skill Compass Today",
       description:
-        "Get Today progress, the next unanswered question, and a complete instructor pack for a tool-free ChatGPT Live session. When teaching, keep correctChoiceId and rationale private until the learner answers each question.",
+        "Get Today progress, a learner-safe next question with its scenario and artifacts, and complete instructor data for all five lessons. Scheduled preparation must call this tool exactly once and never call submit_today_answer. Keep answers and teaching fields private until the learner commits.",
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false },
     },
@@ -51,7 +51,7 @@ export function createSkillCompassMcpServer(context: {
     {
       title: "Submit Skill Compass Today answer",
       description:
-        "Submit an answer only after collecting the choice, confidence from 1 to 5, and reasoning. This updates the shared Skill Compass learning state.",
+        "Submit an answer only after collecting the choice, confidence from 1 to 5, and reasoning. Never use during scheduled preparation; use later for a complete learner answer or SYNC PACK item. This updates the shared Skill Compass learning state.",
       inputSchema: {
         quizDayId: z.string().min(1),
         questionId: z.string().min(1),
