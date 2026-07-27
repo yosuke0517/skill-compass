@@ -10,7 +10,7 @@ import {
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
+import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
@@ -20,7 +20,7 @@ import { QuizQuestionCard } from "./quiz-question-card";
 
 type QuizCardNavigatorProps = {
   quizDayId: string;
-  questions: TodayQuizQuestion[];
+  questions: WebTodayQuizQuestion[];
   translations: Record<string, TranslatedQuizCard>;
   navigatorAction?: ReactNode;
   error?: string;
@@ -61,7 +61,7 @@ export function QuizCardNavigator({
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const activeCardFocusRef = useRef<HTMLHeadingElement>(null);
   const activeQuestion = questions[activeIndex];
-  const answeredCount = questions.filter((question) => question.answer !== null).length;
+  const answeredCount = questions.filter((question) => question.status === "answered").length;
   const unansweredCount = questions.length - answeredCount;
   const nextIndex = getNextQuestionIndex(activeIndex, questions);
   const hasNextTarget = nextIndex !== activeIndex;
@@ -196,8 +196,8 @@ export function QuizCardNavigator({
           <li key={question.question.id} aria-current={index === activeIndex ? "step" : undefined}>
             <button
               type="button"
-              className={question.answer === null ? "unanswered" : "answered"}
-              aria-label={`Go to question ${index + 1}, ${question.answer === null ? "unanswered" : "answered"}`}
+              className={question.status}
+              aria-label={`Go to question ${index + 1}, ${question.status}`}
               aria-pressed={index === activeIndex}
               title={`Go to question ${index + 1}`}
               onClick={() => goTo(index)}

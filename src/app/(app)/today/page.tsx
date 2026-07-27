@@ -4,6 +4,7 @@ import { getTranslatedQuizCards } from "@/app/actions/translation";
 import { addMoreQuizQuestionsAction } from "@/app/actions/quiz";
 import { DAILY_QUIZ_LIMIT } from "@/lib/quiz/extend-daily-quiz";
 import { requireCurrentUser } from "@/lib/access/current-user";
+import { toWebTodayQuizQuestions } from "@/lib/quiz/web-today-quiz";
 
 export default async function TodayPage({
   searchParams,
@@ -41,7 +42,7 @@ export default async function TodayPage({
 
       <QuizCardNavigator
         quizDayId={quiz.quizDayId}
-        questions={quiz.questions}
+        questions={toWebTodayQuizQuestions(quiz.questions)}
         translations={translations}
         error={error}
         navigatorAction={

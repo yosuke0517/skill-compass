@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
@@ -7,13 +7,15 @@ vi.mock("@/app/actions/quiz", () => ({
   submitQuizAnswerAction: vi.fn(),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const question = {
   id: "q_web_03",
   conceptId: "concept_web_contract_first",
-  scenario:
-    "Web and API teams must build in parallel before either implementation is complete.",
+  scenario: "Web and API teams must build in parallel before either implementation is complete.",
   artifacts: [
     {
       kind: "api" as const,
@@ -56,24 +58,40 @@ const question = {
   decisionCriteria: [
     "Provide one machine-readable boundary for mocks, validation, and compatibility tests.",
   ],
-  rationale:
-    "Parallel implementation requires a versioned, machine-checkable API contract.",
+  rationale: "Parallel implementation requires a versioned, machine-checkable API contract.",
   practicalNotes: ["Run producer and consumer conformance checks in CI."],
   checkQuestion: "What artifact can both teams use without importing each other's code?",
 };
 
 const unansweredItem = {
+  status: "unanswered" as const,
+  slot: 1,
+  reason: "weakness",
+  question: {
+    id: question.id,
+    conceptId: question.conceptId,
+    scenario: question.scenario,
+    artifacts: question.artifacts,
+    prompt: question.prompt,
+    choices: question.choices.map(({ id, label }) => ({ id, label })),
+  },
+};
+
+const answeredItem = {
+  status: "answered" as const,
   slot: 1,
   reason: "weakness",
   question,
-  answer: null,
+  answer: {
+    selectedChoiceId: "b",
+    correct: false,
+    feedback: "Revisit which artifact can be validated by both teams.",
+  },
 };
 
 describe("QuizQuestionCard", () => {
   it("shows the practical scenario and artifacts before the decision prompt without hidden teaching data", () => {
-    const { container } = render(
-      <QuizQuestionCard quizDayId="quiz_1" item={unansweredItem} />,
-    );
+    const { container } = render(<QuizQuestionCard quizDayId="quiz_1" item={unansweredItem} />);
 
     expect(screen.getByText(question.scenario)).toBeTruthy();
     expect(container.querySelector(".question-artifact code")?.textContent).toBe(
@@ -95,20 +113,7 @@ describe("QuizQuestionCard", () => {
   });
 
   it("teaches an answered case in the required review order", () => {
-    const { container } = render(
-      <QuizQuestionCard
-        quizDayId="quiz_1"
-        item={{
-          ...unansweredItem,
-          answer: {
-            selectedChoiceId: "b",
-            correct: false,
-            feedback: "Revisit which artifact can be validated by both teams.",
-            scoreDelta: -0.08,
-          },
-        }}
-      />,
-    );
+    const { container } = render(<QuizQuestionCard quizDayId="quiz_1" item={answeredItem} />);
 
     const headings = Array.from(
       container.querySelectorAll(".practical-answer-review > section > h3"),
@@ -133,5 +138,127 @@ describe("QuizQuestionCard", () => {
     expect(screen.getByText(question.practicalNotes[0])).toBeTruthy();
     expect(screen.getByText(question.checkQuestion)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Submit answer" })).toBeNull();
+  });
+
+  it("places translated review prose inside the same teaching order after Result", () => {
+    const { container } = render(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={answeredItem}
+        translation={{
+          questionId: question.id,
+          scenario: "並行開発するシナリオ。",
+          artifacts: [
+            {
+              ...question.artifacts[0],
+              title: "契約要件",
+            },
+          ],
+          prompt: "最初に何を合意しますか？",
+          choices: question.choices.map((choice) => ({
+            id: choice.id,
+            label: `訳: ${choice.label}`,
+          })),
+          unavailable: false,
+          reviewStatus: "ready",
+          review: {
+            decisionCriteria: ["訳: 機械可読な境界を用意する。"],
+            rationale: "訳: バージョン管理されたAPI契約が必要です。",
+            choices: question.choices.map((choice) => ({
+              id: choice.id,
+              explanation: `訳: ${choice.explanation}`,
+              consequence: `訳: ${choice.consequence}`,
+            })),
+            practicalNotes: ["訳: CIで契約テストを実行する。"],
+            checkQuestion: "訳: どの成果物からモックを生成できますか？",
+            feedback: "訳: 両チームが検証できる成果物を再確認してください。",
+          },
+        }}
+      />,
+    );
+
+    const text = container.querySelector(".quiz-card")?.textContent ?? "";
+    const result = text.indexOf("Result");
+    const translatedDecision = text.indexOf("訳: 機械可読な境界を用意する。");
+    const why = text.indexOf("Why");
+    const translatedWhy = text.indexOf("訳: バージョン管理されたAPI契約が必要です。");
+    const translatedFeedback = text.indexOf("訳: 両チームが検証できる成果物を再確認してください。");
+    const options = text.indexOf("Options");
+    const translatedOption = text.indexOf(`訳: ${question.choices[0].explanation}`);
+    const practicalNotes = text.indexOf("Practical notes");
+    const translatedNote = text.indexOf("訳: CIで契約テストを実行する。");
+    const check = text.indexOf("Check your understanding");
+    const translatedCheck = text.indexOf("訳: どの成果物からモックを生成できますか？");
+
+    expect(result).toBeGreaterThanOrEqual(0);
+    expect(result).toBeLessThan(translatedDecision);
+    expect(translatedDecision).toBeLessThan(why);
+    expect(why).toBeLessThan(translatedWhy);
+    expect(translatedWhy).toBeLessThan(translatedFeedback);
+    expect(translatedFeedback).toBeLessThan(options);
+    expect(options).toBeLessThan(translatedOption);
+    expect(translatedOption).toBeLessThan(practicalNotes);
+    expect(practicalNotes).toBeLessThan(translatedNote);
+    expect(translatedNote).toBeLessThan(check);
+    expect(check).toBeLessThan(translatedCheck);
+  });
+
+  it("refreshes an incomplete pre-answer translation after the answer is evaluated", async () => {
+    const refreshed = {
+      questionId: question.id,
+      scenario: "並行開発するシナリオ。",
+      artifacts: [],
+      prompt: "最初に何を合意しますか？",
+      choices: question.choices.map((choice) => ({
+        id: choice.id,
+        label: `訳: ${choice.label}`,
+      })),
+      unavailable: false,
+      reviewStatus: "ready" as const,
+      review: {
+        decisionCriteria: ["訳: 機械可読な境界。"],
+        rationale: "訳: API契約が必要です。",
+        choices: question.choices.map((choice) => ({
+          id: choice.id,
+          explanation: `訳: ${choice.explanation}`,
+          consequence: `訳: ${choice.consequence}`,
+        })),
+        practicalNotes: ["訳: CIで検証する。"],
+        checkQuestion: "訳: 何からモックを生成しますか？",
+        feedback: "訳: 判断条件を再確認してください。",
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => refreshed,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={answeredItem}
+        translation={{
+          questionId: question.id,
+          scenario: "並行開発するシナリオ。",
+          artifacts: [],
+          prompt: "最初に何を合意しますか？",
+          choices: question.choices.map((choice) => ({
+            id: choice.id,
+            label: `訳: ${choice.label}`,
+          })),
+          unavailable: false,
+          reviewStatus: "missing",
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith("/api/quiz/translation", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ questionId: question.id }),
+    });
+    expect(await screen.findByText("訳: 判断条件を再確認してください。")).toBeTruthy();
   });
 });

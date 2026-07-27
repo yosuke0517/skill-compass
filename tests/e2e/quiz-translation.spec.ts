@@ -38,7 +38,9 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
     .filter({ has: page.getByRole("button", { name: "Submit answer" }) })
     .first();
   if ((await unanswered.count()) > 0) {
-    const submittedQuestionId = await unanswered.getByRole("heading").getAttribute("id");
+    const submittedQuestionId = await unanswered
+      .getByRole("heading", { level: 2 })
+      .getAttribute("id");
     await unanswered.locator('input[name="selectedChoiceId"]').first().check();
     await unanswered
       .locator('textarea[name="reasoning"]')
@@ -47,17 +49,23 @@ test("user can request Japanese translation for a quiz card", async ({ page }) =
     await expect(page).toHaveURL(/\/today/);
     const activeAfterSubmit = page.locator('.quiz-card[aria-current="step"]');
     for (let index = 0; index < 30; index += 1) {
-      if ((await activeAfterSubmit.getByRole("heading").getAttribute("id")) === submittedQuestionId)
+      if (
+        (await activeAfterSubmit.getByRole("heading", { level: 2 }).getAttribute("id")) ===
+        submittedQuestionId
+      )
         break;
       const previous = page.getByRole("button", { name: "Previous question" });
       if (await previous.isDisabled()) break;
       await previous.click();
     }
-    await expect(activeAfterSubmit.getByRole("heading")).toHaveAttribute(
+    await expect(activeAfterSubmit.getByRole("heading", { level: 2 })).toHaveAttribute(
       "id",
       submittedQuestionId ?? "",
     );
     await expect(activeAfterSubmit.locator(".answer-feedback")).toBeVisible();
+    const translatedReview = activeAfterSubmit.locator(".review-translation");
+    await expect(translatedReview.first()).toBeVisible();
+    await expect(translatedReview.first()).toContainText(/[ぁ-んァ-ン一-龯]/);
   }
 });
 
@@ -74,10 +82,13 @@ test("translation controls move with the active card", async ({ page }) => {
     (await page.locator(".today-quiz-summary strong").innerText()).split("/")[1]?.trim(),
   );
   test.skip(total <= 1, "Translation card navigation requires more than one seeded question.");
-  const firstQuestionId = await card.getByRole("heading").getAttribute("id");
+  const firstQuestionId = await card.getByRole("heading", { level: 2 }).getAttribute("id");
   await page.getByRole("button", { name: "Next question" }).click();
 
-  await expect(card.getByRole("heading")).not.toHaveAttribute("id", firstQuestionId ?? "");
+  await expect(card.getByRole("heading", { level: 2 })).not.toHaveAttribute(
+    "id",
+    firstQuestionId ?? "",
+  );
   await expect(navigator.locator(".quiz-card")).toHaveCount(1);
   await expect(card.getByLabel("Translate to Japanese")).toBeVisible();
 });
@@ -134,16 +145,10 @@ test("translation shows an in-card loading state while pending", async ({ page }
           {
             id: "a",
             label: "選択肢",
-            explanation: null,
-            consequence: null,
           },
         ],
-        decisionCriteria: null,
-        rationale: null,
-        practicalNotes: null,
-        checkQuestion: null,
-        feedback: null,
         unavailable: false,
+        reviewStatus: "hidden",
       }),
     });
   });

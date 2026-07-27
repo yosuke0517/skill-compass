@@ -1414,6 +1414,22 @@ p {
   padding: 9px;
 }
 
+.review-translation {
+  border-left: 2px solid #72b9a6;
+  color: var(--accent-dark);
+  padding-left: 10px;
+}
+
+.translation-review-status {
+  background: #fff8ea;
+  border-radius: 6px;
+  color: #815b15;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0;
+  padding: 9px;
+}
+
 .understanding-check {
   background: #eef4ff;
   border-color: #b7cdf4;

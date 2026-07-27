@@ -84,7 +84,11 @@ const quizQuestions: TodayQuizQuestion[] = [
   },
 ];
 
-function createCacheRecord(sourceText: string, purpose: "quiz_prompt" | "quiz_choice" | "quiz_feedback", translatedText: string) {
+function createCacheRecord(
+  sourceText: string,
+  purpose: "quiz_prompt" | "quiz_choice" | "quiz_feedback",
+  translatedText: string,
+) {
   const key = createTranslationCacheKey({
     sourceText,
     sourceLocale: "en",
@@ -115,7 +119,7 @@ function createRepo(
 
 describe("getTranslatedQuizCards", () => {
   it("returns {} for malformed JSON", async () => {
-    mockCookieValue.value = "{\"questionId\": ";
+    mockCookieValue.value = '{"questionId": ';
     expect(await getTranslatedQuizCards(quizQuestions, createRepo([]))).toEqual({});
   });
 
@@ -133,10 +137,26 @@ describe("getTranslatedQuizCards", () => {
   it("reconstructs visible translations from cached rows only", async () => {
     mockCookieValue.value = JSON.stringify(["q1", "q1", 7, "q_missing"]);
     const repo = createRepo([
-      createCacheRecord("What does a reverse proxy usually do?", "quiz_prompt", "リバースプロキシは通常何をしますか。"),
-      createCacheRecord("Forwards client requests.", "quiz_choice", "クライアントのリクエストを転送します。"),
-      createCacheRecord("Compiles frontend assets.", "quiz_choice", "フロントエンド資産をコンパイルします。"),
-      createCacheRecord("Review the linked source.", "quiz_feedback", "リンク先のソースを見直してください。"),
+      createCacheRecord(
+        "What does a reverse proxy usually do?",
+        "quiz_prompt",
+        "リバースプロキシは通常何をしますか。",
+      ),
+      createCacheRecord(
+        "Forwards client requests.",
+        "quiz_choice",
+        "クライアントのリクエストを転送します。",
+      ),
+      createCacheRecord(
+        "Compiles frontend assets.",
+        "quiz_choice",
+        "フロントエンド資産をコンパイルします。",
+      ),
+      createCacheRecord(
+        "Review the linked source.",
+        "quiz_feedback",
+        "リンク先のソースを見直してください。",
+      ),
     ]);
 
     expect(await getTranslatedQuizCards(quizQuestions, repo, "deterministic")).toEqual({
@@ -145,24 +165,27 @@ describe("getTranslatedQuizCards", () => {
         scenario: null,
         artifacts: [],
         prompt: "リバースプロキシは通常何をしますか。",
-        feedback: "リンク先のソースを見直してください。",
-        decisionCriteria: [],
-        rationale: null,
-        practicalNotes: [],
-        checkQuestion: null,
         unavailable: false,
+        reviewStatus: "ready",
+        review: {
+          decisionCriteria: [],
+          rationale: null,
+          practicalNotes: [],
+          checkQuestion: null,
+          feedback: "リンク先のソースを見直してください。",
+          choices: [
+            { id: "a", explanation: null, consequence: null },
+            { id: "b", explanation: null, consequence: null },
+          ],
+        },
         choices: [
           {
             id: "a",
             label: "クライアントのリクエストを転送します。",
-            explanation: null,
-            consequence: null,
           },
           {
             id: "b",
             label: "フロントエンド資産をコンパイルします。",
-            explanation: null,
-            consequence: null,
           },
         ],
       },
@@ -178,15 +201,11 @@ describe("getTranslatedQuizCards", () => {
         scenario: null,
         artifacts: [],
         prompt: null,
-        feedback: null,
-        decisionCriteria: null,
-        rationale: null,
-        practicalNotes: null,
-        checkQuestion: null,
         unavailable: true,
+        reviewStatus: "hidden",
         choices: [
-          { id: "a", label: null, explanation: null, consequence: null },
-          { id: "b", label: null, explanation: null, consequence: null },
+          { id: "a", label: null },
+          { id: "b", label: null },
         ],
       },
     });

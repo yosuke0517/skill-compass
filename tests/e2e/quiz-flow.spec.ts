@@ -1,6 +1,65 @@
 import { expect, test } from "@playwright/test";
+import { createConnection } from "mysql2/promise";
+
+import { hashPassword } from "../../src/lib/auth/password";
 
 test.use({ viewport: { width: 390, height: 844 } });
+
+test("a deterministic supporting artifact scrolls without widening the page", async ({
+  page,
+}, testInfo) => {
+  const unique = `${Date.now()}_${testInfo.workerIndex}`;
+  const userId = `e2e_artifact_${unique}`;
+  const email = `${userId}@example.com`;
+  const password = "artifact-layout-password";
+  const quizDayId = `quiz_artifact_${unique}`;
+  const quizDate = new Date().toISOString().slice(0, 10);
+  const connection = await createConnection(
+    process.env.DATABASE_URL ?? "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
+  );
+
+  try {
+    await connection.execute(
+      "INSERT INTO users (id, email, password_hash, status, role, plan) VALUES (?, ?, ?, 'active', 'normal', 'free')",
+      [userId, email, await hashPassword(password)],
+    );
+    await connection.execute(
+      "INSERT INTO quiz_days (id, user_id, quiz_date, prepared_at) VALUES (?, ?, ?, ?)",
+      [quizDayId, userId, quizDate, new Date()],
+    );
+    await connection.execute(
+      "INSERT INTO quiz_day_questions (quiz_day_id, question_id, slot, reason) VALUES (?, 'q_web_03', 1, 'fallback')",
+      [quizDayId],
+    );
+
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await page.getByRole("link", { name: "Today" }).click();
+
+    const artifact = page.locator('.quiz-card[aria-current="step"] .question-artifact').first();
+    await expect(artifact.locator("pre code")).toContainText("POST /v1/invoices");
+    const layout = await artifact.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      return {
+        overflowX: style.overflowX,
+        artifactWidth: element.getBoundingClientRect().width,
+        viewportWidth: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+      };
+    });
+
+    expect(layout.overflowX).toBe("auto");
+    expect(layout.artifactWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  } finally {
+    await connection.execute("DELETE FROM quiz_day_questions WHERE quiz_day_id = ?", [quizDayId]);
+    await connection.execute("DELETE FROM quiz_days WHERE id = ?", [quizDayId]);
+    await connection.execute("DELETE FROM users WHERE id = ?", [userId]);
+    await connection.end();
+  }
+});
 
 test("today keeps one card focused while navigating and revisiting unanswered questions", async ({
   page,
@@ -85,7 +144,7 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await activeCard.evaluate((card) => card.scrollIntoView({ block: "start" }));
   const cardStartLayout = await getActiveCardLayout();
   let cardLayout = cardStartLayout;
-  await expect(activeCard.getByRole("heading")).toBeVisible();
+  await expect(activeCard.getByRole("heading", { level: 2 })).toBeVisible();
   expect(cardStartLayout.height).toBeGreaterThan(cardStartLayout.viewportHeight);
   expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
   expect(cardLayout.bottom).toBeGreaterThan(0);
@@ -114,7 +173,7 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   await expect(next).toBeVisible();
   await next.scrollIntoViewIfNeeded();
   cardLayout = await getActiveCardLayout();
-  await expect(activeCard.getByRole("heading")).toBeVisible();
+  await expect(activeCard.getByRole("heading", { level: 2 })).toBeVisible();
   expect(cardLayout.top).toBeLessThan(cardLayout.viewportHeight);
   expect(cardLayout.bottom).toBeGreaterThan(0);
   expect(Math.ceil(cardLayout.left)).toBeGreaterThanOrEqual(0);
@@ -130,12 +189,12 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   });
   expect(controlsLayout.controlsBottom).toBeLessThanOrEqual(controlsLayout.footerTop);
 
-  const firstQuestion = await cards.getByRole("heading").innerText();
+  const firstQuestion = await cards.getByRole("heading", { level: 2 }).innerText();
 
   await next.click();
   await expect(navigator.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
   await expect(cards).toHaveCount(1);
-  await expect(cards.getByRole("heading")).toBeFocused();
+  await expect(cards.getByRole("heading", { level: 2 })).toBeFocused();
   await expect(previous).toBeEnabled();
 
   await navigator.getByRole("button", { name: /^Go to question 1,/ }).click();
@@ -256,20 +315,20 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   let activeQuestionNumber = 3;
   while (
     activeQuestionNumber < total &&
-    (await cards.getByRole("heading").innerText()) === firstQuestion
+    (await cards.getByRole("heading", { level: 2 }).innerText()) === firstQuestion
   ) {
     await next.click();
     activeQuestionNumber += 1;
   }
 
-  await expect(cards.getByRole("heading")).not.toHaveText(firstQuestion);
-  const distinctQuestion = await cards.getByRole("heading").innerText();
+  await expect(cards.getByRole("heading", { level: 2 })).not.toHaveText(firstQuestion);
+  const distinctQuestion = await cards.getByRole("heading", { level: 2 }).innerText();
 
   await previous.click();
   activeQuestionNumber -= 1;
   await expect(cards).toHaveCount(1);
-  await expect(cards.getByRole("heading")).not.toHaveText(distinctQuestion);
-  await expect(cards.getByRole("heading")).toBeFocused();
+  await expect(cards.getByRole("heading", { level: 2 })).not.toHaveText(distinctQuestion);
+  await expect(cards.getByRole("heading", { level: 2 })).toBeFocused();
 
   while (activeQuestionNumber < total) {
     await next.click();
@@ -299,7 +358,7 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
     activeQuestionNumber -= 1;
   }
 
-  const unansweredQuestion = await cards.getByRole("heading").innerText();
+  const unansweredQuestion = await cards.getByRole("heading", { level: 2 }).innerText();
   if (unansweredNumber < total) {
     await next.click();
     await previous.click();
@@ -309,8 +368,8 @@ test("today keeps one card focused while navigating and revisiting unanswered qu
   }
 
   await expect(cards).toHaveCount(1);
-  await expect(cards.getByRole("heading")).toHaveText(unansweredQuestion);
-  await expect(cards.getByRole("heading")).toBeFocused();
+  await expect(cards.getByRole("heading", { level: 2 })).toHaveText(unansweredQuestion);
+  await expect(cards.getByRole("heading", { level: 2 })).toBeFocused();
 });
 
 test("user can answer a daily quiz question", async ({ page }) => {
@@ -328,18 +387,6 @@ test("user can answer a daily quiz question", async ({ page }) => {
   await expect(activeCard.locator(".quiz-scenario")).toBeVisible();
   await expect(activeCard.locator(".quiz-scenario p").last()).not.toBeEmpty();
 
-  const questionIndicators = navigator.getByRole("button", { name: /^Go to question \d+,/ });
-  let foundArtifact = false;
-  for (let index = 0; index < (await questionIndicators.count()); index += 1) {
-    await questionIndicators.nth(index).click();
-    if ((await activeCard.locator(".question-artifact").count()) > 0) {
-      foundArtifact = true;
-      await expect(activeCard.locator(".question-artifact pre code").first()).not.toBeEmpty();
-      break;
-    }
-  }
-  expect(foundArtifact).toBe(true);
-
   let unansweredCount = await activeCard.getByRole("button", { name: "Submit answer" }).count();
 
   if (unansweredCount === 0) {
@@ -351,7 +398,9 @@ test("user can answer a daily quiz question", async ({ page }) => {
   }
 
   if (unansweredCount > 0) {
-    const submittedQuestionId = await activeCard.getByRole("heading", { level: 2 }).getAttribute("id");
+    const submittedQuestionId = await activeCard
+      .getByRole("heading", { level: 2 })
+      .getAttribute("id");
     await activeCard.locator('input[name="selectedChoiceId"]').first().check();
     await activeCard.locator('input[name="confidence"][value="4"]').check();
     await activeCard
@@ -386,9 +435,7 @@ test("user can answer a daily quiz question", async ({ page }) => {
   ).toBeVisible();
   await expect(answeredCard.locator(".answer-badge.selected")).toBeVisible();
   await expect(answeredCard.locator(".answer-badge.correct")).toBeVisible();
-  await expect(
-    answeredCard.locator(".practical-answer-review > section > h3"),
-  ).toHaveText([
+  await expect(answeredCard.locator(".practical-answer-review > section > h3")).toHaveText([
     "Result",
     "Decision point",
     "Why",
@@ -398,9 +445,7 @@ test("user can answer a daily quiz question", async ({ page }) => {
   ]);
 });
 
-test("answering a skipped card preserves its review until the user advances", async ({
-  page,
-}) => {
+test("answering a skipped card preserves its review until the user advances", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("local@example.com");
   await page.getByLabel("Password").fill("local-password");
@@ -415,7 +460,7 @@ test("answering a skipped card preserves its review until the user advances", as
   test.skip(total < 3, "The seeded daily quiz needs three cards for this flow.");
 
   await page.getByRole("button", { name: "Next question" }).click();
-  const submittedQuestion = await card.getByRole("heading").innerText();
+  const submittedQuestion = await card.getByRole("heading", { level: 2 }).innerText();
   await card.locator('input[name="selectedChoiceId"]').first().check();
   await card.locator('input[name="confidence"][value="4"]').check();
   await card
@@ -424,15 +469,15 @@ test("answering a skipped card preserves its review until the user advances", as
   await card.getByRole("button", { name: "Submit answer" }).click();
 
   await expect(page).toHaveURL(/\/today/);
-  await expect(card.getByRole("heading")).toHaveText(submittedQuestion);
+  await expect(card.getByRole("heading", { level: 2 })).toHaveText(submittedQuestion);
   await expect(card.getByLabel("Answer review")).toBeVisible();
   await expect(card.locator(".answer-badge.selected")).toBeVisible();
 
   await page.getByRole("button", { name: "Next question" }).click();
-  await expect(card.getByRole("heading")).not.toHaveText(submittedQuestion);
+  await expect(card.getByRole("heading", { level: 2 })).not.toHaveText(submittedQuestion);
 
   await page.getByRole("button", { name: "Previous question" }).click();
-  await expect(card.getByRole("heading")).toHaveText(submittedQuestion);
+  await expect(card.getByRole("heading", { level: 2 })).toHaveText(submittedQuestion);
 });
 
 test("Today errors clear the pending answer marker without changing the active question", async ({

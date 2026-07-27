@@ -25,11 +25,22 @@ type TranslatedArtifact = Omit<QuestionArtifact, "title"> & {
   title: string | null;
 };
 
-type TranslatedChoice = {
+type TranslatedPublicChoice = {
   id: string;
   label: string | null;
-  explanation: string | null;
-  consequence: string | null;
+};
+
+export type TranslatedQuizReview = {
+  decisionCriteria: string[];
+  rationale: string | null;
+  choices: Array<{
+    id: string;
+    explanation: string | null;
+    consequence: string | null;
+  }>;
+  practicalNotes: string[];
+  checkQuestion: string | null;
+  feedback: string | null;
 };
 
 export type TranslatedQuizCard = {
@@ -37,120 +48,25 @@ export type TranslatedQuizCard = {
   scenario: string | null;
   artifacts: TranslatedArtifact[];
   prompt: string | null;
-  choices: TranslatedChoice[];
-  decisionCriteria: string[] | null;
-  rationale: string | null;
-  practicalNotes: string[] | null;
-  checkQuestion: string | null;
-  feedback: string | null;
+  choices: TranslatedPublicChoice[];
   unavailable: boolean;
+  reviewStatus: "hidden" | "missing" | "ready";
+  review?: TranslatedQuizReview;
 };
+
+type TranslationLookup = (
+  sourceText: string,
+  purpose: TranslationPurpose,
+) => Promise<string | null>;
 
 export async function translateQuizCard(
   input: TranslateQuizCardInput,
   repo: TranslationRepository,
   provider: TranslationProvider,
 ): Promise<TranslatedQuizCard> {
-  const translate = (sourceText: string, purpose: TranslationPurpose) =>
-    translateSource(sourceText, purpose, repo, provider);
-  const review = input.revealReview;
-
-  const [
-    scenario,
-    artifactTitles,
-    prompt,
-    choiceLabels,
-    choiceExplanations,
-    choiceConsequences,
-    decisionCriteria,
-    rationale,
-    practicalNotes,
-    checkQuestion,
-    feedback,
-  ] = await Promise.all([
-    translate(input.question.scenario, "quiz_scenario"),
-    Promise.all(
-      input.question.artifacts.map((artifact) =>
-        translate(artifact.title, "quiz_artifact_title"),
-      ),
-    ),
-    translate(input.question.prompt, "quiz_prompt"),
-    Promise.all(
-      input.question.choices.map((choice) => translate(choice.label, "quiz_choice")),
-    ),
-    review
-      ? Promise.all(
-          input.question.choices.map((choice) =>
-            translate(choice.explanation, "quiz_choice_explanation"),
-          ),
-        )
-      : Promise.resolve(input.question.choices.map(() => null)),
-    review
-      ? Promise.all(
-          input.question.choices.map((choice) =>
-            translate(choice.consequence, "quiz_choice_consequence"),
-          ),
-        )
-      : Promise.resolve(input.question.choices.map(() => null)),
-    review
-      ? Promise.all(
-          input.question.decisionCriteria.map((criterion) =>
-            translate(criterion, "quiz_decision_criterion"),
-          ),
-        )
-      : Promise.resolve(null),
-    review ? translate(input.question.rationale, "quiz_rationale") : Promise.resolve(null),
-    review
-      ? Promise.all(
-          input.question.practicalNotes.map((note) =>
-            translate(note, "quiz_practical_note"),
-          ),
-        )
-      : Promise.resolve(null),
-    review
-      ? translate(input.question.checkQuestion, "quiz_check_question")
-      : Promise.resolve(null),
-    review && input.feedback
-      ? translate(input.feedback, "quiz_feedback")
-      : Promise.resolve(null),
-  ]);
-
-  const artifacts = input.question.artifacts.map((artifact, index) => ({
-    ...artifact,
-    title: artifactTitles[index] ?? null,
-  }));
-  const choices = input.question.choices.map((choice, index) => ({
-    id: choice.id,
-    label: choiceLabels[index] ?? null,
-    explanation: choiceExplanations[index] ?? null,
-    consequence: choiceConsequences[index] ?? null,
-  }));
-
-  return {
-    questionId: input.question.id,
-    scenario,
-    artifacts,
-    prompt,
-    choices,
-    decisionCriteria: decisionCriteria
-      ? decisionCriteria.filter((value): value is string => value !== null)
-      : null,
-    rationale,
-    practicalNotes: practicalNotes
-      ? practicalNotes.filter((value): value is string => value !== null)
-      : null,
-    checkQuestion,
-    feedback,
-    unavailable:
-      missingRequiredTranslation(input.question.scenario, scenario) ||
-      missingRequiredTranslation(input.question.prompt, prompt) ||
-      input.question.artifacts.some((artifact, index) =>
-        missingRequiredTranslation(artifact.title, artifactTitles[index] ?? null),
-      ) ||
-      input.question.choices.some((choice, index) =>
-        missingRequiredTranslation(choice.label, choiceLabels[index] ?? null),
-      ),
-  };
+  return buildTranslatedQuizCard(input, (sourceText, purpose) =>
+    translateSource(sourceText, purpose, repo, provider),
+  );
 }
 
 export async function getCachedTranslatedQuizCard(
@@ -158,10 +74,16 @@ export async function getCachedTranslatedQuizCard(
   repo: TranslationRepository,
   providerCacheScope?: string,
 ): Promise<TranslatedQuizCard> {
-  const translate = (sourceText: string, purpose: TranslationPurpose) =>
-    getCachedTranslation(sourceText, purpose, repo, providerCacheScope);
-  const review = input.revealReview;
+  return buildTranslatedQuizCard(input, (sourceText, purpose) =>
+    getCachedTranslation(sourceText, purpose, repo, providerCacheScope),
+  );
+}
 
+async function buildTranslatedQuizCard(
+  input: TranslateQuizCardInput,
+  translate: TranslationLookup,
+): Promise<TranslatedQuizCard> {
+  const reviewRequested = input.revealReview;
   const [
     scenario,
     artifactTitles,
@@ -177,77 +99,57 @@ export async function getCachedTranslatedQuizCard(
   ] = await Promise.all([
     translate(input.question.scenario, "quiz_scenario"),
     Promise.all(
-      input.question.artifacts.map((artifact) =>
-        translate(artifact.title, "quiz_artifact_title"),
-      ),
+      input.question.artifacts.map((artifact) => translate(artifact.title, "quiz_artifact_title")),
     ),
     translate(input.question.prompt, "quiz_prompt"),
-    Promise.all(
-      input.question.choices.map((choice) => translate(choice.label, "quiz_choice")),
-    ),
-    review
+    Promise.all(input.question.choices.map((choice) => translate(choice.label, "quiz_choice"))),
+    reviewRequested
       ? Promise.all(
           input.question.choices.map((choice) =>
             translate(choice.explanation, "quiz_choice_explanation"),
           ),
         )
-      : Promise.resolve(input.question.choices.map(() => null)),
-    review
+      : Promise.resolve([]),
+    reviewRequested
       ? Promise.all(
           input.question.choices.map((choice) =>
             translate(choice.consequence, "quiz_choice_consequence"),
           ),
         )
-      : Promise.resolve(input.question.choices.map(() => null)),
-    review
+      : Promise.resolve([]),
+    reviewRequested
       ? Promise.all(
           input.question.decisionCriteria.map((criterion) =>
             translate(criterion, "quiz_decision_criterion"),
           ),
         )
-      : Promise.resolve(null),
-    review ? translate(input.question.rationale, "quiz_rationale") : Promise.resolve(null),
-    review
+      : Promise.resolve([]),
+    reviewRequested ? translate(input.question.rationale, "quiz_rationale") : Promise.resolve(null),
+    reviewRequested
       ? Promise.all(
-          input.question.practicalNotes.map((note) =>
-            translate(note, "quiz_practical_note"),
-          ),
+          input.question.practicalNotes.map((note) => translate(note, "quiz_practical_note")),
         )
-      : Promise.resolve(null),
-    review
+      : Promise.resolve([]),
+    reviewRequested
       ? translate(input.question.checkQuestion, "quiz_check_question")
       : Promise.resolve(null),
-    review && input.feedback
+    reviewRequested && input.feedback
       ? translate(input.feedback, "quiz_feedback")
       : Promise.resolve(null),
   ]);
 
-  const artifacts = input.question.artifacts.map((artifact, index) => ({
-    ...artifact,
-    title: artifactTitles[index] ?? null,
-  }));
-  const choices = input.question.choices.map((choice, index) => ({
-    id: choice.id,
-    label: choiceLabels[index] ?? null,
-    explanation: choiceExplanations[index] ?? null,
-    consequence: choiceConsequences[index] ?? null,
-  }));
-
-  return {
+  const publicCard = {
     questionId: input.question.id,
     scenario,
-    artifacts,
+    artifacts: input.question.artifacts.map((artifact, index) => ({
+      ...artifact,
+      title: artifactTitles[index] ?? null,
+    })),
     prompt,
-    choices,
-    decisionCriteria: decisionCriteria
-      ? decisionCriteria.filter((value): value is string => value !== null)
-      : null,
-    rationale,
-    practicalNotes: practicalNotes
-      ? practicalNotes.filter((value): value is string => value !== null)
-      : null,
-    checkQuestion,
-    feedback,
+    choices: input.question.choices.map((choice, index) => ({
+      id: choice.id,
+      label: choiceLabels[index] ?? null,
+    })),
     unavailable:
       missingRequiredTranslation(input.question.scenario, scenario) ||
       missingRequiredTranslation(input.question.prompt, prompt) ||
@@ -258,6 +160,80 @@ export async function getCachedTranslatedQuizCard(
         missingRequiredTranslation(choice.label, choiceLabels[index] ?? null),
       ),
   };
+
+  if (!reviewRequested) {
+    return {
+      ...publicCard,
+      reviewStatus: "hidden",
+    };
+  }
+
+  const review: TranslatedQuizReview = {
+    decisionCriteria: decisionCriteria.filter((value): value is string => value !== null),
+    rationale,
+    choices: input.question.choices.map((choice, index) => ({
+      id: choice.id,
+      explanation: choiceExplanations[index] ?? null,
+      consequence: choiceConsequences[index] ?? null,
+    })),
+    practicalNotes: practicalNotes.filter((value): value is string => value !== null),
+    checkQuestion,
+    feedback,
+  };
+
+  return {
+    ...publicCard,
+    reviewStatus: hasCompleteReviewTranslation(input, {
+      choiceExplanations,
+      choiceConsequences,
+      decisionCriteria,
+      rationale,
+      practicalNotes,
+      checkQuestion,
+      feedback,
+    })
+      ? "ready"
+      : "missing",
+    review,
+  };
+}
+
+function hasCompleteReviewTranslation(
+  input: TranslateQuizCardInput,
+  translated: {
+    choiceExplanations: Array<string | null>;
+    choiceConsequences: Array<string | null>;
+    decisionCriteria: Array<string | null>;
+    rationale: string | null;
+    practicalNotes: Array<string | null>;
+    checkQuestion: string | null;
+    feedback: string | null;
+  },
+): boolean {
+  return (
+    allRequiredTranslated(input.question.decisionCriteria, translated.decisionCriteria) &&
+    !missingRequiredTranslation(input.question.rationale, translated.rationale) &&
+    allRequiredTranslated(
+      input.question.choices.map((choice) => choice.explanation),
+      translated.choiceExplanations,
+    ) &&
+    allRequiredTranslated(
+      input.question.choices.map((choice) => choice.consequence),
+      translated.choiceConsequences,
+    ) &&
+    allRequiredTranslated(input.question.practicalNotes, translated.practicalNotes) &&
+    !missingRequiredTranslation(input.question.checkQuestion, translated.checkQuestion) &&
+    !missingRequiredTranslation(input.feedback ?? "", translated.feedback)
+  );
+}
+
+function allRequiredTranslated(
+  sourceTexts: string[],
+  translatedTexts: Array<string | null>,
+): boolean {
+  return sourceTexts.every(
+    (sourceText, index) => !missingRequiredTranslation(sourceText, translatedTexts[index] ?? null),
+  );
 }
 
 async function translateSource(

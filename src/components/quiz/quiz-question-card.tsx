@@ -1,10 +1,10 @@
 "use client";
 
-import { type RefObject, useState, useTransition } from "react";
+import { type RefObject, useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, CircleHelp, Languages } from "lucide-react";
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
-import type { TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
+import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { ConfidenceInput } from "./confidence-input";
@@ -13,7 +13,7 @@ import { QuizTranslationPanel } from "./quiz-translation-panel";
 
 type QuizQuestionCardProps = {
   quizDayId: string;
-  item: TodayQuizQuestion;
+  item: WebTodayQuizQuestion;
   translation?: TranslatedQuizCard;
   isActive?: boolean;
   activeCardFocusRef?: RefObject<HTMLHeadingElement | null>;
@@ -36,56 +36,66 @@ export function QuizQuestionCard({
   activeCardFocusRef,
   onAnswerSubmit,
 }: QuizQuestionCardProps) {
-  const answered = item.answer !== null;
-  const correctChoice = item.question.choices.find((choice) => choice.correct);
+  const answered = item.status === "answered";
+  const correctChoice =
+    item.status === "answered" ? item.question.choices.find((choice) => choice.correct) : undefined;
   const [translationState, setTranslationState] = useState({
     questionId: item.question.id,
     value: translation,
   });
   const [isTranslating, startTranslating] = useTransition();
+  const automaticReviewRefresh = useRef<string | null>(null);
   const currentTranslation =
     translationState.questionId === item.question.id ? translationState.value : translation;
+  const translatedReview =
+    currentTranslation?.reviewStatus === "ready" ? currentTranslation.review : undefined;
+  const reviewTranslationMissing =
+    item.status === "answered" && currentTranslation?.reviewStatus === "missing";
+
+  const loadTranslation = useCallback(async () => {
+    try {
+      const response = await fetch("/api/quiz/translation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ questionId: item.question.id }),
+      });
+      if (!response.ok) {
+        throw new Error("translation request failed");
+      }
+      const translated = (await response.json()) as TranslatedQuizCard;
+      setTranslationState({ questionId: item.question.id, value: translated });
+    } catch {
+      setTranslationState({
+        questionId: item.question.id,
+        value: {
+          questionId: item.question.id,
+          scenario: null,
+          artifacts: item.question.artifacts.map((artifact) => ({
+            ...artifact,
+            title: null,
+          })),
+          prompt: null,
+          choices: item.question.choices.map((choice) => ({
+            id: choice.id,
+            label: null,
+          })),
+          unavailable: true,
+          reviewStatus: item.status === "answered" ? "missing" : "hidden",
+        },
+      });
+    }
+  }, [item]);
+
+  useEffect(() => {
+    if (!reviewTranslationMissing) return;
+    if (automaticReviewRefresh.current === item.question.id) return;
+
+    automaticReviewRefresh.current = item.question.id;
+    startTranslating(loadTranslation);
+  }, [item.question.id, loadTranslation, reviewTranslationMissing]);
 
   function handleTranslate() {
-    startTranslating(async () => {
-      try {
-        const response = await fetch("/api/quiz/translation", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ questionId: item.question.id }),
-        });
-        if (!response.ok) {
-          throw new Error("translation request failed");
-        }
-        const translated = (await response.json()) as TranslatedQuizCard;
-        setTranslationState({ questionId: item.question.id, value: translated });
-      } catch {
-        setTranslationState({
-          questionId: item.question.id,
-          value: {
-            questionId: item.question.id,
-            scenario: null,
-            artifacts: item.question.artifacts.map((artifact) => ({
-              ...artifact,
-              title: null,
-            })),
-            prompt: null,
-            choices: item.question.choices.map((choice) => ({
-              id: choice.id,
-              label: null,
-              explanation: null,
-              consequence: null,
-            })),
-            decisionCriteria: null,
-            rationale: null,
-            practicalNotes: null,
-            checkQuestion: null,
-            feedback: null,
-            unavailable: true,
-          },
-        });
-      }
-    });
+    startTranslating(loadTranslation);
   }
 
   return (
@@ -161,6 +171,13 @@ export function QuizQuestionCard({
               <span>Correct answer</span>
               <strong>{correctChoice?.label ?? "Not configured"}</strong>
             </div>
+            {reviewTranslationMissing ? (
+              <p className="translation-review-status" aria-live="polite">
+                {isTranslating
+                  ? "Refreshing the Japanese answer review…"
+                  : "Japanese answer review is unavailable. Use Translate to Japanese to retry."}
+              </p>
+            ) : null}
           </section>
 
           <section className="practical-review-section">
@@ -170,12 +187,31 @@ export function QuizQuestionCard({
                 <li key={criterion}>{criterion}</li>
               ))}
             </ul>
+            {translatedReview ? (
+              <ul className="review-translation" lang="ja">
+                {translatedReview.decisionCriteria.map((criterion) => (
+                  <li key={criterion}>{criterion}</li>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <section className="practical-review-section">
             <h3>Why</h3>
             <p>{item.question.rationale}</p>
-            {item.answer?.feedback ? <p className="evaluation-feedback">{item.answer.feedback}</p> : null}
+            {item.answer?.feedback ? (
+              <p className="evaluation-feedback">{item.answer.feedback}</p>
+            ) : null}
+            {translatedReview?.rationale ? (
+              <p className="review-translation" lang="ja">
+                {translatedReview.rationale}
+              </p>
+            ) : null}
+            {translatedReview?.feedback ? (
+              <p className="evaluation-feedback review-translation" lang="ja">
+                {translatedReview.feedback}
+              </p>
+            ) : null}
           </section>
 
           <section className="practical-review-section">
@@ -184,6 +220,9 @@ export function QuizQuestionCard({
               {item.question.choices.map((choice, index) => {
                 const selected = choice.id === item.answer?.selectedChoiceId;
                 const correct = choice.correct;
+                const translatedChoice = translatedReview?.choices.find(
+                  (candidate) => candidate.id === choice.id,
+                );
 
                 return (
                   <div
@@ -202,6 +241,16 @@ export function QuizQuestionCard({
                       <p>{choice.explanation}</p>
                       <span>{choice.consequence}</span>
                     </div>
+                    {translatedChoice ? (
+                      <div className="answered-choice-teaching review-translation" lang="ja">
+                        {translatedChoice.explanation ? (
+                          <p>{translatedChoice.explanation}</p>
+                        ) : null}
+                        {translatedChoice.consequence ? (
+                          <span>{translatedChoice.consequence}</span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -215,11 +264,23 @@ export function QuizQuestionCard({
                 <li key={note}>{note}</li>
               ))}
             </ul>
+            {translatedReview ? (
+              <ul className="review-translation" lang="ja">
+                {translatedReview.practicalNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <section className="practical-review-section understanding-check">
             <h3>Check your understanding</h3>
             <p>{item.question.checkQuestion}</p>
+            {translatedReview?.checkQuestion ? (
+              <p className="review-translation" lang="ja">
+                {translatedReview.checkQuestion}
+              </p>
+            ) : null}
           </section>
         </div>
       ) : (

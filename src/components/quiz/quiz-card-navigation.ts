@@ -1,5 +1,5 @@
 export type QuizCardQuestionRecord = {
-  answer: object | null;
+  status: "answered" | "unanswered";
 };
 
 export function getClampedQuestionIndex(index: number, total: number): number {
@@ -27,5 +27,5 @@ export function getNextQuestionIndex(
 }
 
 export function getFirstUnansweredIndex(questions: readonly QuizCardQuestionRecord[]): number {
-  return questions.findIndex((question) => question.answer === null);
+  return questions.findIndex((question) => question.status === "unanswered");
 }
