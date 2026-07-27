@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
 import {
@@ -43,6 +43,19 @@ export type AnswerEvaluationUpdate = {
   nextReviewOn: string;
 };
 
+export type ExpectedRawAnswer = Pick<
+  SavedRawAnswer,
+  "selectedChoiceId" | "confidence" | "reasoning"
+>;
+
+export type FinalizeAnswerInput = {
+  userId: string;
+  answerId: string;
+  expectedRaw: ExpectedRawAnswer;
+  evaluation: AnswerEvaluationUpdate;
+  conceptId: string;
+};
+
 export type SubmitAnswerRepository = {
   getQuestion(input: {
     userId: string;
@@ -55,17 +68,7 @@ export type SubmitAnswerRepository = {
     questionId: string;
   }): Promise<string | null>;
   saveRawAnswer(userId: string, answer: SavedRawAnswer): Promise<void>;
-  updateAnswerEvaluation(
-    userId: string,
-    answerId: string,
-    evaluation: AnswerEvaluationUpdate,
-  ): Promise<void>;
-  updateConceptScore(update: {
-    userId: string;
-    subjectType: "concept";
-    subjectId: string;
-    delta: number;
-  }): Promise<void>;
+  finalizeAnswer(input: FinalizeAnswerInput): Promise<boolean>;
 };
 
 export type SubmitAnswerResult = EvaluatedAnswer & {
@@ -112,19 +115,24 @@ export async function submitAnswer(
   );
   const nextReviewOn = addDays(input.today, evaluation.scoreDelta.nextReviewDays);
 
-  await repo.updateAnswerEvaluation(input.userId, answerId, {
-    correct: evaluation.correct,
-    reasoningQuality: evaluation.reasoningQuality,
-    feedback: evaluation.feedback,
-    scoreDelta: evaluation.scoreDelta.delta,
-    nextReviewOn,
-  });
-  await repo.updateConceptScore({
+  const finalized = await repo.finalizeAnswer({
     userId: input.userId,
-    subjectType: "concept",
-    subjectId: question.conceptId,
-    delta: evaluation.scoreDelta.delta,
+    answerId,
+    expectedRaw: {
+      selectedChoiceId: input.selectedChoiceId,
+      confidence: input.confidence,
+      reasoning: input.reasoning,
+    },
+    evaluation: {
+      correct: evaluation.correct,
+      reasoningQuality: evaluation.reasoningQuality,
+      feedback: evaluation.feedback,
+      scoreDelta: evaluation.scoreDelta.delta,
+      nextReviewOn,
+    },
+    conceptId: question.conceptId,
   });
+  if (!finalized) throw new Error("today_already_answered");
 
   return {
     ...evaluation,
@@ -217,77 +225,102 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
         })
         .onDuplicateKeyUpdate({
           set: {
-            selectedChoiceId: answer.selectedChoiceId,
-            confidence: answer.confidence,
-            reasoning: answer.reasoning,
-            answeredAt: answer.answeredAt,
+            selectedChoiceId: sql`if(${answers.correct} is null, ${answer.selectedChoiceId}, ${answers.selectedChoiceId})`,
+            confidence: sql`if(${answers.correct} is null, ${answer.confidence}, ${answers.confidence})`,
+            reasoning: sql`if(${answers.correct} is null, ${answer.reasoning}, ${answers.reasoning})`,
+            answeredAt: sql`if(${answers.correct} is null, ${answer.answeredAt}, ${answers.answeredAt})`,
           },
         });
     },
-    async updateAnswerEvaluation(userId, answerId, evaluation) {
+    async finalizeAnswer(input) {
       const db = await getDbClient();
-      await db
-        .update(answers)
-        .set({
-          correct: evaluation.correct,
-          reasoningQuality: evaluation.reasoningQuality,
-          feedback: evaluation.feedback,
-          scoreDelta: evaluation.scoreDelta,
-          nextReviewOn: new Date(`${evaluation.nextReviewOn}T00:00:00.000Z`),
-        })
-        .where(and(eq(answers.id, answerId), eq(answers.userId, userId)));
-    },
-    async updateConceptScore(update) {
-      const db = await getDbClient();
-      await bumpScore(db, update.userId, "concept", update.subjectId, update.delta);
+      return db.transaction(async (tx) => {
+        const [result] = await tx
+          .update(answers)
+          .set({
+            correct: input.evaluation.correct,
+            reasoningQuality: input.evaluation.reasoningQuality,
+            feedback: input.evaluation.feedback,
+            scoreDelta: input.evaluation.scoreDelta,
+            nextReviewOn: new Date(`${input.evaluation.nextReviewOn}T00:00:00.000Z`),
+          })
+          .where(
+            and(
+              eq(answers.id, input.answerId),
+              eq(answers.userId, input.userId),
+              isNull(answers.correct),
+              eq(answers.selectedChoiceId, input.expectedRaw.selectedChoiceId),
+              eq(answers.confidence, input.expectedRaw.confidence),
+              eq(answers.reasoning, input.expectedRaw.reasoning),
+            ),
+          );
+        if (result.affectedRows !== 1) return false;
 
-      const linkedTags = await db.select().from(conceptTags).where(eq(conceptTags.conceptId, update.subjectId));
-      for (const linkedTag of linkedTags) {
-        await bumpScore(db, update.userId, "tag", linkedTag.tagId, update.delta * 0.5);
-        const [tag] = await db.select().from(tags).where(eq(tags.id, linkedTag.tagId)).limit(1);
-        if (tag) {
-          await bumpScore(db, update.userId, "category", tag.categoryId, update.delta * 0.25);
+        await bumpScore(
+          tx,
+          input.userId,
+          "concept",
+          input.conceptId,
+          input.evaluation.scoreDelta,
+        );
+        const linkedTags = await tx
+          .select()
+          .from(conceptTags)
+          .where(eq(conceptTags.conceptId, input.conceptId));
+        for (const linkedTag of linkedTags) {
+          await bumpScore(
+            tx,
+            input.userId,
+            "tag",
+            linkedTag.tagId,
+            input.evaluation.scoreDelta * 0.5,
+          );
+          const [tag] = await tx
+            .select()
+            .from(tags)
+            .where(eq(tags.id, linkedTag.tagId))
+            .limit(1);
+          if (tag) {
+            await bumpScore(
+              tx,
+              input.userId,
+              "category",
+              tag.categoryId,
+              input.evaluation.scoreDelta * 0.25,
+            );
+          }
         }
-      }
+        return true;
+      });
     },
   };
 }
 
 type DbClient = Awaited<ReturnType<typeof getDbClient>>;
+type ScoreWriteClient = Pick<DbClient, "insert">;
 
 async function bumpScore(
-  db: DbClient,
+  db: ScoreWriteClient,
   userId: string,
   subjectType: "category" | "tag" | "concept",
   subjectId: string,
   delta: number,
 ) {
   const id = createScoreId(userId, subjectType, subjectId);
-  const [current] = await db
-    .select()
-    .from(scores)
-    .where(
-      and(
-        eq(scores.userId, userId),
-        eq(scores.subjectType, subjectType),
-        eq(scores.subjectId, subjectId),
-      ),
-    )
-    .limit(1);
-  const nextValue = clampScore((current?.value ?? 0.45) + delta);
-
-  if (current) {
-    await db
-      .update(scores)
-      .set({ value: nextValue })
-      .where(and(eq(scores.id, current.id), eq(scores.userId, userId)));
-    return;
-  }
-
   await db
     .insert(scores)
-    .values({ id, userId, subjectType, subjectId, value: nextValue })
-    .onDuplicateKeyUpdate({ set: { value: nextValue } });
+    .values({
+      id,
+      userId,
+      subjectType,
+      subjectId,
+      value: clampScore(0.45 + delta),
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        value: sql`round(least(1, greatest(0, ${scores.value} + ${delta})), 3)`,
+      },
+    });
 }
 
 function addDays(day: string, days: number): string {
