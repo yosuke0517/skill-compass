@@ -1,0 +1,1514 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Skill Compassの目的、WebからVoice/Liveへの方針転換、Today・Podcast・X技術ニュース・MCP・セキュリティ境界を一つの物語で説明する公開アーキテクチャショーケース。"
+    />
+    <title>Skill Compass — プロダクト＆アーキテクチャ</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #14231d;
+        --muted: #5d6c65;
+        --line: #cbd8d2;
+        --paper: #ffffff;
+        --mist: #eef5f1;
+        --green: #0d7d68;
+        --green-dark: #075e4e;
+        --green-soft: #dff3ec;
+        --blue: #2f6595;
+        --blue-soft: #e5eef7;
+        --coral: #c45e47;
+        --coral-soft: #fae9e4;
+        --display:
+          "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+          "YuMincho", "Yu Mincho", serif;
+        --body:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+        --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        overflow-x: hidden;
+        color: var(--ink);
+        background: var(--paper);
+        font-family: var(--body);
+        line-height: 1.65;
+        animation: settle 500ms ease-out both;
+      }
+
+      a {
+        color: inherit;
+        text-underline-offset: 0.18em;
+      }
+
+      a:focus-visible {
+        outline: 3px solid var(--blue);
+        outline-offset: 4px;
+        border-radius: 2px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p,
+      figure {
+        margin-top: 0;
+      }
+
+      h1,
+      h2 {
+        font-family: var(--display);
+        font-weight: 500;
+      }
+
+      h1 {
+        max-width: 900px;
+        margin-bottom: 24px;
+        font-size: clamp(3.35rem, 5.4vw, 5.5rem);
+        line-height: 0.94;
+        letter-spacing: -0.045em;
+      }
+
+      .hero-line {
+        display: block;
+        white-space: nowrap;
+      }
+
+      .hero-phrase {
+        white-space: nowrap;
+      }
+
+      h2 {
+        margin-bottom: 18px;
+        font-size: clamp(2.2rem, 4.6vw, 4.2rem);
+        line-height: 1.04;
+        letter-spacing: -0.035em;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 1rem;
+        line-height: 1.4;
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+
+      .skip-link {
+        position: fixed;
+        z-index: 30;
+        top: 12px;
+        left: 12px;
+        padding: 10px 14px;
+        transform: translateY(-160%);
+        border-radius: 4px;
+        color: var(--paper);
+        background: var(--ink);
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .wrap {
+        width: min(1180px, calc(100% - 48px));
+        margin-inline: auto;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 20;
+        top: 0;
+        border-bottom: 1px solid rgba(203, 216, 210, 0.9);
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(14px);
+      }
+
+      .topbar-inner {
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        flex: 0 0 auto;
+        font-size: 0.78rem;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+      }
+
+      .toplinks {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .toplinks a {
+        text-decoration: none;
+      }
+
+      .toplinks a:hover {
+        color: var(--green-dark);
+      }
+
+      .hero {
+        padding: clamp(64px, 10vw, 124px) 0 72px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(290px, 0.65fr);
+        gap: clamp(48px, 8vw, 100px);
+        align-items: end;
+      }
+
+      .eyebrow,
+      .chapter-label,
+      .status,
+      .utility-label {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow,
+      .chapter-label {
+        margin-bottom: 16px;
+        color: var(--green-dark);
+      }
+
+      .hero-lede {
+        max-width: 760px;
+        margin-bottom: 30px;
+        color: var(--muted);
+        font-size: clamp(1.05rem, 1.8vw, 1.32rem);
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 5px 9px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        color: var(--muted);
+        background: var(--paper);
+      }
+
+      .status.current {
+        border-color: #88bcae;
+        color: var(--green-dark);
+        background: var(--green-soft);
+      }
+
+      .status.future {
+        border-color: #d49a89;
+        color: #713828;
+        background: var(--coral-soft);
+      }
+
+      .compass-card {
+        position: relative;
+        min-width: 0;
+        padding: 28px 24px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background:
+          linear-gradient(145deg, rgba(223, 243, 236, 0.74), transparent 54%),
+          var(--paper);
+      }
+
+      .compass-card::after {
+        position: absolute;
+        top: 22px;
+        right: 22px;
+        width: 58px;
+        height: 58px;
+        border: 1px solid #9cb8ad;
+        border-radius: 50%;
+        background:
+          linear-gradient(
+            90deg,
+            transparent 49%,
+            #9cb8ad 49%,
+            #9cb8ad 51%,
+            transparent 51%
+          ),
+          linear-gradient(
+            transparent 49%,
+            #9cb8ad 49%,
+            #9cb8ad 51%,
+            transparent 51%
+          );
+        content: "";
+        opacity: 0.58;
+        transform: rotate(20deg);
+      }
+
+      .compass-title {
+        margin-bottom: 28px;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .compass-route {
+        position: relative;
+        display: grid;
+        gap: 24px;
+        padding-left: 30px;
+      }
+
+      .compass-route::before {
+        position: absolute;
+        top: 7px;
+        bottom: 7px;
+        left: 8px;
+        width: 2px;
+        background: linear-gradient(
+          to bottom,
+          #9aa9a2 0 28%,
+          var(--green) 28% 100%
+        );
+        content: "";
+      }
+
+      .route-point {
+        position: relative;
+        min-width: 0;
+      }
+
+      .route-point::before {
+        position: absolute;
+        top: 0.45em;
+        left: -27px;
+        width: 11px;
+        height: 11px;
+        border: 2px solid var(--paper);
+        border-radius: 50%;
+        background: #87978f;
+        box-shadow: 0 0 0 1px #87978f;
+        content: "";
+      }
+
+      .route-point.pivot::before,
+      .route-point.platform::before {
+        background: var(--green);
+        box-shadow: 0 0 0 1px var(--green);
+      }
+
+      .route-point strong,
+      .route-point span {
+        display: block;
+      }
+
+      .route-point strong {
+        margin-bottom: 3px;
+        font-size: 0.9rem;
+      }
+
+      .route-point span {
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      section {
+        padding: clamp(64px, 9vw, 112px) 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      section.tint {
+        background: var(--mist);
+      }
+
+      .chapter-grid {
+        display: grid;
+        grid-template-columns: minmax(190px, 0.36fr) minmax(0, 1fr);
+        gap: clamp(42px, 7vw, 92px);
+      }
+
+      .chapter-aside {
+        align-self: start;
+      }
+
+      .chapter-number {
+        display: block;
+        margin-bottom: 16px;
+        color: var(--green);
+        font-family: var(--display);
+        font-size: 2.2rem;
+        line-height: 1;
+      }
+
+      .chapter-aside p {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .chapter-body {
+        min-width: 0;
+      }
+
+      .section-lede {
+        max-width: 800px;
+        margin-bottom: 38px;
+        color: var(--muted);
+        font-size: 1.08rem;
+      }
+
+      .story {
+        position: relative;
+        display: grid;
+        gap: 2px;
+      }
+
+      .story-step {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(108px, 0.26fr) minmax(0, 1fr);
+        gap: 22px;
+        padding: 22px 24px;
+        border-left: 3px solid var(--line);
+        background: var(--paper);
+      }
+
+      .story-step.pivot {
+        border-left-color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .story-step.result {
+        border-left-color: var(--blue);
+        background: var(--blue-soft);
+      }
+
+      .story-cause {
+        color: var(--green-dark);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .story-step p {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .principle-note {
+        margin-top: 24px;
+        padding: 20px 22px;
+        border: 1px solid #d4a699;
+        border-radius: 6px;
+        color: #623327;
+        background: var(--coral-soft);
+      }
+
+      .principle-note strong {
+        color: var(--ink);
+      }
+
+      .learning-loop {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .loop-step {
+        position: relative;
+        min-width: 0;
+        padding: 22px 20px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--paper);
+      }
+
+      .loop-step:not(:last-child)::after {
+        position: absolute;
+        z-index: 2;
+        top: 50%;
+        right: -10px;
+        display: grid;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        color: var(--green-dark);
+        background: var(--paper);
+        content: "›";
+        transform: translateY(-50%);
+      }
+
+      .loop-step .utility-label {
+        display: block;
+        margin-bottom: 22px;
+        color: var(--green-dark);
+      }
+
+      .loop-step p {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .coverage-band {
+        margin-top: 16px;
+        padding: 18px 20px;
+        border-radius: 6px;
+        color: #dbe9e2;
+        background: var(--ink);
+        font-size: 0.86rem;
+      }
+
+      .coverage-band strong {
+        color: var(--paper);
+      }
+
+      .architecture {
+        min-width: 0;
+        padding: 26px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+      }
+
+      .architecture figcaption {
+        margin-bottom: 24px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .map-label {
+        margin-bottom: 9px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .surface-grid,
+      .data-grid,
+      .support-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .surface-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .data-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .support-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .map-box {
+        min-width: 0;
+        padding: 15px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: var(--paper);
+        overflow-wrap: anywhere;
+      }
+
+      .map-box strong,
+      .map-box span {
+        display: block;
+      }
+
+      .map-box strong {
+        margin-bottom: 4px;
+        font-size: 0.86rem;
+      }
+
+      .map-box span {
+        color: var(--muted);
+        font-size: 0.74rem;
+      }
+
+      .map-box.surface {
+        border-color: #99b7d3;
+        background: var(--blue-soft);
+      }
+
+      .map-box.shared {
+        border-color: #82bbaa;
+        background: var(--green-soft);
+      }
+
+      .map-box.private {
+        border-color: #90aeca;
+        background: var(--blue-soft);
+      }
+
+      .core {
+        padding: 24px;
+        border-radius: 6px;
+        color: var(--paper);
+        background: var(--ink);
+        text-align: center;
+      }
+
+      .core strong,
+      .core span {
+        display: block;
+      }
+
+      .core strong {
+        margin-bottom: 4px;
+        font-family: var(--display);
+        font-size: 1.48rem;
+        font-weight: 500;
+      }
+
+      .core span {
+        color: #c3d0ca;
+        font-size: 0.8rem;
+      }
+
+      .flow-arrow {
+        padding: 8px 0;
+        color: var(--green-dark);
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .product-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .product {
+        min-width: 0;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--paper);
+      }
+
+      .product-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 16px;
+      }
+
+      .product h3 {
+        font-size: 1.12rem;
+      }
+
+      .product p {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .product-flow {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        color: var(--green-dark);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
+      }
+
+      .boundary-table-wrap {
+        max-width: 100%;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--paper);
+      }
+
+      .boundary-table {
+        width: 100%;
+        min-width: 720px;
+        border-collapse: collapse;
+      }
+
+      .boundary-table th,
+      .boundary-table td {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .boundary-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .boundary-table th {
+        color: var(--muted);
+        background: #f7faf8;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .boundary-table td {
+        font-size: 0.84rem;
+      }
+
+      .boundary-table td:first-child {
+        color: var(--green-dark);
+        font-weight: 800;
+      }
+
+      .risk-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .risk {
+        min-width: 0;
+        padding: 18px;
+        border-left: 3px solid var(--coral);
+        background: var(--coral-soft);
+      }
+
+      .risk p {
+        color: #6c3b2d;
+        font-size: 0.82rem;
+      }
+
+      .interview-points {
+        display: grid;
+        gap: 1px;
+        border: 1px solid var(--line);
+        background: var(--line);
+      }
+
+      .interview-point {
+        display: grid;
+        grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr);
+        gap: 24px;
+        padding: 22px 24px;
+        background: var(--paper);
+      }
+
+      .interview-point strong {
+        color: var(--green-dark);
+      }
+
+      .interview-point p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .future-intro {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 34px;
+      }
+
+      .future-intro::after {
+        height: 1px;
+        flex: 1;
+        background: #d4a699;
+        content: "";
+      }
+
+      .future-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .future-card {
+        min-width: 0;
+        padding: 26px;
+        border: 1px dashed #c77e69;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .future-card h3 {
+        margin-top: 16px;
+        font-size: 1.14rem;
+      }
+
+      .future-card p,
+      .future-card li {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .future-card ol,
+      .future-card ul {
+        margin: 14px 0 0;
+        padding-left: 20px;
+      }
+
+      .future-card li + li {
+        margin-top: 6px;
+      }
+
+      footer {
+        padding: 36px 0 56px;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      @keyframes settle {
+        from {
+          opacity: 0;
+          transform: translateY(7px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 960px) {
+        .hero-grid,
+        .chapter-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .compass-card {
+          max-width: 620px;
+        }
+
+        .learning-loop,
+        .surface-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .loop-step:nth-child(2)::after {
+          display: none;
+        }
+
+        .support-grid,
+        .risk-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .wrap {
+          width: min(100% - 28px, 1180px);
+        }
+
+        .toplinks {
+          gap: 12px;
+          white-space: nowrap;
+        }
+
+        .toplinks a {
+          display: none;
+        }
+
+        .toplinks a:nth-child(3),
+        .toplinks a:nth-child(5) {
+          display: block;
+        }
+
+        .boundary-table-wrap {
+          overflow: visible;
+          border: 0;
+          background: transparent;
+        }
+
+        .boundary-table {
+          min-width: 0;
+        }
+
+        .boundary-table thead {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          clip-path: inset(50%);
+          white-space: nowrap;
+        }
+
+        .boundary-table,
+        .boundary-table tbody,
+        .boundary-table tr,
+        .boundary-table td {
+          display: block;
+          width: 100%;
+        }
+
+        .boundary-table tbody {
+          display: grid;
+          gap: 10px;
+        }
+
+        .boundary-table tr {
+          padding: 14px 16px;
+          border: 1px solid var(--line);
+          border-radius: 6px;
+          background: var(--paper);
+        }
+
+        .boundary-table td {
+          min-width: 0;
+          display: grid;
+          grid-template-columns: minmax(82px, 0.34fr) minmax(0, 1fr);
+          gap: 12px;
+          padding: 7px 0;
+          border: 0;
+          overflow-wrap: anywhere;
+        }
+
+        .boundary-table td::before {
+          color: var(--muted);
+          content: attr(data-label);
+          font-family: var(--mono);
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+        }
+
+        .boundary-table td:first-child {
+          margin-bottom: 3px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .hero {
+          padding-top: 54px;
+        }
+
+        .story-step,
+        .interview-point {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+
+        .product-list,
+        .future-grid,
+        .data-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .architecture {
+          padding: 18px;
+        }
+      }
+
+      @media (max-width: 520px) {
+        h1 {
+          font-size: clamp(3rem, 13.2vw, 3.35rem);
+        }
+
+        .hero-line {
+          white-space: normal;
+        }
+
+        .learning-loop,
+        .surface-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .loop-step:not(:last-child)::after {
+          top: auto;
+          right: 50%;
+          bottom: -11px;
+          transform: translateX(50%) rotate(90deg);
+        }
+
+        .loop-step:nth-child(2)::after {
+          display: grid;
+        }
+
+        .product-head,
+        .footer-row {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        body {
+          animation: none;
+        }
+      }
+
+      @media print {
+        .topbar,
+        .skip-link {
+          display: none;
+        }
+
+        section,
+        .architecture,
+        .product,
+        .future-card {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">本文へ移動</a>
+
+    <header class="topbar">
+      <div class="wrap topbar-inner">
+        <div class="brand">SKILL COMPASS / ARCHITECTURE</div>
+        <nav class="toplinks" aria-label="ページ内ナビゲーション">
+          <a href="#origin">方針転換</a>
+          <a href="#learning">学習設計</a>
+          <a href="#system">全体構成</a>
+          <a href="#security">セキュリティ</a>
+          <a href="#future">今後</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="hero">
+        <div class="wrap hero-grid">
+          <div>
+            <p class="eyebrow">Product story &amp; system architecture</p>
+            <h1>
+              <span class="hero-line"
+                ><span class="hero-phrase">LLMに任せる</span><wbr /><span
+                  class="hero-phrase"
+                  >ほど、</span
+                ></span
+              >
+              <span class="hero-line"
+                ><span class="hero-phrase">判断力を</span><wbr /><span
+                  class="hero-phrase"
+                  >鍛える。</span
+                ></span
+              >
+            </h1>
+            <p class="hero-lede">
+              Skill Compassは、AI時代のエンジニアが「知っている」だけでなく、
+              条件を読み、設計を選び、LLMの仕事をレビューできる専門的判断力を
+              隙間時間で育てる学習基盤です。
+            </p>
+            <div class="status-row" aria-label="現在の状態">
+              <span class="status current">現在: 実装済みの全体像</span>
+              <span class="status">Webも継続提供</span>
+              <span class="status">Voice/Live中心の利用</span>
+              <span class="status">公開可能な設計情報</span>
+            </div>
+          </div>
+
+          <aside class="compass-card" aria-label="Skill Compassの方針転換">
+            <p class="compass-title">The compass route</p>
+            <div class="compass-route">
+              <div class="route-point">
+                <strong>問題</strong>
+                <span>LLM普及で技術キャッチアップの意欲が低下</span>
+              </div>
+              <div class="route-point pivot">
+                <strong>再定義</strong>
+                <span>任せるためにも、専門的な意思決定能力が必要</span>
+              </div>
+              <div class="route-point platform">
+                <strong>Skill Compass</strong>
+                <span>正本データ＋実務ケース＋会話へ渡す限定能力</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <section id="origin">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">01</span>
+            <p class="chapter-label">Why &amp; pivot</p>
+            <p>このプロダクトが必要になった理由と、提供方法が変わった理由。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <h2>Webアプリから、学習の正本と会話能力へ。</h2>
+            <p class="section-lede">
+              出発点は、技術学習を継続するためのWebアプリでした。
+              ChatGPT Voice/Liveの登場で、最良の教師体験を一から作る必要はなくなりました。
+              そこでSkill Compassの主役を「画面」から「信頼できる学習データと、
+              会話へ安全に渡せる能力」に移しました。
+            </p>
+
+            <div class="story" aria-label="プロダクト方針転換の流れ">
+              <article class="story-step">
+                <div class="story-cause">困っていたこと</div>
+                <p>
+                  LLMが実装や調査を助けるほど、自分でCS基礎・応用・最新技術を
+                  キャッチアップする動機が弱くなっていました。
+                </p>
+              </article>
+              <article class="story-step">
+                <div class="story-cause">残る責任</div>
+                <p>
+                  しかし、適切な制約をLLMへ伝え、出力をレビューし、複数案から選ぶ責任は
+                  エンジニアに残ります。専門知識は不要になるのではなく、判断材料になります。
+                </p>
+              </article>
+              <article class="story-step pivot">
+                <div class="story-cause">方針転換</div>
+                <p>
+                  Voice/Liveを教師のインターフェースとして活かし、Skill Compassは
+                  レビュー済み教材、個人の進捗、Podcast、X技術ニュースを保持する正本へ。
+                  MCPでは用途ごとの限定能力だけを公開します。
+                </p>
+              </article>
+              <article class="story-step result">
+                <div class="story-cause">現在の形</div>
+                <p>
+                  WebはToday・履歴・スキル可視化・Podcast再生の画面として残し、
+                  日常の学習はスケジュールされた会話とVoice/Liveから始められます。
+                </p>
+              </article>
+            </div>
+
+            <div class="principle-note">
+              <strong>設計原則:</strong>
+              ChatGPTがSkill Compassそのものなのではありません。Skill Compassが学習の正本を持ち、
+              ChatGPTにはTodayを読む、回答を同期する、Podcastを説明する、X技術ニュースを読む、
+              公開設計を説明する、といった目的別能力だけを渡します。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint" id="learning">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">02</span>
+            <p class="chapter-label">Learning design</p>
+            <p>定義暗記ではなく、条件に基づく実務判断を反復する。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <h2>Today's five cases train decisions.</h2>
+            <p class="section-lede">
+              Todayは毎日5問。短い実務シナリオとコード・SQL・API・設定・構成図を読み、
+              選択肢、自信度、理由を答えます。答え合わせは正誤だけで終わらず、
+              判断の決め手、他案の問題、実装上の注意、短い理解確認へ進みます。
+            </p>
+
+            <div class="learning-loop" aria-label="Todayの学習ループ">
+              <article class="loop-step">
+                <span class="utility-label">Reviewed content</span>
+                <h3>条件の揃った実務ケース</h3>
+                <p>曖昧な前提や冗談の選択肢を避け、レビュー済みの教材だけを有効化。</p>
+              </article>
+              <article class="loop-step">
+                <span class="utility-label">Personal selection</span>
+                <h3>ユーザー別の5問</h3>
+                <p>弱点、復習期限、領域・ケース種別の偏り、直近履歴を考慮して選択。</p>
+              </article>
+              <article class="loop-step">
+                <span class="utility-label">Commit first</span>
+                <h3>選択・自信度・理由</h3>
+                <p>正解を見る前に判断を言語化。必要なら明示された条件だけをヒントにする。</p>
+              </article>
+              <article class="loop-step">
+                <span class="utility-label">Teach &amp; retain</span>
+                <h3>決め手と失敗を理解</h3>
+                <p>実務への落とし込みと誤選択の結果を確認し、進捗とスコアへ反映。</p>
+              </article>
+            </div>
+
+            <div class="coverage-band">
+              <strong>現在の教材:</strong>
+              7領域・70問 —
+              CS基礎、Web／バックエンド、フロントエンド、インフラ、
+              セキュリティ、システム／ソフトウェア設計、AI時代の開発。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="system">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">03</span>
+            <p class="chapter-label">Whole system</p>
+            <p>一つの学習コアを、Web・MCP・スケジュール・Voice/Liveから使う。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <h2>能力は分ける。学習状態は分岐させない。</h2>
+            <p class="section-lede">
+              表示面ごとにTodayや採点を実装せず、認証後は同じドメインサービスを呼びます。
+              共有するのはレビュー済み教材。分離するのは日々の割当・回答・理由・スコア・履歴です。
+            </p>
+
+            <figure class="architecture" aria-labelledby="architecture-caption">
+              <figcaption id="architecture-caption">
+                Skill Compassの現在の論理構成。矢印は認証済み要求またはデータの受け渡しを示す。
+              </figcaption>
+
+              <p class="map-label">Delivery surfaces</p>
+              <div class="surface-grid">
+                <div class="map-box surface">
+                  <strong>Web application</strong>
+                  <span>Today・履歴・スキル・Podcast</span>
+                </div>
+                <div class="map-box surface">
+                  <strong>Learning MCP</strong>
+                  <span>用途別の読み取り・回答同期</span>
+                </div>
+                <div class="map-box surface">
+                  <strong>Scheduled lesson</strong>
+                  <span>5問と教師データを会話へ準備</span>
+                </div>
+                <div class="map-box surface">
+                  <strong>Voice/Live</strong>
+                  <span>準備済み文脈から1問ずつ指導</span>
+                </div>
+              </div>
+
+              <div class="flow-arrow">AUTHENTICATED REQUEST ↓</div>
+
+              <div class="core">
+                <strong>Skill Compass domain services</strong>
+                <span>選問・安全なDTO・採点・所有権・Podcast・X digest</span>
+              </div>
+
+              <div class="flow-arrow">READ / WRITE ↓</div>
+
+              <p class="map-label">Relational data boundary</p>
+              <div class="data-grid">
+                <div class="map-box shared">
+                  <strong>共有: reviewed lesson content</strong>
+                  <span>分類・実務ケース・成果物・選択肢・解説・出典</span>
+                </div>
+                <div class="map-box private">
+                  <strong>ユーザー別: learning state</strong>
+                  <span>割当・回答・自信度・理由・スコア・自己評価・履歴</span>
+                </div>
+              </div>
+
+              <div class="flow-arrow">BOUNDED BACKGROUND WORK ↓</div>
+
+              <div class="support-grid">
+                <div class="map-box">
+                  <strong>Podcast worker</strong>
+                  <span>収集 → 台本 → 音声 → object storage</span>
+                </div>
+                <div class="map-box">
+                  <strong>X news service</strong>
+                  <span>候補収集 → 順位付け → 日次cache</span>
+                </div>
+                <div class="map-box">
+                  <strong>Architecture MCP</strong>
+                  <span>静的な公開manifestのみ。DB能力なし</span>
+                </div>
+              </div>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint" id="capabilities">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">04</span>
+            <p class="chapter-label">Current product</p>
+            <p>現在実装されている4つの学習・情報フロー。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <h2>Todayだけではない、日々の学習ループ。</h2>
+            <p class="section-lede">
+              深く考えるToday、耳で追うPodcast、変化を拾うX技術ニュース、
+              自分の設計を説明するArchitecture MCPを同じSkill Compassに置いています。
+            </p>
+
+            <div class="product-list">
+              <article class="product">
+                <div class="product-head">
+                  <h3>Practical Today</h3>
+                  <span class="status current">実装済み</span>
+                </div>
+                <p>
+                  実務ミニケースを毎日5問。Webでも、スケジュールされた会話とVoice/Liveでも、
+                  同じレビュー済み教材と個人進捗を使います。
+                </p>
+                <div class="product-flow">
+                  5 CASES → CHOICE / CONFIDENCE / REASONING → TEACH → SCORE
+                </div>
+              </article>
+
+              <article class="product">
+                <div class="product-head">
+                  <h3>Podcast</h3>
+                  <span class="status current">実装済み</span>
+                </div>
+                <p>
+                  上限付きのSource snapshotから台本と音声を段階生成。
+                  永続jobにより途中状態を残し、対話中のHTTP要求から重い処理を分離します。
+                </p>
+                <div class="product-flow">
+                  COLLECT → SCRIPT → SPEECH → STORE → PLAY / ASK
+                </div>
+              </article>
+
+              <article class="product">
+                <div class="product-head">
+                  <h3>X Technical News</h3>
+                  <span class="status current">実装済み</span>
+                </div>
+                <p>
+                  公開検索と、認証されたアカウントのfollowing timelineを一時的に読み、
+                  技術関連度と反応を組み合わせて日次digestへ。投稿は事実ではなく主張として扱います。
+                </p>
+                <div class="product-flow">
+                  PUBLIC + PERSONAL CONTEXT → RANK → CACHE → EXPLAIN WITH LINKS
+                </div>
+              </article>
+
+              <article class="product">
+                <div class="product-head">
+                  <h3>Architecture MCP</h3>
+                  <span class="status current">実装済み</span>
+                </div>
+                <p>
+                  技術面接で構成・セキュリティ・プライバシー・トレードオフを質問可能。
+                  回答元は人がレビューした公開manifestだけで、学習DBやファイルへ接続しません。
+                </p>
+                <div class="product-flow">
+                  QUESTION → TOPIC MATCH → ALLOWLISTED FACTS → CURRENT / PLANNED
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="security">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">05</span>
+            <p class="chapter-label">Security &amp; privacy</p>
+            <p>何を共有し、誰に属し、各MCPが何をできるかを別々に制御する。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <h2>「読ませない」より先に、「能力を持たせない」。</h2>
+            <p class="section-lede">
+              認証だけに依存せず、コンテンツ、個人状態、ツール能力を三つの境界に分けます。
+              Architecture MCPには、そもそもDB・ファイル・Providerを読む機能がありません。
+            </p>
+
+            <div class="boundary-table-wrap">
+              <table class="boundary-table">
+                <thead>
+                  <tr>
+                    <th>境界</th>
+                    <th>保持するもの</th>
+                    <th>制御</th>
+                    <th>なぜリスクが下がるか</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td data-label="境界">共有教材</td>
+                    <td data-label="保持">レビュー済みケース、解説、出典</td>
+                    <td data-label="制御">quality gateとseed review</td>
+                    <td data-label="効果">回答・スコア・profileを共通コンテンツへ混ぜない。</td>
+                  </tr>
+                  <tr>
+                    <td data-label="境界">学習状態</td>
+                    <td data-label="保持">割当、回答、理由、score、履歴</td>
+                    <td data-label="制御">認証済みユーザー条件をschema・repository・serviceで反復</td>
+                    <td data-label="効果">推測したquizやanswerの識別子だけでは他ユーザーへ到達しない。</td>
+                  </tr>
+                  <tr>
+                    <td data-label="境界">Learning MCP</td>
+                    <td data-label="保持">要求された学習用DTO</td>
+                    <td data-label="制御">OAuth＋PKCE、bearer認証、field allowlist</td>
+                    <td data-label="効果">formやmodel入力からユーザーを選ばせず、用途外のDB列を返さない。</td>
+                  </tr>
+                  <tr>
+                    <td data-label="境界">Architecture MCP</td>
+                    <td data-label="保持">静的な公開manifest</td>
+                    <td data-label="制御">DB・filesystem・storage・provider能力なし</td>
+                    <td data-label="効果">prompt injectionが命令を変えても、存在しない能力は呼び出せない。</td>
+                  </tr>
+                  <tr>
+                    <td data-label="境界">外部Provider</td>
+                    <td data-label="保持">必要scopeのOAuth token</td>
+                    <td data-label="制御">暗号化保存、scope制限、MCP responseから除外</td>
+                    <td data-label="効果">password共有を避け、必要な連携単位で失効・停止できる。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="risk-grid" aria-label="残るリスク">
+              <article class="risk">
+                <h3>将来のquery漏れ</h3>
+                <p>新しいrepositoryやmigrationにも所有者条件のreviewと2ユーザーtestが必要。</p>
+              </article>
+              <article class="risk">
+                <h3>manifestの人為的混入</h3>
+                <p>静的でも、公開不可情報を将来追加するriskはreviewとsafety testで継続管理。</p>
+              </article>
+              <article class="risk">
+                <h3>host compromise</h3>
+                <p>processが利用できるsecretはhost侵害から完全には守れない。権限・更新・監視が必要。</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tint" id="interview">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">06</span>
+            <p class="chapter-label">Interview narrative</p>
+            <p>機能一覧ではなく、課題・判断・境界・限界の順に説明する。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <h2>面接では、作ったものより「なぜ」を話す。</h2>
+            <p class="section-lede">
+              Skill Compassは、プロダクト判断、学習設計、認証・認可、
+              非同期処理、MCPの能力設計を一つの実例として説明できます。
+            </p>
+
+            <div class="interview-points">
+              <article class="interview-point">
+                <strong>課題から始める</strong>
+                <p>LLMで学習意欲が下がった一方、LLMを正しく使う専門判断はより重要になった。</p>
+              </article>
+              <article class="interview-point">
+                <strong>方針転換を説明する</strong>
+                <p>Webを捨てず、Voice/Liveを教師面、Skill Compassを正本と能力提供面へ再定義した。</p>
+              </article>
+              <article class="interview-point">
+                <strong>境界で語る</strong>
+                <p>共有教材と個人状態、Learning MCPとArchitecture MCP、HTTPとworkerを分離した。</p>
+              </article>
+              <article class="interview-point">
+                <strong>限界も言う</strong>
+                <p>現在はprivate local originであり、将来のquery追加やmanifest reviewには継続riskがある。</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="future">
+        <div class="wrap chapter-grid">
+          <aside class="chapter-aside">
+            <span class="chapter-number">07</span>
+            <p class="chapter-label">To be continued…</p>
+            <p>ここから先は現在の実装ではなく、次に検証する計画。</p>
+          </aside>
+
+          <div class="chapter-body">
+            <div class="future-intro">
+              <span class="status future">すべて計画中 / 未実装</span>
+            </div>
+            <h2>日々の学習から、現在地と進路へ。</h2>
+            <p class="section-lede">
+              Todayの軽さは保ちつつ、時々取り組む重い診断と、常時利用できるcloud基盤へ拡張します。
+              現在のアーキテクチャ説明では、以下を実装済みとは扱いません。
+            </p>
+
+            <div class="future-grid">
+              <article class="future-card">
+                <span class="status future">Planned</span>
+                <h3>Practical diagnostic exam</h3>
+                <p>
+                  約30問の実務ケースで広い領域を診断し、領域別の相対スコア
+                  （偏差値相当の指標）と技術的な得意・関心の方向を提示する構想です。
+                </p>
+                <ul>
+                  <li>Todayの問題・解説UIを再利用</li>
+                  <li>設計判断、失敗対応、安全性を横断評価</li>
+                  <li>志向するcareerに合わせて提案を本人が調整</li>
+                  <li>診断後は日々のToday選問へ接続</li>
+                </ul>
+              </article>
+
+              <article class="future-card">
+                <span class="status future">Planned</span>
+                <h3>Phased cloud deployment</h3>
+                <p>
+                  現在のprivate local originから、契約とデータ境界を変えずに
+                  managed cloudへ段階移行する構想です。
+                </p>
+                <ol>
+                  <li>applicationとworkerの常時稼働化</li>
+                  <li>relational dataとgenerated assetsの移行・backup検証</li>
+                  <li>scheduler、observability、復旧手順のmanaged化</li>
+                </ol>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap footer-row">
+        <span>Skill Compass / 公開プロダクト＆アーキテクチャショーケース</span>
+        <a href="../README.md">公開ドキュメント一覧へ</a>
+      </div>
+    </footer>
+  </body>
+</html>

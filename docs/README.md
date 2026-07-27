@@ -19,5 +19,5 @@
 
 - [Skill Compass Lite設計](specs/skill-compass-lite-design.md)
 - [Podcast Studio設計](specs/skill-compass-podcast-studio-design.md)
-- [Podcast Studioアーキテクチャショーケース](showcase/podcast-studio.html)
+- [Skill Compass全体のプロダクト＆アーキテクチャショーケース](showcase/skill-compass-architecture.html)
 - [MVP進捗記録](superpowers/progress/skill-compass-mvp.md)

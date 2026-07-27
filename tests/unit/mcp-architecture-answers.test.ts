@@ -93,4 +93,36 @@ describe("Architecture MCP answer builders", () => {
       makeAnswer("standard").currentFacts.length,
     );
   });
+
+  it("keeps the diagnostic exam and cloud migration in planned interview facts", () => {
+    const answer = answerTechnicalInterviewQuestion({
+      manifest: architectureManifest,
+      question:
+        "What is implemented now, and what is future work for the diagnostic exam and cloud deployment?",
+      depth: "standard",
+    });
+
+    const currentIds = answer.currentFacts.map((claim) => claim.id);
+    const plannedIds = answer.plannedImprovements.map((claim) => claim.id);
+
+    expect(currentIds).not.toContain("diagnostic-exam");
+    expect(currentIds).not.toContain("hosted-runtime");
+    expect(plannedIds).toEqual(
+      expect.arrayContaining(["diagnostic-exam", "hosted-runtime"]),
+    );
+  });
+
+  it("can explain the current shared-content and user-state boundary", () => {
+    const overview = getArchitectureOverview({
+      manifest: architectureManifest,
+      focus: "data_flow",
+      latestUserMessage: "学習データはどこに置かれている？",
+    });
+    const serialized = JSON.stringify(overview);
+
+    expect(serialized).toContain("shared reviewed lesson content");
+    expect(serialized).toContain("user-scoped learning state");
+    expect(overview.currentTradeoffs.every((claim) => claim.status !== "planned"))
+      .toBe(true);
+  });
 });

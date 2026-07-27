@@ -268,16 +268,16 @@ jobには以下を含める。
 - quiz E2E flow
 - mock LLM responseを使うscheduled job behavior
 
-## 将来機能: Podcast Studio
+## 関連アーキテクチャ
 
-Lite MVP後に、Sourceに基づく学習内容から非公開の2人会話形式audio briefingを生成できるようにする。提案中のPodcast Studioは、信頼できるSources、最新ニュース、任意の個人SNS情報、ユーザーのCalendar予定を組み合わせる。
+Podcastは、Sourceに基づく学習内容から非公開の2人会話形式audio briefingを生成する。信頼できるSources、最新ニュース、明示的に有効化した個人情報源を上限付きで組み合わせる。
 
 再開可能なscript、audio生成のための永続job pipelineを採用し、roleとplan entitlementを分離する。外部連携は差し替え可能なProviderの背後へ置き、SNS投稿前には明示的な承認を必須にする。
 
-公開設計とvisual overview:
+公開設計とSkill Compass全体のvisual overview:
 
 - [Podcast Studio設計](skill-compass-podcast-studio-design.md)
-- [Podcast Studioアーキテクチャショーケース](../showcase/podcast-studio.html)
+- [Skill Compass全体のプロダクト＆アーキテクチャショーケース](../showcase/skill-compass-architecture.html)
 
 ## public repositoryの境界
 

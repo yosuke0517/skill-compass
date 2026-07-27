@@ -53,11 +53,40 @@ const topicKeywords: Array<{ topic: string; keywords: string[] }> = [
   },
   {
     topic: "data_flow",
-    keywords: ["data flow", "today", "podcast", "データフロー", "データ"],
+    keywords: [
+      "data flow",
+      "today",
+      "podcast",
+      "lesson",
+      "voice",
+      "live",
+      "x news",
+      "データフロー",
+      "データ",
+      "教材",
+      "学習",
+      "音声",
+    ],
   },
   {
     topic: "system",
     keywords: ["architecture", "component", "system", "設計", "アーキテクチャ"],
+  },
+  {
+    topic: "future",
+    keywords: [
+      "future",
+      "planned",
+      "roadmap",
+      "diagnostic",
+      "exam",
+      "cloud",
+      "将来",
+      "計画",
+      "診断",
+      "模試",
+      "クラウド",
+    ],
   },
 ];
 
