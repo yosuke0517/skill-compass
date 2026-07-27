@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildTodayQuiz,
+  createQuizDate,
   createQuizDayId,
+  filterActivePreparedQuestions,
   getDueQuestionIds,
   resolveQuizDayId,
 } from "@/lib/quiz/get-today-quiz";
@@ -16,6 +18,19 @@ const practicalFields = {
 };
 
 describe("createQuizDayId", () => {
+  it("binds a date-only quiz key at local midnight for MySQL equality", () => {
+    const quizDate = createQuizDate("2026-08-01");
+
+    expect([
+      quizDate.getFullYear(),
+      quizDate.getMonth() + 1,
+      quizDate.getDate(),
+      quizDate.getHours(),
+      quizDate.getMinutes(),
+      quizDate.getSeconds(),
+    ]).toEqual([2026, 8, 1, 0, 0, 0]);
+  });
+
   it("creates a deterministic owner-specific identifier for the same day", () => {
     const quizA = createQuizDayId("user_a", "2026-07-09");
     const quizB = createQuizDayId("user_b", "2026-07-09");
@@ -36,6 +51,34 @@ describe("createQuizDayId", () => {
 });
 
 describe("buildTodayQuiz", () => {
+  it("filters inactive legacy assignments while retaining practical assignments", () => {
+    const prepared = [
+      {
+        quizDayId: "quiz_legacy",
+        questionId: "legacy",
+        slot: 1,
+        reason: "fallback",
+      },
+      {
+        quizDayId: "quiz_legacy",
+        questionId: "practical",
+        slot: 2,
+        reason: "weakness",
+      },
+    ];
+    const questionRows = [
+      { id: "legacy", active: false },
+      { id: "practical", active: true },
+    ];
+
+    expect(filterActivePreparedQuestions(prepared, questionRows)).toEqual([
+      prepared[1],
+    ]);
+    expect(
+      filterActivePreparedQuestions([prepared[0]!], questionRows),
+    ).toEqual([]);
+  });
+
   it("marks answered and unanswered prepared questions in slot order", () => {
     const quiz = buildTodayQuiz({
       quizDay: { id: "quiz_2026-07-09", quizDate: "2026-07-09" },

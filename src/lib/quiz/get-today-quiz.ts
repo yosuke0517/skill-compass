@@ -73,10 +73,17 @@ export type BuildTodayQuizInput = {
   }>;
 };
 
+export type PreparedQuestionRow = {
+  quizDayId: string;
+  questionId: string;
+  slot: number;
+  reason: string;
+};
+
 export async function getTodayQuiz(userId: string, today = toDateKey(new Date())): Promise<TodayQuiz> {
   const { db } = await import("@/db/client");
   const generatedQuizDayId = createQuizDayId(userId, today);
-  const quizDate = new Date(`${today}T00:00:00.000Z`);
+  const quizDate = createQuizDate(today);
 
   await db
     .insert(quizDays)
@@ -97,6 +104,16 @@ export async function getTodayQuiz(userId: string, today = toDateKey(new Date())
   const quizDayId = resolveQuizDayId(userId, today, ownedQuizDay.id);
 
   let preparedRows = await loadPreparedQuestions(db, userId, quizDayId);
+  if (preparedRows.length > 0) {
+    const preparedQuestionRows = await db
+      .select({ id: questions.id, active: questions.active })
+      .from(questions)
+      .where(inArray(questions.id, preparedRows.map((item) => item.questionId)));
+    preparedRows = filterActivePreparedQuestions(
+      preparedRows,
+      preparedQuestionRows,
+    );
+  }
 
   if (preparedRows.length === 0) {
     const [questionRows, sourceRows, conceptTagRows, tagRows, scoreRows, answerRows, recentQuizDayRows] = await Promise.all([
@@ -175,6 +192,7 @@ export async function getTodayQuiz(userId: string, today = toDateKey(new Date())
     }
 
     preparedRows = await loadPreparedQuestions(db, userId, quizDayId);
+    preparedRows = filterActivePreparedQuestions(preparedRows, questionRows);
   }
 
   const questionIds = preparedRows.map((item) => item.questionId);
@@ -215,6 +233,24 @@ async function loadPreparedQuestions(db: DbClient, userId: string, quizDayId: st
 export function createQuizDayId(userId: string, today: string): string {
   const owner = createHash("sha256").update(userId).digest("hex").slice(0, 12);
   return `quiz_${owner}_${today.replaceAll("-", "")}`;
+}
+
+export function createQuizDate(today: string): Date {
+  return new Date(`${today}T00:00:00`);
+}
+
+export function filterActivePreparedQuestions(
+  preparedRows: PreparedQuestionRow[],
+  questionRows: Array<{ id: string; active: boolean }>,
+): PreparedQuestionRow[] {
+  const activeQuestionIds = new Set(
+    questionRows
+      .filter((question) => question.active)
+      .map((question) => question.id),
+  );
+  return preparedRows.filter((prepared) =>
+    activeQuestionIds.has(prepared.questionId),
+  );
 }
 
 export function resolveQuizDayId(
