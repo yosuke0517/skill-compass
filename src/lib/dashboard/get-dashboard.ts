@@ -4,6 +4,7 @@ import {
   concepts,
   quizDayQuestions,
   quizDays,
+  questions,
   scores,
   selfAssessments,
   tags,
@@ -33,7 +34,7 @@ export type DashboardBuildInput = {
   today: string;
   categories: Array<{ id: string; name: string; displayOrder: number }>;
   quizDays: Array<{ id: string; userId: string; quizDate: string | Date }>;
-  quizDayQuestions: Array<{ quizDayId: string; questionId: string }>;
+  quizDayQuestions: Array<{ quizDayId: string; questionId: string; active: boolean }>;
   answers: Array<{
     userId: string;
     quizDayId: string;
@@ -84,8 +85,13 @@ export async function getDashboardData(
   const quizDayQuestionRows =
     ownedQuizDayIds.length > 0
       ? await db
-          .select()
+          .select({
+            quizDayId: quizDayQuestions.quizDayId,
+            questionId: quizDayQuestions.questionId,
+            active: questions.active,
+          })
           .from(quizDayQuestions)
+          .innerJoin(questions, eq(quizDayQuestions.questionId, questions.id))
           .where(inArray(quizDayQuestions.quizDayId, ownedQuizDayIds))
       : [];
 
@@ -106,6 +112,7 @@ export async function getDashboardData(
 export function buildDashboardData(input: DashboardBuildInput): DashboardData {
   const quizDaysForUser = input.quizDays.filter((quizDay) => quizDay.userId === input.userId);
   const answersForUser = input.answers.filter((answer) => answer.userId === input.userId);
+  const finalizedAnswersForUser = answersForUser.filter((answer) => answer.correct !== null);
   const scoresForUser = input.scores.filter((score) => score.userId === input.userId);
   const selfAssessmentsForUser = input.selfAssessments.filter(
     (assessment) => assessment.userId === input.userId,
@@ -127,18 +134,18 @@ export function buildDashboardData(input: DashboardBuildInput): DashboardData {
   const todayQuizDayId = todayQuizDay?.id;
   const todayQuestionIds = new Set(
     input.quizDayQuestions
-      .filter((item) => item.quizDayId === todayQuizDayId)
+      .filter((item) => item.quizDayId === todayQuizDayId && item.active)
       .map((item) => item.questionId),
   );
   const todayAnsweredIds = new Set(
-    answersForUser
+    finalizedAnswersForUser
       .filter((answer) => answer.quizDayId === todayQuizDayId)
       .map((answer) => answer.questionId),
   );
 
-  const weeklyAnswers = answersForUser.filter((answer) => {
+  const weeklyAnswers = finalizedAnswersForUser.filter((answer) => {
     const days = daysBetween(toDateKey(answer.answeredAt), input.today);
-    return days >= 0 && days <= 6 && answer.correct !== null;
+    return days >= 0 && days <= 6;
   });
   const correctWeeklyAnswers = weeklyAnswers.filter((answer) => answer.correct === true);
 
@@ -163,7 +170,7 @@ export function buildDashboardData(input: DashboardBuildInput): DashboardData {
       answered: [...todayAnsweredIds].filter((questionId) => todayQuestionIds.has(questionId)).length,
       total: todayQuestionIds.size,
     },
-    streakDays: calculateStreakDays(answersForUser, input.today),
+    streakDays: calculateStreakDays(finalizedAnswersForUser, input.today),
     weeklyAccuracy: weeklyAnswers.length === 0 ? 0 : round(correctWeeklyAnswers.length / weeklyAnswers.length),
     weakPoints: input.concepts
       .map((concept) => ({

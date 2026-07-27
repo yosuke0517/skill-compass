@@ -48,9 +48,12 @@ export function selectAdditionalQuizQuestions(input: AdditionalQuizSelectionInpu
     .filter((question) => !preparedIds.has(question.id));
   const recentIds = new Set(input.recentlyAssignedQuestionIds ?? []);
   const freshCandidates = candidates.filter((question) => !recentIds.has(question.id));
+  const recentCandidates = candidates.filter((question) => recentIds.has(question.id));
 
-  return (freshCandidates.length > 0 ? freshCandidates : candidates)
-    .sort(compareQuestionPriority)
+  return [
+    ...freshCandidates.sort(compareQuestionPriority),
+    ...recentCandidates.sort(compareQuestionPriority),
+  ]
     .slice(0, remainingSlots)
     .map((question, index) => ({
       question,

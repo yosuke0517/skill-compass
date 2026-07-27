@@ -46,10 +46,18 @@ export function selectDailyQuiz(input: QuizSelectionInput): SelectedQuizQuestion
   const candidates = activeQuestions.filter((question) => !selectedIds.has(question.id));
   const freshCandidates = candidates.filter((question) => !recentIds.has(question.id));
   const dueCandidates = candidates.filter((question) => input.dueQuestionIds.includes(question.id));
-  const eligible = freshCandidates.length > 0
-    ? uniqueQuestions([...dueCandidates, ...freshCandidates])
-    : candidates;
-  const chosen = chooseBalancedCandidates(eligible, selected.map((item) => item.question), remaining, input, seed);
+  const preferredCandidates = uniqueQuestions([...dueCandidates, ...freshCandidates]);
+  const eligible = preferredCandidates.length >= remaining
+    ? preferredCandidates
+    : uniqueQuestions([...preferredCandidates, ...candidates]);
+  const chosen = chooseBalancedCandidates(
+    eligible,
+    selected.map((item) => item.question),
+    remaining,
+    input,
+    seed,
+    new Set(preferredCandidates.map((question) => question.id)),
+  );
 
   for (const question of chosen) {
     addQuestion(question, selectionReason(question, input));
@@ -64,25 +72,44 @@ function chooseBalancedCandidates(
   remaining: number,
   input: QuizSelectionInput,
   seed: string,
+  preferredIds: ReadonlySet<string>,
 ): QuizSelectionQuestion[] {
   const count = Math.min(remaining, candidates.length);
   if (count <= 0) return [];
 
-  const pool = buildSearchPool(candidates, input, seed);
+  const pool = buildSearchPool(candidates, input, seed, preferredIds);
   const enforceBalance = preparedQuestions.length + count === 5;
-  const balancedSelection = findBestCombination(pool, preparedQuestions, count, input, seed, enforceBalance);
+  const balancedSelection = findBestCombination(
+    pool,
+    preparedQuestions,
+    count,
+    input,
+    seed,
+    enforceBalance,
+    preferredIds,
+  );
 
   return balancedSelection
-    ?? findBestCombination(pool, preparedQuestions, count, input, seed, false)
+    ?? findBestCombination(pool, preparedQuestions, count, input, seed, false, preferredIds)
     ?? [];
 }
 
-function buildSearchPool(candidates: QuizSelectionQuestion[], input: QuizSelectionInput, seed: string): QuizSelectionQuestion[] {
+function buildSearchPool(
+  candidates: QuizSelectionQuestion[],
+  input: QuizSelectionInput,
+  seed: string,
+  preferredIds: ReadonlySet<string>,
+): QuizSelectionQuestion[] {
   const ranked = candidates.slice().sort((left, right) => compareBasePriority(left, right, input, seed));
   const pool: QuizSelectionQuestion[] = [];
   const add = (question: QuizSelectionQuestion | undefined) => {
     if (question && !pool.some((candidate) => candidate.id === question.id)) pool.push(question);
   };
+
+  for (const question of ranked) {
+    if (pool.length >= MAX_SEARCH_CANDIDATES) break;
+    if (preferredIds.has(question.id)) add(question);
+  }
 
   // Reserve representatives for the dimensions required by the five-question balance rule.
   for (const key of [
@@ -110,6 +137,7 @@ function findBestCombination(
   input: QuizSelectionInput,
   seed: string,
   enforceBalance: boolean,
+  preferredIds: ReadonlySet<string>,
 ): QuizSelectionQuestion[] | undefined {
   let best: QuizSelectionQuestion[] | undefined;
   let searchedNodes = 0;
@@ -125,7 +153,9 @@ function findBestCombination(
     if (chosen.length === count) {
       const allQuestions = [...preparedQuestions, ...chosen];
       if (enforceBalance && !hasRequiredBalance(allQuestions)) return;
-      if (!best || compareCombinations(chosen, best, input, seed) < 0) best = chosen.slice();
+      if (!best || compareCombinations(chosen, best, input, seed, preferredIds) < 0) {
+        best = chosen.slice();
+      }
       return;
     }
 
@@ -156,7 +186,11 @@ function compareCombinations(
   right: QuizSelectionQuestion[],
   input: QuizSelectionInput,
   seed: string,
+  preferredIds: ReadonlySet<string>,
 ): number {
+  const byPreferred = countPreferred(right, preferredIds) - countPreferred(left, preferredIds);
+  if (byPreferred !== 0) return byPreferred;
+
   const byNeed = combinationNeedScore(right, input) - combinationNeedScore(left, input);
   if (byNeed !== 0) return byNeed;
 
@@ -169,6 +203,13 @@ function compareCombinations(
   const leftKey = left.map((question) => stableHash(`${seed}:${question.id}`)).sort((a, b) => a - b).join(":");
   const rightKey = right.map((question) => stableHash(`${seed}:${question.id}`)).sort((a, b) => a - b).join(":");
   return leftKey.localeCompare(rightKey);
+}
+
+function countPreferred(
+  questions: QuizSelectionQuestion[],
+  preferredIds: ReadonlySet<string>,
+): number {
+  return questions.filter((question) => preferredIds.has(question.id)).length;
 }
 
 function compareBasePriority(left: QuizSelectionQuestion, right: QuizSelectionQuestion, input: QuizSelectionInput, seed: string): number {

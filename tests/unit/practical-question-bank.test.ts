@@ -140,6 +140,21 @@ describe("reviewed practical question bank", () => {
     expect(searchableText(item)).toMatch(/existing client|backward.compatib/i);
   });
 
+  it("requires no-cache plus a stable ETag and If-None-Match for mandatory revalidation", () => {
+    const item = question("q_web_02");
+    const correct = item.choices.find(({ correct }) => correct);
+    const teachingText = [
+      correct?.label,
+      correct?.explanation,
+      item.rationale,
+      ...item.practicalNotes,
+    ].join("\n");
+
+    expect(teachingText).toMatch(/Cache-Control:\s*no-cache/i);
+    expect(teachingText).toMatch(/stable ETag/i);
+    expect(teachingText).toMatch(/If-None-Match/i);
+  });
+
   it("covers Web and mobile clients plus theme and brand constraints for design tokens", () => {
     const text = searchableText(question("q_front_10"));
 

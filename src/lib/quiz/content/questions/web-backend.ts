@@ -1,7 +1,6 @@
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { defineChoices, defineQuestion } from "@/lib/quiz/content/questions/helpers";
 
-const sourceId = "source_mdndocs_web";
 
 export const webBackendQuestions: ReviewedQuestion[] = [
   defineQuestion({
@@ -9,7 +8,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "http",
     conceptId: "concept_web_idempotent_retry",
-    sourceId,
     scenario: "A client times out after sending an order-status update. It cannot tell whether the server committed the request, and retrying must not apply the transition twice.",
     caseType: "basic_application",
     decisionCriteria: ["Make the repeated request converge on one state and reuse a stable operation identity."],
@@ -30,28 +28,28 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "http",
     conceptId: "concept_web_etag_revalidation",
-    sourceId,
     scenario: "A product document is read often, changes a few times per hour, and clients may reuse cached bytes only after checking that they are current.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Avoid retransmitting unchanged bodies while revalidating every reuse."],
-    practicalNotes: ["Generate the ETag from the selected representation, including content encoding variants."],
+    practicalNotes: [
+      "Send Cache-Control: no-cache with a stable ETag generated from the selected representation, including content encoding variants.",
+    ],
     checkQuestion: "Which status tells the client to keep its cached body?",
     prompt: "Which cache policy meets the freshness constraint?",
     choices: defineChoices("a", [
       ["Cache-Control: max-age=86400 without validation", "A day-long fresh lifetime permits stale reuse without contacting the server.", "Clients can display data long after an update."],
       ["Cache-Control: no-store", "No-store prevents retaining the response at all.", "Every read retransmits the full body."],
       ["Add a random ETag on every response", "An unstable validator never matches unchanged content.", "Revalidation always downloads the body."],
-      ["Return a stable ETag and require If-None-Match revalidation", "A matching validator allows a 304 response while every reuse is checked.", "Unchanged content saves bandwidth and updates are fetched promptly."],
+      ["Send Cache-Control: no-cache with a stable ETag and require If-None-Match revalidation", "no-cache requires validation before reuse, and a matching stable validator allows a 304 response.", "Unchanged content saves bandwidth while every reuse is checked and updates are fetched promptly."],
     ], "d"),
     difficulty: "intermediate",
-    rationale: "The client may retain bytes but not treat them as fresh without checking, which is precisely conditional ETag revalidation.",
+    rationale: "Cache-Control: no-cache requires validation before reuse; a stable ETag carried by If-None-Match lets unchanged content return 304 without retransmitting the body.",
   }),
   defineQuestion({
     id: "q_web_03",
     categoryId: "web_backend",
     subtopicId: "apis",
     conceptId: "concept_web_contract_first",
-    sourceId,
     scenario: "Web and API teams must develop in parallel for six weeks. The endpoint path, request validation, response schema, and error codes must be testable before either implementation is complete.",
     artifacts: [{
       kind: "api",
@@ -78,7 +76,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "apis",
     conceptId: "concept_web_backward_compatible_response",
-    sourceId,
     scenario: "Existing mobile clients deserialize known JSON fields and ignore unknown fields. They cannot all upgrade this quarter, but new clients need an estimatedDelivery field.",
     caseType: "common_failure",
     decisionCriteria: ["Preserve the meaning and types of all existing required response fields."],
@@ -99,7 +96,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "authentication",
     conceptId: "concept_web_first_party_session",
-    sourceId,
     scenario: "A first-party browser app and same-site backend are operated together. The team needs immediate logout, server-side revocation, and protection from JavaScript reading credentials.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Prefer revocable server state and an HttpOnly browser credential."],
@@ -120,7 +116,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "authentication",
     conceptId: "concept_web_oauth_state_pkce",
-    sourceId,
     scenario: "A public browser client uses an OAuth authorization-code flow. It cannot keep a client secret, and login responses must be bound to the browser that initiated them.",
     caseType: "common_failure",
     decisionCriteria: ["Prevent callback login CSRF and intercepted-code redemption without a client secret."],
@@ -141,7 +136,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "caching",
     conceptId: "concept_web_cache_invalidation",
-    sourceId,
     scenario: "GET /profiles/42 is cached for ten minutes. After PATCH /profiles/42 commits, the next read must return the new display name, including from other application instances.",
     caseType: "basic_application",
     decisionCriteria: ["Coordinate invalidation after the durable write succeeds and across all instances."],
@@ -162,7 +156,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "caching",
     conceptId: "concept_web_cache_stampede",
-    sourceId,
     scenario: "A popular report key expires hourly. Ten thousand requests arrive within one second, while regeneration takes five seconds and overloads the database if performed concurrently.",
     caseType: "debugging_performance",
     decisionCriteria: ["Allow one regeneration while serving bounded stale data or waiting callers."],
@@ -183,7 +176,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "async_processing",
     conceptId: "concept_web_durable_side_effect",
-    sourceId,
     scenario: "Checkout must respond within 300 ms after committing the order. Sending a receipt sometimes takes eight seconds, must survive process restarts, and may be retried.",
     caseType: "debugging_performance",
     decisionCriteria: ["Keep the user transaction fast while durably recording the eventual side effect."],
@@ -204,7 +196,6 @@ export const webBackendQuestions: ReviewedQuestion[] = [
     categoryId: "web_backend",
     subtopicId: "async_processing",
     conceptId: "concept_web_idempotent_consumer",
-    sourceId,
     scenario: "A broker provides at-least-once delivery. The same payment_captured event may arrive twice after a worker crashes between charging a ledger entry and acknowledging the message.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Make event replay produce one ledger effect without relying on exactly-once delivery."],

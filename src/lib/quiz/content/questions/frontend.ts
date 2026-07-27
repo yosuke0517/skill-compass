@@ -1,8 +1,6 @@
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { defineChoices, defineQuestion } from "@/lib/quiz/content/questions/helpers";
 
-const webSourceId = "source_mdndocs_web";
-const tsSourceId = "source_typescript_handbook";
 
 export const frontendQuestions: ReviewedQuestion[] = [
   defineQuestion({
@@ -10,7 +8,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "typescript",
     conceptId: "concept_front_satisfies_inference",
-    sourceId: tsSourceId,
     scenario: "A route table must contain only valid paths, while each key's literal path must remain available to downstream generic code.",
     artifacts: [{
       kind: "code",
@@ -37,7 +34,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "typescript",
     conceptId: "concept_front_unsafe_assertion",
-    sourceId: tsSourceId,
     scenario: "JSON.parse returns unknown data from a third-party endpoint. The endpoint may omit id or send id as a number, but renderUser requires a string id.",
     artifacts: [{
       kind: "code",
@@ -64,7 +60,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "browsers",
     conceptId: "concept_front_main_thread_long_task",
-    sourceId: webSourceId,
     scenario: "Typing freezes for 700 ms after each keypress. A performance trace shows one synchronous JavaScript task parsing and sorting 200,000 rows on the main thread; network time is 20 ms.",
     caseType: "debugging_performance",
     decisionCriteria: ["Remove long CPU work from the main interaction path; network optimization is not the bottleneck."],
@@ -85,7 +80,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "browsers",
     conceptId: "concept_front_sensitive_browser_state",
-    sourceId: webSourceId,
     scenario: "A same-site app needs a session credential sent automatically to its backend. Page JavaScript never needs to read the credential, and XSS theft impact must be reduced.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Prevent JavaScript credential reads while using browser-managed request attachment."],
@@ -106,7 +100,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "state_management",
     conceptId: "concept_front_state_ownership",
-    sourceId: webSourceId,
     scenario: "A product page has an open accordion, authenticated user preferences shared across routes, and inventory fetched from an API that requires caching and revalidation.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Place state according to ownership, lifetime, and source of truth."],
@@ -127,7 +120,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "state_management",
     conceptId: "concept_front_async_race",
-    sourceId: webSourceId,
     scenario: "A search fires for each query. The request for `cat` takes 600 ms, the later request for `caterpillar` takes 100 ms, and the UI currently renders whichever response finishes last.",
     caseType: "debugging_performance",
     decisionCriteria: ["Only the response associated with the current query may update visible results."],
@@ -148,7 +140,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "accessibility",
     conceptId: "concept_front_semantic_button",
-    sourceId: webSourceId,
     scenario: "A clickable card action opens a dialog. It must be focusable, activate with Enter and Space, and expose a button role without custom keyboard reimplementation.",
     caseType: "basic_application",
     decisionCriteria: ["Use the native semantic element whose built-in behavior matches the action."],
@@ -169,7 +160,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "accessibility",
     conceptId: "concept_front_form_error_association",
-    sourceId: webSourceId,
     scenario: "After submit, the email field has an inline error. A screen reader must announce the invalid state and let the user navigate from the input to the exact error text.",
     caseType: "common_failure",
     decisionCriteria: ["Programmatically associate the input with persistent error text and mark its invalid state."],
@@ -190,7 +180,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "typescript",
     conceptId: "concept_front_exhaustive_union",
-    sourceId: tsSourceId,
     scenario: "A reducer handles every PaymentState variant. Adding a new variant must cause a compile error until the rendering branch is implemented.",
     artifacts: [{
       kind: "code",
@@ -217,7 +206,6 @@ export const frontendQuestions: ReviewedQuestion[] = [
     categoryId: "frontend",
     subtopicId: "browsers",
     conceptId: "concept_front_cross_platform_tokens",
-    sourceId: webSourceId,
     scenario: "Two brands ship Web, iOS, and Android clients. Each client supports light and dark mode, while semantic roles such as surface-danger must stay consistent despite platform-specific output formats.",
     artifacts: [{
       kind: "schema",

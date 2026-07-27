@@ -32,19 +32,33 @@ X_PUBLIC_POST_CACHE_TTL_SECONDS=86400
 
 Do not place OAuth codes, MCP access tokens, database credentials, Gemini keys, or Cloudflare credentials in this repository or in command history.
 
-## Build and migrate
+## Build, back up, migrate, and seed
 
 ```bash
 cd /Users/yosukemini/work/skill-compass
 /Users/yosukemini/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm install --frozen-lockfile
 /Users/yosukemini/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm build
+```
+
+Before running the migrator in production, create and verify a restorable
+database backup using the database provider's approved procedure. This backup
+is mandatory before `0012_mcp_oauth.sql`, `0013_mcp_refresh_tokens.sql`,
+`0014_x_post_cache.sql`, `0015_x_daily_tech_digest_cache.sql`, and
+`0016_practical_user_scoped_today.sql`. Do not continue when the backup is
+missing or its restore check fails.
+
+After the verified backup:
+
+```bash
+cd /Users/yosukemini/work/skill-compass
 /Users/yosukemini/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm db:migrate
+/Users/yosukemini/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm db:seed
 mkdir -p /Users/yosukemini/Library/Logs/skill-compass
 ```
 
-Back up the database before applying `0012_mcp_oauth.sql`,
-`0013_mcp_refresh_tokens.sql`, `0014_x_post_cache.sql`, or
-`0015_x_daily_tech_digest_cache.sql` in production.
+The seed step is idempotent. It publishes the reviewed 70-question bank,
+learner-safe Concept synopses, and per-subtopic authoritative references
+without resetting user answers, scores, self-assessments, or history.
 
 ## Verify the origin manually
 

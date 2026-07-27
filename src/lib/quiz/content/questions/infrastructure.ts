@@ -1,7 +1,6 @@
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { defineChoices, defineQuestion } from "@/lib/quiz/content/questions/helpers";
 
-const sourceId = "source_sre_operations";
 
 export const infrastructureQuestions: ReviewedQuestion[] = [
   defineQuestion({
@@ -9,7 +8,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "cloud",
     conceptId: "concept_infra_managed_service",
-    sourceId,
     scenario: "A four-person team needs PostgreSQL with automated backups, point-in-time recovery, patching, and on-call coverage. The database is standard and provider lock-in is acceptable.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Minimize undifferentiated operations while meeting backup and recovery needs."],
@@ -30,7 +28,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "cloud",
     conceptId: "concept_infra_rto_rpo",
-    sourceId,
     scenario: "Checkout requires an RTO of 10 minutes after a regional outage and an RPO under one minute. Restoring a daily backup in another region takes four hours.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Provide cross-region recovery within both the ten-minute time and one-minute data-loss limits."],
@@ -51,7 +48,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "containers",
     conceptId: "concept_infra_reproducible_image",
-    sourceId,
     scenario: "A Node image rebuild downloads floating dependency versions and copies the entire repository before install, so unrelated README edits invalidate a 1 GB dependency layer.",
     artifacts: [{
       kind: "config",
@@ -78,7 +74,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "containers",
     conceptId: "concept_infra_oom_limit",
-    sourceId,
     scenario: "A container restarts with exit code 137. Metrics show memory climbs to its 512 MiB cgroup limit while node memory remains available; CPU and liveness latency are normal.",
     caseType: "debugging_performance",
     decisionCriteria: ["Diagnose the container-level memory termination from the limit and usage evidence."],
@@ -99,7 +94,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "ci_cd",
     conceptId: "concept_infra_artifact_promotion",
-    sourceId,
     scenario: "Staging and production currently rebuild the same commit separately. A registry mirror changed between builds, so production received bytes that never passed staging tests.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Promote the exact tested immutable artifact rather than reproducing it."],
@@ -120,7 +114,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "ci_cd",
     conceptId: "concept_infra_expand_contract",
-    sourceId,
     scenario: "A zero-downtime deployment will rename users.full_name while old and new application versions run together for 30 minutes. The table has 80 million rows.",
     caseType: "basic_application",
     decisionCriteria: ["Keep both versions compatible and avoid one long blocking rewrite."],
@@ -141,7 +134,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "observability",
     conceptId: "concept_infra_signal_selection",
-    sourceId,
     scenario: "A checkout request is slow only when it calls inventory and payment across six services. The team needs to locate which hop consumed the latency for one request.",
     caseType: "common_failure",
     decisionCriteria: ["Correlate timing across service boundaries for an individual request."],
@@ -162,7 +154,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "observability",
     conceptId: "concept_infra_metric_cardinality",
-    sourceId,
     scenario: "A counter labels every sample with user_id and request_id. The metrics backend now stores 30 million active series and query latency has collapsed.",
     caseType: "debugging_performance",
     decisionCriteria: ["Keep metric dimensions bounded while preserving per-request detail in a suitable signal."],
@@ -183,7 +174,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "cloud",
     conceptId: "concept_infra_reverse_proxy",
-    sourceId,
     scenario: "Public HTTPS requests for api.example.com must terminate TLS at one edge, route /billing and /catalog to separate private upstream pools, and load balance healthy instances.",
     artifacts: [{
       kind: "config",
@@ -210,7 +200,6 @@ export const infrastructureQuestions: ReviewedQuestion[] = [
     categoryId: "infrastructure",
     subtopicId: "observability",
     conceptId: "concept_infra_slo_burn_alert",
-    sourceId,
     scenario: "CPU crosses 80% during healthy batch work and pages weekly, but users care about 99.9% monthly request success. A recent low-CPU dependency outage exhausted half the error budget unnoticed.",
     caseType: "common_failure",
     decisionCriteria: ["Page on sustained user-impact risk relative to the service error budget."],

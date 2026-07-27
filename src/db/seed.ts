@@ -1,6 +1,10 @@
 import { db } from "@/db/client";
+import {
+  buildConceptSeedRows,
+  learningSourceRows,
+} from "@/db/learning-seed-data";
 import { createQuestionSeedPlan, toQuestionUpdate } from "@/db/seed-question-bank";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   categories,
   conceptSources,
@@ -36,92 +40,12 @@ const tagRows = learningCatalog.flatMap((category) =>
   })),
 );
 
-const conceptRows = reviewedQuestionBank.map((question) => ({
-  id: question.conceptId,
-  title: question.prompt,
-  summary: question.scenario,
-  currentUnderstanding: question.rationale,
-}));
+const conceptRows = buildConceptSeedRows(reviewedQuestionBank);
 
 const conceptTagRows = reviewedQuestionBank.map((question) => ({
   conceptId: question.conceptId,
   tagId: tagId(question.categoryId, question.subtopicId),
 }));
-
-const sourceRows = [
-  {
-    id: "source_engineering_fundamentals",
-    title: "Engineering fundamentals references",
-    url: "https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_typescript_handbook",
-    title: "TypeScript Handbook",
-    url: "https://www.typescriptlang.org/docs/handbook/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_mdndocs_web",
-    title: "MDN Web Docs",
-    url: "https://developer.mozilla.org/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_mysql_docs",
-    title: "MySQL Documentation",
-    url: "https://dev.mysql.com/doc/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_sre_operations",
-    title: "Google Site Reliability Engineering",
-    url: "https://sre.google/sre-book/table-of-contents/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_owasp_guidance",
-    title: "OWASP Cheat Sheet Series",
-    url: "https://cheatsheetseries.owasp.org/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_distributed_systems",
-    title: "Amazon Builders' Library",
-    url: "https://aws.amazon.com/builders-library/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_ai_engineering",
-    title: "OpenAI API guides",
-    url: "https://platform.openai.com/docs/guides",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-  {
-    id: "source_model_context_protocol_docs",
-    title: "Model Context Protocol Documentation",
-    url: "https://modelcontextprotocol.io/",
-    trustTier: "tier1" as const,
-    official: true,
-    status: "active" as const,
-  },
-];
 
 const conceptSourceRows = reviewedQuestionBank.map((question) => ({
   conceptId: question.conceptId,
@@ -202,7 +126,7 @@ async function seedLearningCatalog() {
       });
   }
 
-  for (const source of sourceRows) {
+  for (const source of learningSourceRows) {
     await db
       .insert(sources)
       .values(source)
@@ -217,6 +141,9 @@ async function seedLearningCatalog() {
       });
   }
 
+  await db
+    .delete(conceptSources)
+    .where(inArray(conceptSources.conceptId, conceptRows.map((concept) => concept.id)));
   await db.insert(conceptTags).ignore().values(conceptTagRows);
   await db.insert(conceptSources).ignore().values(conceptSourceRows);
 }

@@ -168,6 +168,45 @@ describe("selectDailyQuiz", () => {
     expect(selected.map((item) => item.question.id)).toContain("q9");
   });
 
+  it("fills all five slots from recent active fallback after using every partial fresh candidate", () => {
+    const input = selectionInput({
+      recentlyAssignedQuestionIds: Array.from({ length: 20 }, (_, index) => `q${index}`)
+        .filter((id) => id !== "q0" && id !== "q1"),
+      recentlyAnsweredQuestionIds: [],
+      dueQuestionIds: [],
+    });
+
+    const selected = selectDailyQuiz(input);
+
+    expect(selected).toHaveLength(5);
+    expect(selected.map((item) => item.question.id)).toEqual(
+      expect.arrayContaining(["q0", "q1"]),
+    );
+    expect(new Set(selected.map((item) => item.question.caseType)).size).toBeGreaterThanOrEqual(4);
+    expect(maxCount(selected.map((item) => item.question.categoryId))).toBeLessThanOrEqual(2);
+    expect(maxCount(selected.map((item) => item.question.correctChoiceId))).toBeLessThanOrEqual(2);
+    expect(selectDailyQuiz(input)).toEqual(selected);
+  });
+
+  it("reserves partial fresh candidates inside the bounded pool before recent fallback", () => {
+    const questions = Array.from({ length: 70 }, (_, index) => makeQuestion(index));
+    const freshIds = ["q68", "q69"];
+    const input = selectionInput({
+      questions,
+      weakConceptIds: questions.slice(0, 40).map((question) => question.conceptId),
+      recentlyAssignedQuestionIds: questions
+        .map((question) => question.id)
+        .filter((id) => !freshIds.includes(id)),
+      recentlyAnsweredQuestionIds: [],
+      dueQuestionIds: [],
+    });
+
+    const selectedIds = selectDailyQuiz(input).map((item) => item.question.id);
+
+    expect(selectedIds).toHaveLength(5);
+    expect(selectedIds).toEqual(expect.arrayContaining(freshIds));
+  });
+
   it("returns a balanced set from a large bank within the bounded search budget", { timeout: 1_000 }, () => {
     const selected = selectDailyQuiz(
       selectionInput({

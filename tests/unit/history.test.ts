@@ -53,6 +53,17 @@ const rows = {
       feedback: "Other user's feedback.",
       answeredAt: "2026-07-10T13:00:00.000Z",
     },
+    {
+      userId: "user_a",
+      quizDayId: "quiz_2026-07-10",
+      questionId: "q_pending",
+      selectedChoiceId: "a",
+      confidence: 1,
+      reasoning: "Pending retry reasoning must stay out of history.",
+      correct: null,
+      feedback: null,
+      answeredAt: "2026-07-10T14:00:00.000Z",
+    },
   ],
   questions: [
     {
@@ -85,12 +96,19 @@ const rows = {
       prompt: "Other user's private question?",
       choices: [{ id: "a", label: "Private answer.", correct: true }],
     },
+    {
+      id: "q_pending",
+      conceptId: "concept_pending",
+      prompt: "Pending retry question?",
+      choices: [{ id: "a", label: "Pending retry answer.", correct: true }],
+    },
   ],
   concepts: [
     { id: "concept_index", title: "index design" },
     { id: "concept_proxy", title: "reverse proxy" },
     { id: "concept_token", title: "design token" },
     { id: "concept_other", title: "other private concept" },
+    { id: "concept_pending", title: "pending retry concept" },
   ],
 };
 
@@ -172,6 +190,7 @@ describe("buildHistorySearchResults", () => {
     ]);
     expect(buildHistorySearchResults(rows, "reverse proxy")).toHaveLength(1);
     expect(buildHistorySearchResults(rows, "other user")).toEqual([]);
+    expect(buildHistorySearchResults(rows, "pending retry")).toEqual([]);
     expect(buildHistorySearchResults(rows, "missing term")).toEqual([]);
   });
 });

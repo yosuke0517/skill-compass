@@ -84,6 +84,27 @@ describe("selectAdditionalQuizQuestions", () => {
     expect(selected.every((item) => item.reason === "fallback")).toBe(true);
   });
 
+  it("fills the requested batch from recent active fallback when only two candidates are fresh", () => {
+    const input = {
+      questions,
+      preparedQuestionIds: ["q1", "q2", "q3", "q4", "q5"],
+      recentlyAssignedQuestionIds: questions
+        .slice(7)
+        .map((question) => question.id),
+      currentTotal: 5,
+      maxTotal: 30,
+      addCount: 5,
+    };
+
+    const selected = selectAdditionalQuizQuestions(input);
+
+    expect(selected).toHaveLength(5);
+    expect(selected.map((item) => item.question.id)).toEqual(
+      expect.arrayContaining(["q6", "q7"]),
+    );
+    expect(selectAdditionalQuizQuestions(input)).toEqual(selected);
+  });
+
   it("does not add more questions after the daily limit", () => {
     const selected = selectAdditionalQuizQuestions({
       questions,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { learningCatalog } from "@/lib/quiz/content/catalog";
+import { getLearningSource } from "@/lib/quiz/content/learning-sources";
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { validateQuestionBank } from "@/lib/quiz/content/validate-question-bank";
 
@@ -27,7 +28,7 @@ function createValidBank(): ReviewedQuestion[] {
         categoryId: category.id,
         subtopicId: subtopic.id,
         conceptId: `concept_${category.id}_${subtopic.id}`,
-        sourceId: `source_${category.id}`,
+        sourceId: getLearningSource(category.id, subtopic.id).id,
         scenario: `A production ${subtopic.id} case has constraint ${index + 1}.`,
         artifacts: isTypeScript
           ? [{
@@ -105,6 +106,7 @@ describe("reviewed question-bank validator", () => {
       (questions, questionId) => replaceQuestion(questions, questionId, (question) => ({
         ...question,
         subtopicId: "data_structures",
+        sourceId: getLearningSource("cs_foundations", "data_structures").id,
       })),
       createValidBank(),
     );
@@ -119,6 +121,15 @@ describe("reviewed question-bank validator", () => {
     }));
 
     expect(() => validateQuestionBank(bank)).toThrow("question_rationale_not_grounded");
+  });
+
+  it("rejects a broad source that is not the reviewed source for the question subtopic", () => {
+    const bank = replaceQuestion(createValidBank(), "q_cs_foundations_01", (question) => ({
+      ...question,
+      sourceId: "source_engineering_fundamentals",
+    }));
+
+    expect(() => validateQuestionBank(bank)).toThrow("question_source_mapping");
   });
 
   it("accepts a rationale that grounds an otherwise generic opening in a case condition", () => {

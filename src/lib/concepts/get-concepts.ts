@@ -1,6 +1,7 @@
 import { answers, conceptSources, concepts, conceptTags, questions, scores, tags } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { localDateKey } from "@/lib/datetime/local-date";
+import { learningSources } from "@/lib/quiz/content/learning-sources";
 
 type ConceptRow = {
   id: string;
@@ -9,7 +10,7 @@ type ConceptRow = {
   currentUnderstanding: string | null;
 };
 
-type TagRow = { id: string; name: string };
+type TagRow = { id: string; name: string; categoryId?: string };
 type ConceptTagRow = { conceptId: string; tagId: string };
 type ConceptSourceRow = { conceptId: string; sourceId: string };
 type ScoreRow = {
@@ -73,7 +74,7 @@ export async function getConceptsData(userId: string): Promise<ConceptsData> {
 export function buildConceptsData(input: BuildConceptsInput): ConceptsData {
   const scoresForUser = input.scores.filter((score) => score.userId === input.userId);
   const answersForUser = input.answers.filter((answer) => answer.userId === input.userId);
-  const tagById = new Map(input.tags.map((tag) => [tag.id, tag.name]));
+  const tagById = new Map(input.tags.map((tag) => [tag.id, tag]));
   const scoreBySubject = new Map(
     scoresForUser.map((score) => [`${score.subjectType}:${score.subjectId}`, score.value]),
   );
@@ -91,10 +92,12 @@ export function buildConceptsData(input: BuildConceptsInput): ConceptsData {
           conceptId: concept.id,
           title: concept.title,
           summary: concept.summary,
-          currentUnderstanding: concept.currentUnderstanding,
+          currentUnderstanding:
+            learnerSafeSynopsis(concept.id, input.conceptTags, tagById)
+            ?? concept.currentUnderstanding,
           tags: input.conceptTags
             .filter((link) => link.conceptId === concept.id)
-            .map((link) => tagById.get(link.tagId))
+            .map((link) => tagById.get(link.tagId)?.name)
             .filter((name): name is string => Boolean(name)),
           score: round(scoreBySubject.get(`concept:${concept.id}`) ?? 0),
           sourceCount: input.conceptSources.filter((link) => link.conceptId === concept.id).length,
@@ -103,6 +106,25 @@ export function buildConceptsData(input: BuildConceptsInput): ConceptsData {
       })
       .sort((left, right) => left.score - right.score || left.title.localeCompare(right.title)),
   };
+}
+
+function learnerSafeSynopsis(
+  conceptId: string,
+  conceptTagRows: ConceptTagRow[],
+  tagById: Map<string, TagRow>,
+): string | undefined {
+  for (const link of conceptTagRows) {
+    if (link.conceptId !== conceptId) continue;
+    const tag = tagById.get(link.tagId);
+    if (!tag?.categoryId) continue;
+    const source = learningSources.find(
+      (candidate) =>
+        candidate.categoryId === tag.categoryId
+        && link.tagId === `tag_${candidate.categoryId}_${candidate.subtopicId}`,
+    );
+    if (source) return source.conceptSynopsis;
+  }
+  return undefined;
 }
 
 function toDateKey(value: string | Date | null): string {

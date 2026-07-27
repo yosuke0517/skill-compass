@@ -1,7 +1,6 @@
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { defineChoices, defineQuestion } from "@/lib/quiz/content/questions/helpers";
 
-const sourceId = "source_distributed_systems";
 
 export const softwareDesignQuestions: ReviewedQuestion[] = [
   defineQuestion({
@@ -9,7 +8,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "distributed_systems",
     conceptId: "concept_design_inventory_consistency",
-    sourceId,
     scenario: "A flash sale has one physical item left. Payment authorization may proceed only for one buyer; showing stale browse counts for two seconds is acceptable, but overselling is not.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Serialize the final stock reservation while allowing weaker consistency for browse-only displays."],
@@ -30,7 +28,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "distributed_systems",
     conceptId: "concept_design_event_idempotency",
-    sourceId,
     scenario: "An at-least-once order_created event can be delivered again after consumer restart. The fulfillment service must create exactly one shipment per order.",
     caseType: "common_failure",
     decisionCriteria: ["Make duplicate delivery converge on one durable shipment effect."],
@@ -51,7 +48,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "distributed_systems",
     conceptId: "concept_design_circuit_breaker",
-    sourceId,
     scenario: "A recommendation dependency is timing out for 20 seconds. Checkout does not require recommendations, but 200 request threads are waiting and retries are amplifying load.",
     caseType: "common_failure",
     decisionCriteria: ["Protect checkout capacity, bound waiting, and recover the optional feature cautiously."],
@@ -72,7 +68,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "maintainability",
     conceptId: "concept_design_provider_boundary",
-    sourceId,
     scenario: "Business code imports VendorMail SDK types in 40 files. A contract requires switching providers in three months without changing notification policies or tests.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Keep provider-specific APIs at one adapter boundary owned by the application."],
@@ -93,7 +88,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "maintainability",
     conceptId: "concept_design_schema_ownership",
-    sourceId,
     scenario: "Billing reads columns directly from Orders' private database. Orders needs to split address fields, but five Billing queries and deployments must change in lockstep.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Let Orders evolve storage independently while publishing a stable consumer contract."],
@@ -114,7 +108,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "maintainability",
     conceptId: "concept_design_rule_of_three",
-    sourceId,
     scenario: "One checkout flow has a 12-line tax calculation. No second caller exists, tax rules are still changing weekly, and the proposed generic rule engine would add four abstractions.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Avoid speculative abstraction until stable variation and reuse are observed."],
@@ -135,7 +128,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "tradeoffs",
     conceptId: "concept_design_read_model",
-    sourceId,
     scenario: "Orders must remain transactionally normalized for updates. A dashboard joins eight tables for every refresh, tolerates 60 seconds of staleness, and consumes most database CPU.",
     caseType: "debugging_performance",
     decisionCriteria: ["Preserve normalized write invariants while optimizing a stale-tolerant read path."],
@@ -156,7 +148,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "tradeoffs",
     conceptId: "concept_design_sync_vs_queue",
-    sourceId,
     scenario: "An internal thumbnail request takes 80 ms, callers need the thumbnail URL before continuing, volume is 20 per minute, and failure should be shown immediately rather than retried later.",
     caseType: "basic_application",
     decisionCriteria: ["Prefer simple synchronous control flow when latency, volume, and immediate failure semantics permit it."],
@@ -177,7 +168,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "distributed_systems",
     conceptId: "concept_design_transactional_outbox",
-    sourceId,
     scenario: "Creating an invoice commits to MySQL, then publishes invoice_created to a broker. A crash between the two operations leaves a committed invoice that downstream accounting never sees.",
     caseType: "debugging_performance",
     decisionCriteria: ["Atomically record business state and publication intent without requiring a distributed transaction."],
@@ -198,7 +188,6 @@ export const softwareDesignQuestions: ReviewedQuestion[] = [
     categoryId: "software_design",
     subtopicId: "tradeoffs",
     conceptId: "concept_design_modular_monolith",
-    sourceId,
     scenario: "Eight engineers own one product, deploy weekly as one unit, and have no independent scaling needs. The codebase has tangled modules, but the team can run one reliable deployment pipeline.",
     caseType: "basic_application",
     decisionCriteria: ["Improve ownership boundaries without adding distributed operations unsupported by team or scaling constraints."],

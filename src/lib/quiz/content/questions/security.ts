@@ -1,7 +1,6 @@
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { defineChoices, defineQuestion } from "@/lib/quiz/content/questions/helpers";
 
-const sourceId = "source_owasp_guidance";
 
 export const securityQuestions: ReviewedQuestion[] = [
   defineQuestion({
@@ -9,7 +8,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "authorization",
     conceptId: "concept_sec_object_authorization",
-    sourceId,
     scenario: "GET /api/orders/:id authenticates the caller, then loads any order by numeric ID. A normal user changed 481 to 482 and viewed another customer's order.",
     caseType: "common_failure",
     decisionCriteria: ["Authorize every requested object against the caller or tenant, independent of ID predictability."],
@@ -30,7 +28,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "authorization",
     conceptId: "concept_sec_role_and_ownership",
-    sourceId,
     scenario: "Editors may modify only documents in their assigned workspace; admins may modify any workspace. The current check allows every user with role=editor to edit any document.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Combine coarse role capability with resource-scope authorization."],
@@ -51,7 +48,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "vulnerabilities",
     conceptId: "concept_sec_parameterized_sql",
-    sourceId,
     scenario: "A login lookup concatenates the submitted email into SQL. Inputs may contain quotes and SQL metacharacters, and the query structure must never change with input.",
     artifacts: [{
       kind: "sql",
@@ -78,7 +74,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "vulnerabilities",
     conceptId: "concept_sec_contextual_encoding",
-    sourceId,
     scenario: "A comment containing `<img src=x onerror=alert(1)>` is stored legitimately, then inserted into a page's HTML body. Users must see the literal text, not execute markup.",
     caseType: "basic_application",
     decisionCriteria: ["Encode untrusted text for the exact HTML output context at render time."],
@@ -99,7 +94,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "secret_handling",
     conceptId: "concept_sec_external_secret",
-    sourceId,
     scenario: "A production database password is committed in app.config.ts and copied into container images. Different environments need separate credentials and repository readers must not obtain them.",
     caseType: "debugging_performance",
     decisionCriteria: ["Remove secret material from source and image layers; inject scoped values at runtime."],
@@ -120,7 +114,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "secret_handling",
     conceptId: "concept_sec_zero_downtime_rotation",
-    sourceId,
     scenario: "A payment API credential used by 30 instances expires Friday. The provider supports two active keys, and requests must continue during a rolling deployment.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Create an overlap window so old and new instances authenticate throughout rollout."],
@@ -141,7 +134,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "supply_chain",
     conceptId: "concept_sec_dependency_provenance",
-    sourceId,
     scenario: "CI resolves floating dependency ranges and downloads unsigned packages from whichever mirror responds. Releases must be reproducible and tied to reviewed package versions and provenance.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Pin the resolved dependency graph and verify artifact origin/integrity in CI."],
@@ -162,7 +154,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "supply_chain",
     conceptId: "concept_sec_compromised_package_response",
-    sourceId,
     scenario: "A dependency maintainer reports that version 4.2.1 exfiltrates environment variables during install. CI used that version yesterday to build production, and the build had registry and deployment credentials.",
     caseType: "debugging_performance",
     decisionCriteria: ["Contain credential abuse, identify affected artifacts, eradicate the package, and recover from trusted inputs."],
@@ -183,7 +174,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "vulnerabilities",
     conceptId: "concept_sec_csrf_cookie_session",
-    sourceId,
     scenario: "A browser automatically sends the session cookie to POST /transfer. An attacker can cause a logged-in browser to submit a cross-site form, but cannot read same-origin responses.",
     caseType: "common_failure",
     decisionCriteria: ["Require proof that a state-changing request originated from the trusted site, not merely possession of an automatic cookie."],
@@ -204,7 +194,6 @@ export const securityQuestions: ReviewedQuestion[] = [
     categoryId: "security",
     subtopicId: "authorization",
     conceptId: "concept_sec_service_least_privilege",
-    sourceId,
     scenario: "A report service only SELECTs analytics views but uses the same database credential as migrations, which can DROP tables and access customer secrets.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Grant only the operations and data scope required by the report runtime."],

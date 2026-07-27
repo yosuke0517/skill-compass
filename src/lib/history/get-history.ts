@@ -123,7 +123,7 @@ export async function getHistoryArchive(
 
 export function buildHistorySearchResults(input: HistoryBuildInput, query: string): HistorySearchResult[] {
   const quizDaysForUser = input.quizDays.filter((quizDay) => quizDay.userId === input.userId);
-  const answersForUser = input.answers.filter((answer) => answer.userId === input.userId);
+  const answersForUser = finalizedAnswersForUser(input);
   const quizDayById = new Map(quizDaysForUser.map((quizDay) => [quizDay.id, quizDay]));
   const questionById = new Map(input.questions.map((question) => [question.id, question]));
   const conceptById = new Map(input.concepts.map((concept) => [concept.id, concept]));
@@ -153,7 +153,7 @@ export function buildHistoryArchive(input: HistoryBuildInput): HistoryArchiveDat
   const quizDayById = new Map(quizDaysForUser.map((quizDay) => [quizDay.id, quizDay]));
   const daySummaries = new Map<string, { answered: number; correct: number }>();
 
-  for (const answer of input.answers.filter((item) => item.userId === input.userId)) {
+  for (const answer of finalizedAnswersForUser(input)) {
     const quizDay = quizDayById.get(answer.quizDayId);
     const day = quizDay ? toDateKey(quizDay.quizDate) : toDateKey(answer.answeredAt);
     const current = daySummaries.get(day) ?? { answered: 0, correct: 0 };
@@ -225,6 +225,7 @@ export function buildHistoryDay(input: HistoryBuildInput, day: string): HistoryD
     .filter(
       (answer) =>
         answer.userId === input.userId &&
+        answer.correct !== null &&
         (quizDayIds.has(answer.quizDayId) || toDateKey(answer.answeredAt) === day),
     )
     .sort((left, right) => toDateKey(left.answeredAt).localeCompare(toDateKey(right.answeredAt)));
@@ -255,6 +256,12 @@ export function buildHistoryDay(input: HistoryBuildInput, day: string): HistoryD
     accuracy: calculateAccuracy(correct, details.length),
     answers: details,
   };
+}
+
+function finalizedAnswersForUser(input: HistoryBuildInput): HistoryBuildInput["answers"] {
+  return input.answers.filter(
+    (answer) => answer.userId === input.userId && answer.correct !== null,
+  );
 }
 
 function toDateKey(value: string | Date): string {

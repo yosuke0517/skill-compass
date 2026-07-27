@@ -16,7 +16,7 @@ describe("buildDashboardData", () => {
         },
       ],
       quizDayQuestions: [
-        { quizDayId: "quiz_local_day", questionId: "q1" },
+        { quizDayId: "quiz_local_day", questionId: "q1", active: true },
       ],
       answers: [
         {
@@ -51,9 +51,9 @@ describe("buildDashboardData", () => {
         { id: "quiz_user_b_2026-07-08", userId: "user_b", quizDate: "2026-07-08" },
       ],
       quizDayQuestions: [
-        { quizDayId: "quiz_2026-07-08", questionId: "q1" },
-        { quizDayId: "quiz_2026-07-08", questionId: "q2" },
-        { quizDayId: "quiz_user_b_2026-07-08", questionId: "q_other" },
+        { quizDayId: "quiz_2026-07-08", questionId: "q1", active: true },
+        { quizDayId: "quiz_2026-07-08", questionId: "q2", active: true },
+        { quizDayId: "quiz_user_b_2026-07-08", questionId: "q_other", active: true },
       ],
       answers: [
         { userId: "user_a", quizDayId: "quiz_2026-07-08", questionId: "q1", correct: true, answeredAt: "2026-07-08T09:00:00.000Z" },
@@ -100,5 +100,79 @@ describe("buildDashboardData", () => {
       { id: "weekly-review", label: "Weekly review", href: "/settings#weekly-review" },
       { id: "monthly-map", label: "Monthly map", href: "/skills#monthly-map" },
     ]);
+  });
+
+  it("counts only active assignments and finalized answers in Today progress and streaks", () => {
+    const dashboard = buildDashboardData({
+      userId: "user_a",
+      today: "2026-07-08",
+      categories: [],
+      quizDays: [{ id: "quiz_today", userId: "user_a", quizDate: "2026-07-08" }],
+      quizDayQuestions: [
+        { quizDayId: "quiz_today", questionId: "q_active_done", active: true },
+        { quizDayId: "quiz_today", questionId: "q_active_pending", active: true },
+        { quizDayId: "quiz_today", questionId: "q_legacy_done", active: false },
+      ],
+      answers: [
+        {
+          userId: "user_a",
+          quizDayId: "quiz_today",
+          questionId: "q_active_done",
+          correct: true,
+          answeredAt: "2026-07-08T09:00:00.000Z",
+        },
+        {
+          userId: "user_a",
+          quizDayId: "quiz_today",
+          questionId: "q_active_pending",
+          correct: null,
+          answeredAt: "2026-07-08T09:01:00.000Z",
+        },
+        {
+          userId: "user_a",
+          quizDayId: "quiz_today",
+          questionId: "q_legacy_done",
+          correct: true,
+          answeredAt: "2026-07-08T09:02:00.000Z",
+        },
+      ],
+      concepts: [],
+      tags: [],
+      scores: [],
+      selfAssessments: [],
+    });
+
+    expect(dashboard.todayQuiz).toEqual({ answered: 1, total: 2 });
+    expect(dashboard.streakDays).toBe(1);
+    expect(dashboard.weeklyAccuracy).toBe(1);
+  });
+
+  it("does not turn an unfinalized retry row into a streak day", () => {
+    const dashboard = buildDashboardData({
+      userId: "user_a",
+      today: "2026-07-08",
+      categories: [],
+      quizDays: [{ id: "quiz_today", userId: "user_a", quizDate: "2026-07-08" }],
+      quizDayQuestions: [
+        { quizDayId: "quiz_today", questionId: "q_pending", active: true },
+      ],
+      answers: [
+        {
+          userId: "user_a",
+          quizDayId: "quiz_today",
+          questionId: "q_pending",
+          correct: null,
+          answeredAt: "2026-07-08T09:00:00.000Z",
+        },
+      ],
+      concepts: [],
+      tags: [],
+      scores: [],
+      selfAssessments: [],
+    });
+
+    expect(dashboard.todayQuiz).toEqual({ answered: 0, total: 1 });
+    expect(dashboard.streakDays).toBe(0);
+    expect(dashboard.weeklyAccuracy).toBe(0);
   });
 });

@@ -2,6 +2,7 @@ import ts from "typescript";
 
 import { difficultyValues, questionCaseTypeValues } from "@/db/schema";
 import { learningCatalog } from "@/lib/quiz/content/catalog";
+import { getLearningSource } from "@/lib/quiz/content/learning-sources";
 import type { LearningCategory, QuestionArtifact, ReviewedQuestion } from "@/lib/quiz/content/types";
 
 const expectedChoiceIds = ["a", "b", "c", "d"];
@@ -48,6 +49,10 @@ export function validateQuestionBank(questions: ReviewedQuestion[]): void {
 
     assertNonEmpty(question.conceptId, "question_concept");
     assertNonEmpty(question.sourceId, "question_source");
+    assert(
+      question.sourceId === getLearningSource(question.categoryId, question.subtopicId).id,
+      "question_source_mapping",
+    );
     assertNonEmpty(question.scenario, "question_scenario");
     assertNonEmpty(question.prompt, "question_prompt");
     assertNonEmpty(question.rationale, "question_rationale");

@@ -1,7 +1,6 @@
 import type { ReviewedQuestion } from "@/lib/quiz/content/types";
 import { defineChoices, defineQuestion } from "@/lib/quiz/content/questions/helpers";
 
-const sourceId = "source_engineering_fundamentals";
 
 export const csFoundationsQuestions: ReviewedQuestion[] = [
   defineQuestion({
@@ -9,7 +8,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "data_structures",
     conceptId: "concept_cs_fifo_job_queue",
-    sourceId,
     scenario: "A worker must process accepted jobs in arrival order. Jobs are appended continuously, and undo is not required.",
     caseType: "basic_application",
     decisionCriteria: ["Preserve first-in, first-out processing with constant-time insertion and removal."],
@@ -30,7 +28,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "data_structures",
     conceptId: "concept_cs_membership_lookup",
-    sourceId,
     scenario: "A service checks 200,000 opaque user IDs for membership 50,000 times per second. It has enough memory for an additional hash table, and iteration order is irrelevant.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Prioritize average lookup latency; accept extra memory and hash maintenance."],
@@ -51,7 +48,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "algorithms",
     conceptId: "concept_cs_complexity_growth",
-    sourceId,
     scenario: "A nightly task will grow from 10,000 to 10,000,000 records. It must complete within one hour, so an implementation whose work scales linearly or near-linearly is required.",
     caseType: "basic_application",
     decisionCriteria: ["Choose the smallest growth rate that still solves the task under a thousand-fold input increase."],
@@ -72,7 +68,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "algorithms",
     conceptId: "concept_cs_accidental_quadratic",
-    sourceId,
     scenario: "Importing n rows loops over every row and calls existingIds.includes(id) on an n-item array. Profiling shows the includes calls dominate at 100,000 rows.",
     artifacts: [{
       kind: "code",
@@ -99,7 +94,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "operating_systems",
     conceptId: "concept_cs_io_concurrency",
-    sourceId,
     scenario: "A Node.js endpoint waits on 40 independent network calls averaging 200 ms each. CPU usage is below 10%, and responses can be combined only after all calls finish.",
     caseType: "design_tradeoff",
     decisionCriteria: ["Overlap blocking I/O without introducing CPU worker overhead."],
@@ -120,7 +114,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "operating_systems",
     conceptId: "concept_cs_process_isolation",
-    sourceId,
     scenario: "Four worker processes increment a normal in-memory counter, but the dashboard shows different totals per worker after restarts. The total must be consistent across processes and survive crashes.",
     caseType: "common_failure",
     decisionCriteria: ["Use shared durable state with atomic increments across isolated processes."],
@@ -141,7 +134,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "networking",
     conceptId: "concept_cs_retry_packet_loss",
-    sourceId,
     scenario: "A read-only RPC occasionally times out during 1% packet loss. The service has a 900 ms deadline, typical latency is 80 ms, and simultaneous immediate retries have overloaded the upstream before.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Retry only within the deadline, avoid synchronized retry bursts, and keep the operation safe to repeat."],
@@ -162,7 +154,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "networking",
     conceptId: "concept_cs_protocol_layer_diagnosis",
-    sourceId,
     scenario: "dig returns the expected IP and TCP port 443 accepts connections, but the client reports CERTIFICATE_VERIFY_FAILED before any HTTP status is logged.",
     caseType: "common_failure",
     decisionCriteria: ["Diagnose the earliest failing protocol layer using the observed evidence."],
@@ -183,7 +174,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "databases",
     conceptId: "concept_cs_orders_composite_index",
-    sourceId: "source_mysql_docs",
     scenario: "The orders table has 50 million rows across 4,000 tenants. This query is frequent; each tenant has many statuses, and the UI needs its newest 50 orders.",
     artifacts: [{
       kind: "sql",
@@ -210,7 +200,6 @@ export const csFoundationsQuestions: ReviewedQuestion[] = [
     categoryId: "cs_foundations",
     subtopicId: "databases",
     conceptId: "concept_cs_write_heavy_indexes",
-    sourceId: "source_mysql_docs",
     scenario: "An event table receives 80,000 inserts per second. Ten single-column indexes exist, but production reads use only event_id and occurred_at; storage and write latency are over budget.",
     caseType: "maintainability_safety",
     decisionCriteria: ["Retain indexes proven by read paths while reducing per-insert maintenance and storage."],
