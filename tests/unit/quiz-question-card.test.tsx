@@ -1,7 +1,8 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
+import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 vi.mock("@/app/actions/quiz", () => ({
   submitQuizAnswerAction: vi.fn(),
@@ -88,6 +89,51 @@ const answeredItem = {
     feedback: "Revisit which artifact can be validated by both teams.",
   },
 };
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((fulfill) => {
+    resolve = fulfill;
+  });
+  return { promise, resolve };
+}
+
+function publicTranslation(
+  reviewStatus: "hidden" | "missing",
+): TranslatedQuizCard {
+  return {
+    questionId: question.id,
+    scenario: "並行開発するシナリオ。",
+    artifacts: [],
+    prompt: "最初に何を合意しますか？",
+    choices: question.choices.map((choice) => ({
+      id: choice.id,
+      label: `訳: ${choice.label}`,
+    })),
+    unavailable: false,
+    reviewStatus,
+  };
+}
+
+function readyTranslation(marker: string): TranslatedQuizCard {
+  return {
+    ...publicTranslation("missing"),
+    prompt: `${marker}: 最初に何を合意しますか？`,
+    reviewStatus: "ready",
+    review: {
+      decisionCriteria: [`${marker}: 機械可読な境界。`],
+      rationale: `${marker}: API契約が必要です。`,
+      choices: question.choices.map((choice) => ({
+        id: choice.id,
+        explanation: `${marker}: ${choice.explanation}`,
+        consequence: `${marker}: ${choice.consequence}`,
+      })),
+      practicalNotes: [`${marker}: CIで検証する。`],
+      checkQuestion: `${marker}: 何からモックを生成しますか？`,
+      feedback: `${marker}: 判断条件を再確認してください。`,
+    },
+  };
+}
 
 describe("QuizQuestionCard", () => {
   it("shows the practical scenario and artifacts before the decision prompt without hidden teaching data", () => {
@@ -260,5 +306,93 @@ describe("QuizQuestionCard", () => {
       body: JSON.stringify({ questionId: question.id }),
     });
     expect(await screen.findByText("訳: 判断条件を再確認してください。")).toBeTruthy();
+  });
+
+  it("adopts answered translation props and refreshes when the same card changes from hidden to missing", async () => {
+    const refreshed = readyTranslation("回答後");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => refreshed,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={unansweredItem}
+        translation={publicTranslation("hidden")}
+      />,
+    );
+
+    rerender(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={answeredItem}
+        translation={publicTranslation("missing")}
+      />,
+    );
+
+    expect(await screen.findByText("回答後: 判断条件を再確認してください。")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a late pre-answer translation after the answered review refresh completes", async () => {
+    const preAnswerRequest = createDeferred<{
+      ok: boolean;
+      json: () => Promise<TranslatedQuizCard>;
+    }>();
+    const answeredRequest = createDeferred<{
+      ok: boolean;
+      json: () => Promise<TranslatedQuizCard>;
+    }>();
+    const staleTranslation = {
+      ...publicTranslation("hidden"),
+      prompt: "古い回答前の翻訳",
+    };
+    const refreshed = readyTranslation("最新回答後");
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(preAnswerRequest.promise)
+      .mockReturnValueOnce(answeredRequest.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={unansweredItem}
+        translation={publicTranslation("hidden")}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Translate to Japanese" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={answeredItem}
+        translation={publicTranslation("missing")}
+      />,
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      answeredRequest.resolve({
+        ok: true,
+        json: async () => refreshed,
+      });
+    });
+    expect(await screen.findByText("最新回答後: 判断条件を再確認してください。")).toBeTruthy();
+
+    await act(async () => {
+      preAnswerRequest.resolve({
+        ok: true,
+        json: async () => staleTranslation,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("古い回答前の翻訳")).toBeNull();
+      expect(screen.getByText("最新回答後: 判断条件を再確認してください。")).toBeTruthy();
+    });
   });
 });

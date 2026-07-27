@@ -1,6 +1,14 @@
 "use client";
 
-import { type RefObject, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { CheckCircle2, CircleHelp, Languages } from "lucide-react";
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
@@ -28,6 +36,26 @@ const reasonLabels: Record<string, string> = {
   fallback: "Fallback",
 };
 
+function selectCurrentTranslation(
+  localTranslation: TranslatedQuizCard | undefined,
+  propTranslation: TranslatedQuizCard | undefined,
+  answered: boolean,
+): TranslatedQuizCard | undefined {
+  if (!answered) return localTranslation ?? propTranslation;
+  if (!localTranslation) return propTranslation;
+  if (!propTranslation) return localTranslation;
+
+  const reviewRank = {
+    hidden: 0,
+    missing: 1,
+    ready: 2,
+  };
+
+  return reviewRank[propTranslation.reviewStatus] > reviewRank[localTranslation.reviewStatus]
+    ? propTranslation
+    : localTranslation;
+}
+
 export function QuizQuestionCard({
   quizDayId,
   item,
@@ -45,14 +73,37 @@ export function QuizQuestionCard({
   });
   const [isTranslating, startTranslating] = useTransition();
   const automaticReviewRefresh = useRef<string | null>(null);
-  const currentTranslation =
-    translationState.questionId === item.question.id ? translationState.value : translation;
+  const translationRequestGeneration = useRef(0);
+  const translationContext = `${item.question.id}:${item.status}`;
+  const latestTranslationContext = useRef(translationContext);
+  const localTranslation =
+    translationState.questionId === item.question.id ? translationState.value : undefined;
+  const currentTranslation = selectCurrentTranslation(
+    localTranslation,
+    translation,
+    answered,
+  );
   const translatedReview =
     currentTranslation?.reviewStatus === "ready" ? currentTranslation.review : undefined;
   const reviewTranslationMissing =
-    item.status === "answered" && currentTranslation?.reviewStatus === "missing";
+    item.status === "answered" &&
+    currentTranslation !== undefined &&
+    currentTranslation.reviewStatus !== "ready";
+
+  useLayoutEffect(() => {
+    if (latestTranslationContext.current === translationContext) return;
+
+    latestTranslationContext.current = translationContext;
+    translationRequestGeneration.current += 1;
+  }, [translationContext]);
 
   const loadTranslation = useCallback(async () => {
+    const requestGeneration = ++translationRequestGeneration.current;
+    const requestContext = `${item.question.id}:${item.status}`;
+    const isCurrentRequest = () =>
+      requestGeneration === translationRequestGeneration.current &&
+      requestContext === latestTranslationContext.current;
+
     try {
       const response = await fetch("/api/quiz/translation", {
         method: "POST",
@@ -63,8 +114,10 @@ export function QuizQuestionCard({
         throw new Error("translation request failed");
       }
       const translated = (await response.json()) as TranslatedQuizCard;
+      if (!isCurrentRequest()) return;
       setTranslationState({ questionId: item.question.id, value: translated });
     } catch {
+      if (!isCurrentRequest()) return;
       setTranslationState({
         questionId: item.question.id,
         value: {
