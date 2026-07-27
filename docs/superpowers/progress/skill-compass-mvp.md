@@ -95,6 +95,18 @@ pnpm build
 
 Docker Desktop上のlocal MySQLが正常に起動し、公開可能なstarter contentのseed適用を確認済み。
 
+### Practical Today learning verification (2026-07-28)
+
+- `0016_practical_user_scoped_today`の適用前に、repository外へtimestamp付きMySQL backupを作成した。migrationとseedは初回・冪等再実行とも成功した。
+- active reviewed questionは70件、7カテゴリ各10件、active legacy questionは0件。learner-stateのowner NULLとscore/self-assessmentの所有者別重複は0件だった。
+- 既存answer集計はmigration/seed前後とも47件で、Web Archiveから移行前の履歴が読めることを確認した。当日のowned quiz dayは1件、active practical assignmentは5件。
+- 専用の一時DBで2ユーザーに同日5問を準備し、quiz IDと割当が分離されること、cross-user readがforbidden、cross-user submitがnot-found、履歴が相互に見えないことを実サービス境界で確認した。検証用DBは終了後に削除した。
+- Production DBのWebはread-onlyでscenario、artifact、回答前のteaching-data非表示、5問表示、既存履歴を確認した。回答後のWeb smokeは専用一時DBで実行し、choice・confidence・reasoningの送信後にResult、Decision point、Why、全choiceの説明とconsequence、Practical notes、理解確認が表示され、Dashboard・Skills・Concepts・Archiveが同じ学習状態を読むことを確認した。
+- Local latest codeのToday MCP DTOはlearner-safe next question 1件とcomplete instructor pack 5件を返し、read-only準備の前後でanswer件数が不変だった。
+- 接続済みSkill Compass appはまだ今回のrelease前のserver processを参照しており、`get_today`がlegacyとpracticalを混在させた10件と旧DTOを返した。そのため、外部MCP、scheduled Daily Lesson、Voice/Live、normal-chat SYNC PACKのmanual smokeは、branch統合後に外部serverを再起動してから再実行する。
+- 実DB smokeで見つかった2件をTDDで修正した。MySQL `DATE`比較にはlocal midnightを使い、UTC midnightがdriverで時刻付きparameterになる不一致を防いだ。また、当日quizにinactive legacy assignmentだけが残る場合はそれをeligibleと見なさず、5件のpractical questionを再準備する。
+- Focused suiteは18 files / 123 tests、full suiteは63 files / 278 tests。ESLint、TypeScript、production build、`git diff --check`が成功した。worktree固有のmultiple-lockfile/workspace-root warningは既存のまま残る。
+
 ## 現在のTask
 
 Podcast Studio Core Task 11: 生成スケジュールの実行と、Sourcesごとの周期・外部連携の運用確認を進める。
