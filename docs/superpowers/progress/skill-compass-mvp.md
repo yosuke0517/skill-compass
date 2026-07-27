@@ -107,6 +107,12 @@ Docker Desktop上のlocal MySQLが正常に起動し、公開可能なstarter co
 - 実DB smokeで見つかった2件をTDDで修正した。MySQL `DATE`比較にはlocal midnightを使い、UTC midnightがdriverで時刻付きparameterになる不一致を防いだ。また、当日quizにinactive legacy assignmentだけが残る場合はそれをeligibleと見なさず、5件のpractical questionを再準備する。
 - Focused suiteは18 files / 123 tests、full suiteは63 files / 278 tests。ESLint、TypeScript、production build、`git diff --check`が成功した。worktree固有のmultiple-lockfile/workspace-root warningは既存のまま残る。
 
+#### Practical Today review fix round 1
+
+- Todayの日付決定をhost timezoneやUTC切り出しに依存させず、既定`Asia/Tokyo`の共通`localDateKey`へ統一した。quiz準備、direct submit、MCP submit、Dashboard、History、Conceptsが同じproduct-local dayを使用する。UTCでは前日、JSTでは当日になる境界時刻を`TZ=UTC`と`TZ=Asia/Tokyo`の両方で検証した。
+- 追加問題は、保存済みassignmentのうちactive practical questionだけを現在数とprepared IDへ数える。inactive legacy assignmentは履歴のため保持したまま上限を消費せず、visible 5問から30問まで追加でき、30問到達後の再実行は0件追加になる。
+- Review fix後のfull suiteは64 files / 283 tests。ESLint、TypeScript、production build、`git diff --check`が成功した。
+
 ## 現在のTask
 
 Podcast Studio Core Task 11: 生成スケジュールの実行と、Sourcesごとの周期・外部連携の運用確認を進める。
