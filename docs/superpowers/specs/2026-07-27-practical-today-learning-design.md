@@ -168,6 +168,7 @@ The following data is scoped by `userId`:
 - submitted choice, confidence, and reasoning;
 - evaluation feedback and review date;
 - concept, tag, and category scores; and
+- category and tag self-assessments; and
 - answer history.
 
 `quiz_days` is unique by `(userId, quizDate)`. A quiz day ID is also
@@ -186,7 +187,8 @@ text and translated lesson text, not user learning state.
 The current schema is a singleton learning model. The migration:
 
 1. adds the required ownership columns and user-scoped unique indexes;
-2. backfills existing quiz days, answers, and scores to `user_local`;
+2. backfills existing quiz days, answers, scores, and self-assessments to
+   `user_local`;
 3. preserves existing question IDs referenced by history;
 4. marks every legacy definition-first question inactive;
 5. inserts the reviewed taxonomy and 70 new active case questions;
@@ -363,8 +365,8 @@ The multi-user migration is an authorization change, not only a schema change.
 
 Required controls:
 
-- every Today, answer, score, and history service derives `userId` from the
-  authenticated session or MCP token;
+- every Today, answer, score, self-assessment, and history service derives
+  `userId` from the authenticated session or MCP token;
 - no public request accepts an authoritative user ID;
 - repository methods require user scope;
 - cross-user quiz IDs and question assignments return not-found or forbidden
