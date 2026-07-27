@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { answers, concepts, questions, quizDays } from "@/db/schema";
+import { localDateKey } from "@/lib/datetime/local-date";
 
 export type HistoryBuildInput = {
   userId: string;
@@ -258,7 +259,7 @@ export function buildHistoryDay(input: HistoryBuildInput, day: string): HistoryD
 
 function toDateKey(value: string | Date): string {
   if (typeof value === "string") return value.slice(0, 10);
-  return value.toISOString().slice(0, 10);
+  return localDateKey(value);
 }
 
 function calculateAccuracy(correct: number, answered: number): number {

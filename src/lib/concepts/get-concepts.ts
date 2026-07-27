@@ -1,5 +1,6 @@
 import { answers, conceptSources, concepts, conceptTags, questions, scores, tags } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { localDateKey } from "@/lib/datetime/local-date";
 
 type ConceptRow = {
   id: string;
@@ -107,7 +108,7 @@ export function buildConceptsData(input: BuildConceptsInput): ConceptsData {
 function toDateKey(value: string | Date | null): string {
   if (!value) return "";
   if (typeof value === "string") return value.slice(0, 10);
-  return value.toISOString().slice(0, 10);
+  return localDateKey(value);
 }
 
 function round(value: number): number {

@@ -3,6 +3,41 @@ import { describe, expect, it } from "vitest";
 import { buildDashboardData } from "@/lib/dashboard/get-dashboard";
 
 describe("buildDashboardData", () => {
+  it("matches MySQL date rows and answers to the configured local day at the UTC boundary", () => {
+    const dashboard = buildDashboardData({
+      userId: "user_a",
+      today: "2026-07-28",
+      categories: [],
+      quizDays: [
+        {
+          id: "quiz_local_day",
+          userId: "user_a",
+          quizDate: new Date("2026-07-27T15:00:00.000Z"),
+        },
+      ],
+      quizDayQuestions: [
+        { quizDayId: "quiz_local_day", questionId: "q1" },
+      ],
+      answers: [
+        {
+          userId: "user_a",
+          quizDayId: "quiz_local_day",
+          questionId: "q1",
+          correct: true,
+          answeredAt: new Date("2026-07-27T15:30:00.000Z"),
+        },
+      ],
+      concepts: [],
+      tags: [],
+      scores: [],
+      selfAssessments: [],
+    });
+
+    expect(dashboard.todayQuiz).toEqual({ answered: 1, total: 1 });
+    expect(dashboard.streakDays).toBe(1);
+    expect(dashboard.weeklyAccuracy).toBe(1);
+  });
+
   it("builds dashboard summary from persisted learning signals", () => {
     const dashboard = buildDashboardData({
       userId: "user_a",

@@ -1,4 +1,5 @@
 import type { QuestionArtifact } from "@/db/schema";
+import { localDateKey } from "@/lib/datetime/local-date";
 
 import {
   getTodayQuiz,
@@ -54,7 +55,8 @@ export type InstructorQuestion = {
   } | null;
 };
 
-export type SubmitTodayForUserInput = SubmitAnswerInput & {
+export type SubmitTodayForUserInput = Omit<SubmitAnswerInput, "today"> & {
+  today?: string;
   userId: string;
 };
 
@@ -71,7 +73,8 @@ export async function getTodayForUser(
   deps: TodayServiceDeps,
 ): Promise<McpTodayResult> {
   assertAllowedUser(input.userId, deps.allowedUserId);
-  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, input.today);
+  const today = input.today ?? localDateKey();
+  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, today);
   const next = quiz.questions.find((item) => item.answer === null);
 
   return {
@@ -151,7 +154,8 @@ export async function submitTodayForUser(
   deps: TodayServiceDeps,
 ): Promise<SubmitAnswerResult> {
   assertAllowedUser(input.userId, deps.allowedUserId);
-  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, input.today);
+  const today = input.today ?? localDateKey();
+  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, today);
 
   if (quiz.quizDayId !== input.quizDayId) {
     throw new Error("today_quiz_not_found");
@@ -172,7 +176,7 @@ export async function submitTodayForUser(
     selectedChoiceId: input.selectedChoiceId,
     confidence: input.confidence,
     reasoning: input.reasoning,
-    today: input.today,
+    today,
   });
 }
 

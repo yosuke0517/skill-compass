@@ -1,6 +1,7 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import type { CurrentUserAccess } from "@/lib/access/types";
+import { localDateKey } from "@/lib/datetime/local-date";
 import { getEnv } from "@/lib/env";
 import {
   createSkillCompassMcpServer,
@@ -114,7 +115,7 @@ export async function handleProductionMcpRequest(request: Request) {
         async submitToday(input) {
           return {
             ...(await submitTodayForUser(
-              { ...input, userId: user.id, today: new Date().toISOString().slice(0, 10) },
+              { ...input, userId: user.id, today: localDateKey() },
               { allowedUserId },
             )),
           };

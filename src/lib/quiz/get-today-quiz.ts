@@ -13,6 +13,7 @@ import {
   sources,
   tags,
 } from "@/db/schema";
+import { localDateKey } from "@/lib/datetime/local-date";
 
 import { selectDailyQuiz } from "./select-daily-quiz";
 import type { QuizSelectionQuestion, QuizSelectionReason } from "./types";
@@ -80,7 +81,7 @@ export type PreparedQuestionRow = {
   reason: string;
 };
 
-export async function getTodayQuiz(userId: string, today = toDateKey(new Date())): Promise<TodayQuiz> {
+export async function getTodayQuiz(userId: string, today = localDateKey()): Promise<TodayQuiz> {
   const { db } = await import("@/db/client");
   const generatedQuizDayId = createQuizDayId(userId, today);
   const quizDate = createQuizDate(today);
@@ -325,5 +326,5 @@ function isLaterAnswer(
 
 function toDateKey(value: string | Date): string {
   if (typeof value === "string") return value.slice(0, 10);
-  return value.toISOString().slice(0, 10);
+  return localDateKey(value);
 }

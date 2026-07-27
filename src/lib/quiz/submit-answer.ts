@@ -10,6 +10,7 @@ import {
   scores,
   tags,
 } from "@/db/schema";
+import { localDateKey } from "@/lib/datetime/local-date";
 import { getLlmProvider } from "@/lib/llm/provider";
 import type { LlmProvider } from "@/lib/llm/types";
 
@@ -145,7 +146,7 @@ export async function submitTodayAnswer(input: Omit<SubmitAnswerInput, "today"> 
   return submitAnswer(
     {
       ...input,
-      today: input.today ?? toDateKey(new Date()),
+      today: input.today ?? localDateKey(),
     },
     createDrizzleSubmitAnswerRepository(),
     getLlmProvider(),
@@ -330,7 +331,7 @@ function addDays(day: string, days: number): string {
 }
 
 function toDateKey(value: Date): string {
-  return value.toISOString().slice(0, 10);
+  return localDateKey(value);
 }
 
 function clampScore(value: number): number {

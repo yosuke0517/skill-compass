@@ -9,6 +9,7 @@ import {
   tags,
 } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { localDateKey } from "@/lib/datetime/local-date";
 import { calculateGap } from "@/lib/scoring/gaps";
 
 export type DashboardData = {
@@ -59,7 +60,7 @@ export type DashboardBuildInput = {
 
 export async function getDashboardData(
   userId: string,
-  today = toDateKey(new Date()),
+  today = localDateKey(),
 ): Promise<DashboardData> {
   const { db } = await import("@/db/client");
   const [
@@ -208,7 +209,7 @@ function daysBetween(day: string, today: string): number {
 
 function toDateKey(value: string | Date): string {
   if (typeof value === "string") return value.slice(0, 10);
-  return value.toISOString().slice(0, 10);
+  return localDateKey(value);
 }
 
 function getTime(value: string | Date): number {

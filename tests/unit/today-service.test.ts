@@ -256,6 +256,48 @@ function makeQuizQuestion(
 }
 
 describe("submitTodayForUser", () => {
+  it("uses one configured local day for quiz lookup and direct submission", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-27T15:30:00.000Z"));
+    const observedDays: string[] = [];
+    const submitAnswer = vi.fn().mockResolvedValue({
+      correct: true,
+      reasoningQuality: "strong",
+      feedback: "Good reasoning.",
+      scoreDelta: { delta: 0.05, nextReviewDays: 7 },
+      answerId: "answer_1",
+      nextReviewOn: "2026-08-04",
+    });
+
+    try {
+      await submitTodayForUser(
+        {
+          userId: "user_1",
+          quizDayId: "quiz_2026-07-24",
+          questionId: "q2",
+          selectedChoiceId: "b",
+          confidence: 4,
+          reasoning: "The query filters by both leading columns.",
+        },
+        {
+          allowedUserId: "user_1",
+          getQuiz: async (_userId, today) => {
+            observedDays.push(today ?? "missing");
+            return quiz;
+          },
+          submitAnswer: async (input) => {
+            observedDays.push(input.today ?? "missing");
+            return submitAnswer(input);
+          },
+        },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(observedDays).toEqual(["2026-07-28", "2026-07-28"]);
+  });
+
   it("validates the current quiz and delegates to the existing submitter", async () => {
     const submitAnswer = vi.fn().mockResolvedValue({
       correct: true,

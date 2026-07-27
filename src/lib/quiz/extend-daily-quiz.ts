@@ -22,6 +22,20 @@ export type AdditionalQuizSelectionInput = {
   addCount?: number;
 };
 
+export type PreparedQuestionActivity = {
+  questionId: string;
+  active: boolean;
+};
+
+export function getActivePreparedQuestionState(
+  rows: PreparedQuestionActivity[],
+): { questionIds: string[]; total: number } {
+  const questionIds = rows
+    .filter((row) => row.active)
+    .map((row) => row.questionId);
+  return { questionIds, total: questionIds.length };
+}
+
 export function selectAdditionalQuizQuestions(input: AdditionalQuizSelectionInput): SelectedQuizQuestion[] {
   const maxTotal = input.maxTotal ?? DAILY_QUIZ_LIMIT;
   const addCount = input.addCount ?? ADDITIONAL_QUIZ_COUNT;
@@ -54,8 +68,16 @@ export async function appendAdditionalQuizQuestions(userId: string, quizDayId: s
     .limit(1);
   if (!quizDay) throw new Error("quiz_not_found");
 
-  const preparedRows = await db.select().from(quizDayQuestions).where(eq(quizDayQuestions.quizDayId, quizDayId));
-  const currentTotal = preparedRows.length;
+  const preparedRows = await db
+    .select({
+      questionId: quizDayQuestions.questionId,
+      active: questions.active,
+    })
+    .from(quizDayQuestions)
+    .innerJoin(questions, eq(quizDayQuestions.questionId, questions.id))
+    .where(eq(quizDayQuestions.quizDayId, quizDayId));
+  const preparedState = getActivePreparedQuestionState(preparedRows);
+  const currentTotal = preparedState.total;
 
   if (currentTotal >= DAILY_QUIZ_LIMIT) {
     return { added: 0, total: currentTotal, limit: DAILY_QUIZ_LIMIT };
@@ -92,7 +114,7 @@ export async function appendAdditionalQuizQuestions(userId: string, quizDayId: s
   }));
   const selected = selectAdditionalQuizQuestions({
     questions: selectionQuestions,
-    preparedQuestionIds: preparedRows.map((row) => row.questionId),
+    preparedQuestionIds: preparedState.questionIds,
     recentlyAssignedQuestionIds: recentlyAssignedRows.map((row) => row.questionId),
     currentTotal,
   });

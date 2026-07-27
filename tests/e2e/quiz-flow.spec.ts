@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { createConnection } from "mysql2/promise";
 
 import { hashPassword } from "../../src/lib/auth/password";
+import { localDateKey } from "../../src/lib/datetime/local-date";
 
 test.use({ viewport: { width: 390, height: 844 } });
 
@@ -13,7 +14,7 @@ test("a deterministic supporting artifact scrolls without widening the page", as
   const email = `${userId}@example.com`;
   const password = "artifact-layout-password";
   const quizDayId = `quiz_artifact_${unique}`;
-  const quizDate = new Date().toISOString().slice(0, 10);
+  const quizDate = localDateKey();
   const connection = await createConnection(
     process.env.DATABASE_URL ?? "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
   );
