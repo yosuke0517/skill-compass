@@ -121,6 +121,15 @@ describe("reviewed question-bank validator", () => {
     expect(() => validateQuestionBank(bank)).toThrow("question_rationale_not_grounded");
   });
 
+  it("accepts a rationale that grounds an otherwise generic opening in a case condition", () => {
+    const bank = replaceQuestion(createValidBank(), "q_cs_foundations_01", (question) => ({
+      ...question,
+      rationale: "The correct answer is to add the composite index because it removes the observed full table scan.",
+    }));
+
+    expect(() => validateQuestionBank(bank)).not.toThrow();
+  });
+
   it("rejects JavaScript mislabeled as TypeScript", () => {
     const bank = replaceQuestion(createValidBank(), "q_frontend_01", (question) => ({
       ...question,
@@ -137,6 +146,18 @@ describe("reviewed question-bank validator", () => {
     }));
 
     expect(() => validateQuestionBank(bank)).toThrow("question_typescript_artifact");
+  });
+
+  it("accepts generic class and function TypeScript artifacts", () => {
+    const bank = replaceQuestion(createValidBank(), "q_frontend_01", (question) => ({
+      ...question,
+      artifacts: [
+        { ...question.artifacts[0], content: "class Box<T> {}" },
+        { ...question.artifacts[0], content: "function create<T>() { return {} as T; }" },
+      ],
+    }));
+
+    expect(() => validateQuestionBank(bank)).not.toThrow();
   });
 
   it("accepts security artifact examples as escaped source text", () => {

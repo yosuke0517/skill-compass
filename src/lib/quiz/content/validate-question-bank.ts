@@ -13,13 +13,13 @@ const artifactKinds = new Set<QuestionArtifact["kind"]>([
   "config",
   "diagram",
 ]);
-const genericRationalePatterns = [
+const genericRationales = new Set([
   "this is correct",
   "this is the correct answer",
   "the correct answer is",
   "because it is correct",
   "this expresses the correct property",
-];
+]);
 
 export function validateQuestionBank(questions: ReviewedQuestion[]): void {
   assert(questions.length === 70, "question_bank_count");
@@ -122,22 +122,33 @@ function assertTypeScriptSource(sourceText: string) {
 
   const parseDiagnostics = (sourceFile as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }).parseDiagnostics;
   assert(parseDiagnostics.length === 0, "question_typescript_artifact");
-  assert(containsTypeScriptSyntax(sourceFile), "question_typescript_artifact");
+  const transpiled = ts.transpileModule(sourceText, {
+    compilerOptions: {
+      alwaysStrict: false,
+      ignoreDeprecations: "6.0",
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.Latest,
+    },
+    fileName: "artifact.ts",
+    reportDiagnostics: true,
+  });
+  assert(!transpiled.diagnostics?.some((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error), "question_typescript_artifact");
+
+  const emittedJavaScript = ts.createSourceFile(
+    "artifact.js",
+    transpiled.outputText,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.JS,
+  );
+  assert(
+    syntaxTreeSignature(sourceFile, sourceFile) !== syntaxTreeSignature(emittedJavaScript, emittedJavaScript),
+    "question_typescript_artifact",
+  );
 }
 
-function containsTypeScriptSyntax(node: ts.Node): boolean {
-  if (ts.isTypeNode(node)
-    || ts.isInterfaceDeclaration(node)
-    || ts.isTypeAliasDeclaration(node)
-    || ts.isEnumDeclaration(node)
-    || ts.isImportEqualsDeclaration(node)
-    || ts.isAsExpression(node)
-    || ts.isTypeAssertionExpression(node)
-    || ts.isSatisfiesExpression(node)) {
-    return true;
-  }
-
-  return ts.forEachChild(node, containsTypeScriptSyntax) === true;
+function syntaxTreeSignature(node: ts.Node, sourceFile: ts.SourceFile): string {
+  return `${node.kind}[${node.getChildren(sourceFile).map((child) => syntaxTreeSignature(child, sourceFile)).join(",")}]`;
 }
 
 function assertStringList(values: string[], code: string) {
@@ -156,7 +167,7 @@ function assertSupported(value: string, supportedValues: readonly string[], code
 
 function hasGenericRationale(value: string) {
   const normalizedRationale = normalize(value).replace(/[.!?]+$/u, "");
-  return genericRationalePatterns.some((pattern) => normalizedRationale === pattern || normalizedRationale.includes(pattern));
+  return genericRationales.has(normalizedRationale);
 }
 
 function normalize(value: string) {
