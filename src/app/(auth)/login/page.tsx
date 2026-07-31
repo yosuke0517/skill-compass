@@ -1,5 +1,7 @@
 import { ArrowRight, Compass } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
+import { getSession } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
 type LoginPageProps = {
   searchParams?: Promise<{
@@ -8,6 +10,9 @@ type LoginPageProps = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const session = await getSession();
+  if (session.authenticated) redirect("/dashboard");
+
   const params = await searchParams;
   const hasError = params?.error === "invalid";
 
