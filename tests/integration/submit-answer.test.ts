@@ -27,6 +27,7 @@ describe("submitAnswer", () => {
     const savedAnswers: Array<{
       id: string;
       correct: boolean | null;
+      confidence: number | null;
       feedback: string | null;
       scoreDelta: number | null;
       nextReviewOn: string | null;
@@ -66,6 +67,7 @@ describe("submitAnswer", () => {
         savedAnswers.push({
           id: answer.id,
           correct: null,
+          confidence: answer.confidence,
           feedback: null,
           scoreDelta: null,
           nextReviewOn: null,
@@ -96,7 +98,6 @@ describe("submitAnswer", () => {
         quizDayId: "quiz_user_a_20260709",
         questionId: "question_typescript",
         selectedChoiceId: "b",
-        confidence: 5,
         reasoning: "The official source describes this exact behavior.",
       },
       repo,
@@ -105,6 +106,7 @@ describe("submitAnswer", () => {
 
     expect(savedAnswers).toHaveLength(1);
     expect(savedAnswers[0]?.correct).toBe(true);
+    expect(savedAnswers[0]?.confidence).toBeNull();
     expect(savedAnswers[0]?.feedback).toContain("Correct");
     expect(savedAnswers[0]?.scoreDelta).toBeGreaterThan(0);
     expect(savedAnswers[0]?.nextReviewOn).toBe("2026-07-23");

@@ -414,7 +414,7 @@ export const answers = mysqlTable(
       .notNull()
       .references(() => questions.id),
     selectedChoiceId: varchar("selected_choice_id", { length: 16 }).notNull(),
-    confidence: int("confidence").notNull(),
+    confidence: int("confidence"),
     reasoning: text("reasoning").notNull(),
     correct: boolean("correct"),
     reasoningQuality: varchar("reasoning_quality", { length: 32 }),

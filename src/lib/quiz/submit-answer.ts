@@ -22,7 +22,7 @@ export type SubmitAnswerInput = {
   quizDayId: string;
   questionId: string;
   selectedChoiceId: string;
-  confidence: number;
+  confidence?: number;
   reasoning: string;
 };
 
@@ -31,7 +31,7 @@ export type SavedRawAnswer = {
   quizDayId: string;
   questionId: string;
   selectedChoiceId: string;
-  confidence: number;
+  confidence: number | null;
   reasoning: string;
   answeredAt: Date;
 };
@@ -100,7 +100,7 @@ export async function submitAnswer(
     quizDayId: input.quizDayId,
     questionId: input.questionId,
     selectedChoiceId: input.selectedChoiceId,
-    confidence: input.confidence,
+    confidence: input.confidence ?? null,
     reasoning: input.reasoning,
     answeredAt: new Date(`${input.today}T12:00:00.000Z`),
   });
@@ -109,7 +109,6 @@ export async function submitAnswer(
     {
       question,
       selectedChoiceId: input.selectedChoiceId,
-      confidence: input.confidence,
       reasoning: input.reasoning,
     },
     provider,
@@ -121,7 +120,7 @@ export async function submitAnswer(
     answerId,
     expectedRaw: {
       selectedChoiceId: input.selectedChoiceId,
-      confidence: input.confidence,
+      confidence: input.confidence ?? null,
       reasoning: input.reasoning,
     },
     evaluation: {
@@ -236,6 +235,10 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
     async finalizeAnswer(input) {
       const db = await getDbClient();
       return db.transaction(async (tx) => {
+        const confidenceMatches =
+          input.expectedRaw.confidence === null
+            ? isNull(answers.confidence)
+            : eq(answers.confidence, input.expectedRaw.confidence);
         const [result] = await tx
           .update(answers)
           .set({
@@ -251,7 +254,7 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
               eq(answers.userId, input.userId),
               isNull(answers.correct),
               eq(answers.selectedChoiceId, input.expectedRaw.selectedChoiceId),
-              eq(answers.confidence, input.expectedRaw.confidence),
+              confidenceMatches,
               eq(answers.reasoning, input.expectedRaw.reasoning),
             ),
           );

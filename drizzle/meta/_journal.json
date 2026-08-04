@@ -113,6 +113,13 @@
       "when": 1785150512000,
       "tag": "0016_practical_user_scoped_today",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1785812400000,
+      "tag": "0017_optional_today_confidence",
+      "breakpoints": true
     }
   ]
 }

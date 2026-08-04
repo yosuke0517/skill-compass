@@ -314,7 +314,6 @@ describe("submitTodayForUser", () => {
         quizDayId: "quiz_2026-07-24",
         questionId: "q2",
         selectedChoiceId: "b",
-        confidence: 4,
         reasoning: "The query filters by both leading columns.",
         today: "2026-07-24",
       },
@@ -330,7 +329,6 @@ describe("submitTodayForUser", () => {
       quizDayId: "quiz_2026-07-24",
       questionId: "q2",
       selectedChoiceId: "b",
-      confidence: 4,
       reasoning: "The query filters by both leading columns.",
       today: "2026-07-24",
     });
