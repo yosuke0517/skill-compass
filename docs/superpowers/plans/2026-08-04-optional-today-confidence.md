@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - confidenceはoptionalな1〜5の整数で、未入力はnull。
-- choiceと非空reasoningを回答の必須項目とする。
+- Webではchoiceを必須、reasoningを任意のまま維持する。MCP/Voice同期ではchoiceと非空reasoningを必須とする。
 - confidenceをToday scoreとreview intervalに使用しない。
 - 既存confidence値を維持する。
 - `calculateGap`、`SkillGap`、self-assessment比較を変更しない。
@@ -98,7 +98,7 @@
 
 - [ ] card testでconfidence radioが5個あるがcheckedは0個、optional表示があることをassertする。history testでvalueあり/null両方を検証する。
 - [ ] focused testsを実行し、既定3選択とnon-null history型によりFAILすることを確認する。
-- [ ] `ConfidenceInput`のdefaultCheckedを削除してOptional copyを追加する。Server Actionは空をundefined、値ありなら1〜5整数として扱い、choice/reasoningだけを必須にする。
+- [ ] `ConfidenceInput`のdefaultCheckedを削除してOptional copyを追加する。Server Actionは空をundefined、値ありなら1〜5整数として扱い、Webではchoiceだけを必須、reasoningは任意のまま維持する。
 - [ ] Today/history DTOを`number | null`へ変更し、history UIは値ありの場合だけ表示する。
 - [ ] unit testsと可能ならhistory E2Eを実行する。
 - [ ] 対象ファイルを`refactor: make Today confidence optional in the web UI`でcommitする。
@@ -133,4 +133,3 @@
 - [ ] migrationを一時DBで検証し、既存confidence値が保持され、null回答を保存できることを確認する。
 - [ ] Webでchoice+reasoningのみ、MCPでconfidenceなし/ありの両方をsmoke testする。
 - [ ] `git status --short`で未関連のREADME、Stacked PR文書、`.pnpm-store`以外に未コミット変更がないことを確認する。
-

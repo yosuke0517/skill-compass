@@ -357,12 +357,13 @@ export function QuizQuestionCard({
           <ConfidenceInput />
 
           <label className="reasoning-field">
-            <span>Reasoning</span>
+            <span>
+              Reasoning <small>(optional)</small>
+            </span>
             <textarea
               name="reasoning"
               rows={3}
               placeholder="Why does this answer fit the source?"
-              required
             />
           </label>
 

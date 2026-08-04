@@ -159,10 +159,10 @@ describe("QuizQuestionCard", () => {
     );
     expect(confidenceInputs).toHaveLength(5);
     expect(confidenceInputs.every((input) => !input.checked)).toBe(true);
-    expect(screen.getByText("(optional)")).toBeTruthy();
+    expect(screen.getAllByText("(optional)")).toHaveLength(2);
     expect(container.querySelector('textarea[name="reasoning"]')).toHaveProperty(
       "required",
-      true,
+      false,
     );
   });
 

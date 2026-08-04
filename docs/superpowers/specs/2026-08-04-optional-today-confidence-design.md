@@ -14,7 +14,7 @@ SkillsとDashboardにある「自己評価と実測スコアのギャップ」�
 
 ## Goals
 
-- 選択肢と理由だけで回答を完成・同期できる。
+- Webでは選択肢だけで回答できる既存仕様を維持し、MCP/Voiceでは選択肢と理由が揃えば同期できる。
 - 自信度は入力した場合だけ1〜5で保存する。
 - 自信度未入力は`null`として扱い、固定値を捏造しない。
 - Todayのスコアと復習間隔から自信度依存を除去する。
@@ -25,14 +25,14 @@ SkillsとDashboardにある「自己評価と実測スコアのギャップ」�
 ## Non-goals
 
 - 自信度カラムや既存値の削除。
-- 理由入力の任意化。
+- Webの理由入力に関する既存の任意仕様の変更。
 - 自己評価、`calculateGap`、`SkillGap`、`underconfidence`、`overconfidence`の変更。
 - LLMによるreasoning評価の再設計。
 - 新しい主観指標の追加。
 
 ## Answer contract
 
-回答の必須項目は次の4つとする。
+MCP/Voice同期の必須項目は次の4つとする。
 
 - `quizDayId`
 - `questionId`
@@ -47,7 +47,7 @@ SkillsとDashboardにある「自己評価と実測スコアのギャップ」�
 
 Today cardには自信度1〜5を任意欄として残し、legendに`Optional`を明示する。既定値は選択しない。choiceとreasoningがあればsubmitできる。
 
-Server Actionは空のconfidenceを`undefined`として扱う。値がある場合だけ1〜5の整数か検証する。choiceまたはtrim済みreasoningが欠ける場合は従来のmissing-answer flowへ送る。
+Server Actionは空のconfidenceを`undefined`として扱う。値がある場合だけ1〜5の整数か検証する。choiceが欠ける場合は従来のmissing-answer flowへ送る。Webのreasoningは従来どおり任意とする。
 
 ## MCP and Voice/Live
 
@@ -138,4 +138,3 @@ Today DTO、Instructor Pack existing answer、履歴詳細の`confidence`は`num
 - DBは既存値とnullの両方を保持できる。
 - Today scoreとreview intervalはconfidenceの有無・値に影響されない。
 - Skills/Dashboardの自己評価と実測値のギャップ機能が変わらず動く。
-

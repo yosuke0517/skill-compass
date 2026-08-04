@@ -20,7 +20,6 @@ export async function submitQuizAnswerAction(formData: FormData) {
     !quizDayId ||
     !questionId ||
     !selectedChoiceId ||
-    !reasoning ||
     (confidence !== undefined &&
       (!Number.isInteger(confidence) || confidence < 1 || confidence > 5))
   ) {
