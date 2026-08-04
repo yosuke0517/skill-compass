@@ -32,6 +32,16 @@ describe("Architecture MCP public-safe manifest", () => {
     expect(statusById["hosted-runtime"]).toBe("planned");
   });
 
+  it("describes Today confidence as optional reflection data outside scoring", () => {
+    const claim = architectureManifest.claims.find(
+      (item) => item.id === "user-scoped-learning-state",
+    );
+
+    expect(claim?.statement).toContain("optional answer confidence");
+    expect(claim?.reasoning).toContain("does not affect Today scoring");
+    expect(claim?.reasoning).toContain("self-assessment");
+  });
+
   it("documents X news as personalized-trend-guided public search only", () => {
     const claim = architectureManifest.claims.find(
       (item) => item.id === "x-technical-news",

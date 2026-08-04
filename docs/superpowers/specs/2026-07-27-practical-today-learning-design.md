@@ -262,6 +262,11 @@ The existing one-card-at-a-time mobile interaction remains. Code and structured
 artifacts must scroll safely on narrow screens without forcing the entire page
 width to expand.
 
+> **2026-08-04 follow-up:** Answer confidence is now optional reflection
+> metadata. A selected choice and non-empty reasoning complete an answer.
+> Confidence does not affect Today scoring or review intervals. The separate
+> self-assessment-versus-measured-score gap remains unchanged.
+
 ## MCP Contract
 
 `get_today` remains read-only and returns progress, the next unanswered

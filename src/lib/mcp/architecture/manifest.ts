@@ -5,7 +5,7 @@ export const architectureManifest = {
   productSummary:
     "Skill Compass is an engineering-learning platform built for the LLM era: shared reviewed lesson content develops specialist judgment, while the Web application and capability-limited MCP surfaces deliver practical Today lessons, Podcast briefings, technical X news, and public-safe architecture guidance.",
   topology: [
-    "MySQL separates shared reviewed lesson content from user-scoped learning state such as daily assignments, answers, confidence, reasoning, scores, self-assessments, and history.",
+    "MySQL separates shared reviewed lesson content from user-scoped learning state such as daily assignments, answers, optional answer confidence, reasoning, scores, self-assessments, and history.",
     "Authenticated Web sessions and MCP bearer tokens identify the learner before shared domain services read or change learning state.",
     "A scheduled preparation call places a complete five-question lesson packet into a ChatGPT conversation so Voice/Live can teach from conversation context without calling tools or submitting answers.",
     "Podcast generation and X technical-news collection run through bounded service and worker interfaces, while generated audio is kept in object storage.",
@@ -34,7 +34,7 @@ export const architectureManifest = {
       id: "learner-state",
       name: "User-owned learning state",
       responsibility:
-        "Stores user-scoped assignments, answers, confidence, reasoning, progress, scores, self-assessments, and history.",
+        "Stores user-scoped assignments, answers, optional answer confidence, reasoning, progress, scores, self-assessments, and history.",
     },
     {
       id: "podcast-and-news",
@@ -96,9 +96,9 @@ export const architectureManifest = {
         "interview",
       ],
       statement:
-        "Daily assignments, answers, confidence, reasoning, scores, self-assessments, and history are user-scoped learning state.",
+        "Daily assignments, answers, optional answer confidence, reasoning, scores, self-assessments, and history are user-scoped learning state.",
       reasoning:
-        "Learning state belongs to the authenticated learner even though reviewed lesson content is shared.",
+        "Learning state belongs to the authenticated learner even though reviewed lesson content is shared. Optional answer confidence is reflection metadata and does not affect Today scoring; the separate self-assessment feature still compares a learner's self-rating with measured scores.",
       limitation:
         "A future repository or schema change could omit an ownership predicate; two-user regression tests and review reduce but do not eliminate that risk.",
       evidence: [

@@ -92,7 +92,7 @@ Conceptは複数のTagと関係する可能性があるため、data modelはman
 各回答には以下を含める。
 
 - 4択の回答
-- confidence score
+- optional confidence score（振り返り用。未入力可）
 - 短い自由記述のreasoning
 
 回答後、アプリは以下を評価する。
@@ -109,8 +109,8 @@ scoring全体をLLMへ委譲しない。LLM feedbackは構造化された評価m
 
 rule例:
 
-- 正解、高confidence、良いreasoning: scoreを増やす。
-- 正解、低confidence: 小さく増やし、review候補として残す。
+- 正解かつ良いreasoning: scoreを追加で増やす。
+- confidenceは任意の振り返りデータとして保存できるが、scoreやreview間隔には使わない。
 - 不正解だがreasoningが近い: 小さな減点または変更なし。
 - 重大な誤解を伴う不正解: 大きく減点し、早めにreviewする。
 - 正解を繰り返した場合: review intervalを延ばす。
@@ -174,7 +174,7 @@ Daily logには以下を含める。
 
 - 回答したquestion
 - 正誤
-- confidence
+- optional confidence
 - reasoning
 - feedback
 - score change
