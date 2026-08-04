@@ -19,7 +19,6 @@ describe("evaluateAnswer", () => {
       {
         question,
         selectedChoiceId: "b",
-        confidence: 5,
         reasoning: "Because the official docs describe this behavior.",
       },
       deterministicLlmProvider,
@@ -48,7 +47,6 @@ describe("evaluateAnswer", () => {
       {
         question,
         selectedChoiceId: "a",
-        confidence: 4,
         reasoning: "I picked this after comparing the available choices.",
       },
       provider,
@@ -70,7 +68,6 @@ describe("evaluateAnswer", () => {
       {
         question,
         selectedChoiceId: "b",
-        confidence: 3,
         reasoning: "The source points to this answer.",
       },
       provider,

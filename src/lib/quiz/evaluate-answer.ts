@@ -17,7 +17,6 @@ export type EvaluatableQuestion = {
 export type EvaluateAnswerInput = {
   question: EvaluatableQuestion;
   selectedChoiceId: string;
-  confidence: number;
   reasoning: string;
 };
 
@@ -69,7 +68,6 @@ export async function evaluateAnswer(input: EvaluateAnswerInput, provider: LlmPr
     ...metadata,
     scoreDelta: calculateScoreDelta({
       correct,
-      confidence: input.confidence,
       reasoningQuality: metadata.reasoningQuality,
       misconceptionSeverity: metadata.misconceptionSeverity,
     }),

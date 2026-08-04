@@ -3,7 +3,6 @@ export type MisconceptionSeverity = "none" | "minor" | "major";
 
 export type ScoreInput = {
   correct: boolean;
-  confidence: number;
   reasoningQuality: ReasoningQuality;
   misconceptionSeverity: MisconceptionSeverity;
 };
