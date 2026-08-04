@@ -12,7 +12,7 @@ export type SkillCompassMcpServices = {
     quizDayId: string;
     questionId: string;
     selectedChoiceId: string;
-    confidence: number;
+    confidence?: number;
     reasoning: string;
   }): Promise<JsonObject>;
   listEpisodes(input: { limit: number }): Promise<unknown[]>;
@@ -51,12 +51,12 @@ export function createSkillCompassMcpServer(context: {
     {
       title: "Submit Skill Compass Today answer",
       description:
-        "Submit an answer only after collecting the choice, confidence from 1 to 5, and reasoning. Never use during scheduled preparation; use later for a complete learner answer or SYNC PACK item. This updates the shared Skill Compass learning state.",
+        "Submit an answer after collecting the choice and reasoning. Confidence from 1 to 5 is optional reflection metadata and is not required for a complete answer. Never use during scheduled preparation; use later for a complete learner answer or SYNC PACK item. This updates the shared Skill Compass learning state.",
       inputSchema: {
         quizDayId: z.string().min(1),
         questionId: z.string().min(1),
         selectedChoiceId: z.string().min(1),
-        confidence: z.number().int().min(1).max(5),
+        confidence: z.number().int().min(1).max(5).optional(),
         reasoning: z.string().trim().min(1).max(4000),
         latestUserMessage: z.string().max(4000).optional(),
       },
@@ -74,8 +74,8 @@ export function createSkillCompassMcpServer(context: {
         quizDayId,
         questionId,
         selectedChoiceId,
-        confidence,
         reasoning,
+        ...(confidence === undefined ? {} : { confidence }),
       });
       return toolResult({
         ...result,

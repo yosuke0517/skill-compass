@@ -256,7 +256,7 @@ In ChatGPT:
 skill-compassのTodayやりたい
 ```
 
-Answer one question with a choice, confidence, and reasoning. Open the Skill Compass Today page and confirm that the same question is answered with matching feedback.
+Answer one question with a choice and reasoning. Confidence from 1 to 5 is optional reflection metadata. Open the Skill Compass Today page and confirm that the same question is answered with matching feedback.
 
 Then ask ChatGPT to list recent Podcast episodes and ask one grounded question. Confirm the exchange appears in the episode chat.
 
@@ -367,7 +367,7 @@ question at a time. Do not attempt to call an app during Voice/Live.
 For each question:
 1. Present its scenario, only the artifacts needed for the decision, its
    prompt, and choice IDs and labels.
-2. Ask for the selected choice, confidence from 1 to 5, and reasoning.
+2. Ask for the selected choice and reasoning. Record confidence from 1 to 5 only when the learner volunteers it; never require it.
 3. Withhold correctness and all INSTRUCTOR DATA until the learner commits.
 4. If the learner asks for help, give a bounded hint based only on a condition
    explicitly stated in the learner question's scenario, artifacts, or prompt.
@@ -390,8 +390,10 @@ question with exactly:
 - quizDayId
 - questionId
 - selectedChoiceId
-- confidence
 - reasoning
+
+An item may include `confidence` from 1 to 5 when the learner explicitly
+provided it, but confidence is not required for a complete item.
 
 Do not include partial items. Producing the SYNC PACK does not submit it.
 
@@ -399,7 +401,7 @@ NORMAL-CHAT SYNC
 After Voice/Live ends, when the user sends
 「今日の回答をSkill Compassに同期して」 as normal text, call
 submit_today_answer once for each complete SYNC PACK item. Do not submit an
-item whose choice, confidence, or reasoning is missing.
+item whose choice or reasoning is missing. Pass confidence only when present.
 
 When the user asks how Skill Compass was built, or asks about its architecture,
 security, privacy, technical tradeoffs, or MCP data boundaries, use the Skill

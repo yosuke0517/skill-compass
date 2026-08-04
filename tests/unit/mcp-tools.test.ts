@@ -101,7 +101,32 @@ describe("Skill Compass MCP tools", () => {
       "reasoning",
       "selectedChoiceId",
     ]);
+    expect(submitTool?.inputSchema.required).not.toContain("confidence");
     expect(submitTool?.description).toContain("Never use during scheduled preparation");
+    await client.close();
+    await server.close();
+  });
+
+  it("submits a complete answer without confidence", async () => {
+    const { client, server, submitToday } = await connectTestServer();
+
+    await client.callTool({
+      name: "submit_today_answer",
+      arguments: {
+        quizDayId: "quiz_1",
+        questionId: "q1",
+        selectedChoiceId: "a",
+        reasoning: "The explicit constraint rules out the alternatives.",
+        latestUserMessage: "今日の回答を同期して",
+      },
+    });
+
+    expect(submitToday).toHaveBeenCalledWith({
+      quizDayId: "quiz_1",
+      questionId: "q1",
+      selectedChoiceId: "a",
+      reasoning: "The explicit constraint rules out the alternatives.",
+    });
     await client.close();
     await server.close();
   });
