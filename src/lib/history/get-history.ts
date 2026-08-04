@@ -10,7 +10,7 @@ export type HistoryBuildInput = {
     quizDayId: string;
     questionId: string;
     selectedChoiceId: string;
-    confidence: number;
+    confidence: number | null;
     reasoning: string;
     correct: boolean | null;
     feedback: string | null;
@@ -60,7 +60,7 @@ export type HistoryAnswerDetail = {
   prompt: string;
   selectedChoiceLabel: string;
   correctChoiceLabel: string;
-  confidence: number;
+  confidence: number | null;
   reasoning: string;
   correct: boolean | null;
   feedback: string | null;

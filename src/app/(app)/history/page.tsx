@@ -109,6 +109,12 @@ export default async function HistoryPage({
                         <dt>Reasoning</dt>
                         <dd>{answer.reasoning}</dd>
                       </div>
+                      {answer.confidence !== null ? (
+                        <div>
+                          <dt>Confidence</dt>
+                          <dd>{answer.confidence}/5</dd>
+                        </div>
+                      ) : null}
                       {answer.feedback ? (
                         <div>
                           <dt>Feedback</dt>

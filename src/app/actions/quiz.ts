@@ -12,10 +12,18 @@ export async function submitQuizAnswerAction(formData: FormData) {
   const quizDayId = String(formData.get("quizDayId") ?? "");
   const questionId = String(formData.get("questionId") ?? "");
   const selectedChoiceId = String(formData.get("selectedChoiceId") ?? "");
-  const confidence = Number(formData.get("confidence") ?? 3);
+  const rawConfidence = String(formData.get("confidence") ?? "").trim();
+  const confidence = rawConfidence ? Number(rawConfidence) : undefined;
   const reasoning = String(formData.get("reasoning") ?? "").trim();
 
-  if (!quizDayId || !questionId || !selectedChoiceId) {
+  if (
+    !quizDayId ||
+    !questionId ||
+    !selectedChoiceId ||
+    !reasoning ||
+    (confidence !== undefined &&
+      (!Number.isInteger(confidence) || confidence < 1 || confidence > 5))
+  ) {
     redirect("/today?error=missing-answer");
   }
 
@@ -25,8 +33,8 @@ export async function submitQuizAnswerAction(formData: FormData) {
       quizDayId,
       questionId,
       selectedChoiceId,
-      confidence,
       reasoning,
+      ...(confidence === undefined ? {} : { confidence }),
     });
   } catch {
     redirect("/today?error=submit-failed");

@@ -154,8 +154,16 @@ describe("QuizQuestionCard", () => {
     const text = container.querySelector(".quiz-card")?.textContent ?? "";
     expect(text.indexOf(question.scenario)).toBeLessThan(text.indexOf(question.prompt));
     expect(screen.getByRole("button", { name: "Submit answer" })).toBeTruthy();
-    expect(container.querySelector('input[name="confidence"]')).toBeTruthy();
-    expect(container.querySelector('textarea[name="reasoning"]')).toBeTruthy();
+    const confidenceInputs = Array.from(
+      container.querySelectorAll<HTMLInputElement>('input[name="confidence"]'),
+    );
+    expect(confidenceInputs).toHaveLength(5);
+    expect(confidenceInputs.every((input) => !input.checked)).toBe(true);
+    expect(screen.getByText("(optional)")).toBeTruthy();
+    expect(container.querySelector('textarea[name="reasoning"]')).toHaveProperty(
+      "required",
+      true,
+    );
   });
 
   it("teaches an answered case in the required review order", () => {
