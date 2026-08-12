@@ -39,7 +39,7 @@ export function createSkillCompassMcpServer(context: {
     {
       title: "Get Skill Compass Today",
       description:
-        "Get Today progress, a learner-safe next question with its scenario and artifacts, and complete instructor data for all five lessons. Scheduled preparation must call this tool exactly once and never call submit_today_answer. Keep answers and teaching fields private until the learner commits.",
+        "Get Today progress, a learner-safe next question with its scenario and artifacts, complete instructor data for all five lessons, and a bounded user-scoped coaching context. Scheduled preparation must call this tool exactly once and never call submit_today_answer. Keep answers and teaching fields private until the learner commits.",
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false },
     },

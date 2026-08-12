@@ -4,6 +4,8 @@ import { createQuizDayId } from "@/lib/quiz/get-today-quiz";
 import { getTodayForUser, submitTodayForUser } from "@/lib/quiz/today-service";
 import type { TodayQuiz, TodayQuizQuestion } from "@/lib/quiz/get-today-quiz";
 
+const noSkills = async () => ({ categories: [] });
+
 const quiz: TodayQuiz = {
   quizDayId: "quiz_2026-07-24",
   quizDate: "2026-07-24",
@@ -100,6 +102,7 @@ describe("getTodayForUser", () => {
       {
         allowedUserId: "user_1",
         getQuiz: async () => quizWithDatabaseOnlyFields,
+        getSkills: noSkills,
       },
     );
 
@@ -139,7 +142,7 @@ describe("getTodayForUser", () => {
   it("returns all five complete instructor rows for a tool-free Live session", async () => {
     const result = await getTodayForUser(
       { userId: "user_1", today: "2026-07-24" },
-      { allowedUserId: "user_1", getQuiz: async () => quiz },
+      { allowedUserId: "user_1", getQuiz: async () => quiz, getSkills: noSkills },
     );
 
     expect(result).toMatchObject({
@@ -183,11 +186,114 @@ describe("getTodayForUser", () => {
     expect(result.instructorPack.slice(1).every((row) => row.existingAnswer === null)).toBe(true);
   });
 
+  it("returns a bounded coaching context from only the authenticated learner's aggregates", async () => {
+    const getSkills = vi.fn(async () => ({
+      categories: [
+        {
+          categoryId: "security",
+          name: "Security",
+          description: null,
+          measured: 0.91,
+          selfRating: 0.7,
+          gap: { value: -0.21, label: "underconfidence" as const },
+          tags: [],
+        },
+        {
+          categoryId: "frontend",
+          name: "Frontend",
+          description: null,
+          measured: 0.82,
+          selfRating: null,
+          gap: null,
+          tags: [],
+        },
+        {
+          categoryId: "database",
+          name: "Database",
+          description: null,
+          measured: 0.31,
+          selfRating: 0.7,
+          gap: { value: 0.39, label: "overconfidence" as const },
+          tags: [],
+        },
+        {
+          categoryId: "network",
+          name: "Networking",
+          description: null,
+          measured: 0.45,
+          selfRating: null,
+          gap: null,
+          tags: [],
+        },
+        {
+          categoryId: "infra",
+          name: "Infrastructure",
+          description: null,
+          measured: 0.52,
+          selfRating: 0.5,
+          gap: { value: -0.02, label: "aligned" as const },
+          tags: [],
+        },
+        {
+          categoryId: "backend",
+          name: "Backend",
+          description: null,
+          measured: 0.61,
+          selfRating: null,
+          gap: null,
+          tags: [],
+        },
+      ],
+    }));
+
+    const result = await getTodayForUser(
+      { userId: "user_1", today: "2026-07-24" },
+      { allowedUserId: "user_1", getQuiz: async () => quiz, getSkills },
+    );
+
+    expect(getSkills).toHaveBeenCalledExactlyOnceWith("user_1");
+    expect(result.coachingContext).toEqual({
+      strengths: [
+        { categoryId: "security", name: "Security", measured: 0.91 },
+        { categoryId: "frontend", name: "Frontend", measured: 0.82 },
+        { categoryId: "backend", name: "Backend", measured: 0.61 },
+      ],
+      focusAreas: [
+        { categoryId: "database", name: "Database", measured: 0.31 },
+        { categoryId: "network", name: "Networking", measured: 0.45 },
+        { categoryId: "infra", name: "Infrastructure", measured: 0.52 },
+      ],
+      selfAssessmentGaps: [
+        {
+          categoryId: "database",
+          name: "Database",
+          measured: 0.31,
+          selfRating: 0.7,
+          gap: 0.39,
+          label: "overconfidence",
+        },
+        {
+          categoryId: "security",
+          name: "Security",
+          measured: 0.91,
+          selfRating: 0.7,
+          gap: -0.21,
+          label: "underconfidence",
+        },
+      ],
+      teachingGuidance: [
+        "Prioritize questions and follow-ups connected to the focus areas.",
+        "Use strengths as comparison points instead of reteaching their definitions.",
+        "Treat self-assessment gaps as coaching signals, not scoring inputs.",
+      ],
+    });
+  });
+
   it("rejects a user other than the configured owner", async () => {
     await expect(
       getTodayForUser(
         { userId: "user_2" },
-        { allowedUserId: "user_1", getQuiz: async () => quiz },
+        { allowedUserId: "user_1", getQuiz: async () => quiz, getSkills: noSkills },
       ),
     ).rejects.toThrow("today_forbidden");
   });
@@ -201,11 +307,11 @@ describe("getTodayForUser", () => {
 
     const quizA = await getTodayForUser(
       { userId: "user_a", today: "2026-07-24" },
-      { allowedUserId: "user_a", getQuiz },
+      { allowedUserId: "user_a", getQuiz, getSkills: noSkills },
     );
     const quizB = await getTodayForUser(
       { userId: "user_b", today: "2026-07-24" },
-      { allowedUserId: "user_b", getQuiz },
+      { allowedUserId: "user_b", getQuiz, getSkills: noSkills },
     );
 
     expect(quizA.nextQuestion?.quizDayId).not.toBe(quizB.nextQuestion?.quizDayId);

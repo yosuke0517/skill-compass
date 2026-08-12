@@ -1,5 +1,6 @@
 import type { QuestionArtifact } from "@/db/schema";
 import { localDateKey } from "@/lib/datetime/local-date";
+import { getSkillsData, type SkillsData } from "@/lib/skills/get-skills";
 
 import {
   getTodayQuiz,
@@ -18,6 +19,26 @@ export type McpTodayResult = {
   complete: boolean;
   nextQuestion: LearnerQuestion | null;
   instructorPack: InstructorQuestion[];
+  coachingContext: CoachingContext;
+};
+
+export type CoachingContext = {
+  strengths: CoachingSkill[];
+  focusAreas: CoachingSkill[];
+  selfAssessmentGaps: Array<
+    CoachingSkill & {
+      selfRating: number;
+      gap: number;
+      label: "aligned" | "underconfidence" | "overconfidence";
+    }
+  >;
+  teachingGuidance: string[];
+};
+
+type CoachingSkill = {
+  categoryId: string;
+  name: string;
+  measured: number;
 };
 
 export type LearnerQuestion = {
@@ -63,6 +84,7 @@ export type SubmitTodayForUserInput = Omit<SubmitAnswerInput, "today"> & {
 type TodayServiceDeps = {
   allowedUserId: string;
   getQuiz?: (userId: string, today?: string) => Promise<TodayQuiz>;
+  getSkills?: (userId: string) => Promise<SkillsData>;
   submitAnswer?: (
     input: Omit<SubmitAnswerInput, "today"> & { today?: string },
   ) => Promise<SubmitAnswerResult>;
@@ -74,7 +96,10 @@ export async function getTodayForUser(
 ): Promise<McpTodayResult> {
   assertAllowedUser(input.userId, deps.allowedUserId);
   const today = input.today ?? localDateKey();
-  const quiz = await (deps.getQuiz ?? getTodayQuiz)(input.userId, today);
+  const [quiz, skills] = await Promise.all([
+    (deps.getQuiz ?? getTodayQuiz)(input.userId, today),
+    (deps.getSkills ?? getSkillsData)(input.userId),
+  ]);
   const next = quiz.questions.find((item) => item.answer === null);
 
   return {
@@ -85,6 +110,52 @@ export async function getTodayForUser(
     instructorPack: quiz.questions.map((item) =>
       toInstructorQuestion(quiz.quizDayId, item),
     ),
+    coachingContext: buildCoachingContext(skills),
+  };
+}
+
+export function buildCoachingContext(skills: SkillsData): CoachingContext {
+  const asSkill = (category: SkillsData["categories"][number]): CoachingSkill => ({
+    categoryId: category.categoryId,
+    name: category.name,
+    measured: category.measured,
+  });
+
+  return {
+    strengths: skills.categories
+      .filter((category) => category.measured > 0)
+      .slice()
+      .sort((left, right) => right.measured - left.measured)
+      .slice(0, 3)
+      .map(asSkill),
+    focusAreas: skills.categories
+      .slice()
+      .sort((left, right) => left.measured - right.measured)
+      .slice(0, 3)
+      .map(asSkill),
+    selfAssessmentGaps: skills.categories
+      .filter(
+        (category) =>
+          category.selfRating !== null &&
+          category.gap !== null &&
+          category.gap.label !== "aligned",
+      )
+      .sort(
+        (left, right) =>
+          Math.abs(right.gap?.value ?? 0) - Math.abs(left.gap?.value ?? 0),
+      )
+      .slice(0, 3)
+      .map((category) => ({
+        ...asSkill(category),
+        selfRating: category.selfRating as number,
+        gap: category.gap?.value as number,
+        label: category.gap?.label as "underconfidence" | "overconfidence",
+      })),
+    teachingGuidance: [
+      "Prioritize questions and follow-ups connected to the focus areas.",
+      "Use strengths as comparison points instead of reteaching their definitions.",
+      "Treat self-assessment gaps as coaching signals, not scoring inputs.",
+    ],
   };
 }
 

@@ -83,6 +83,8 @@ describe("Skill Compass MCP tools", () => {
     const getTodayTool = result.tools.find((tool) => tool.name === "get_today");
     expect(getTodayTool?.description).toContain("all five");
     expect(getTodayTool?.description).toContain("scenario");
+    expect(getTodayTool?.description).toContain("coaching context");
+    expect(getTodayTool?.description).toContain("bounded");
     expect(getTodayTool?.description).toContain("never call submit_today_answer");
 
     const dailyTechTool = result.tools.find(
