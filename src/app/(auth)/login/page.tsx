@@ -1,19 +1,21 @@
 import { ArrowRight, Compass } from "lucide-react";
 import { loginAction } from "@/app/actions/auth";
 import { getSession } from "@/lib/auth/session";
+import { safeReturnPath } from "@/lib/auth/safe-return-path";
 import { redirect } from "next/navigation";
 
 type LoginPageProps = {
   searchParams?: Promise<{
     error?: string;
+    next?: string;
   }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const session = await getSession();
-  if (session.authenticated) redirect("/dashboard");
-
   const params = await searchParams;
+  const session = await getSession();
+  if (session.authenticated) redirect(safeReturnPath(params?.next));
+
   const hasError = params?.error === "invalid";
 
   return (
@@ -42,6 +44,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </p>
 
         <form action={loginAction} className="login-form">
+          <input type="hidden" name="next" value={safeReturnPath(params?.next)} />
           <label htmlFor="email">Email</label>
           <input id="email" name="email" type="email" autoComplete="username" />
           <label htmlFor="password">Password</label>
