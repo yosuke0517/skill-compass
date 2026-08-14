@@ -15,8 +15,19 @@ test-results/
 .env
 .env.*
 !.env.example
-.dev.vars
-.dev.vars.*
+.dev.vars*
+
+# Terraform state, plans, providers, and task-local tooling
+.terraform/
+.terraform-tool/
+*.tfstate*
+*.tfplan
+*.plan
+crash.log
+crash.*.log
+
+# Generated Cloudflare deployment values
+.cloudflare/deploy-values*.json
 
 # Local database and generated files
 *.sqlite
