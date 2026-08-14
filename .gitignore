@@ -3,6 +3,8 @@ node_modules/
 
 # Build outputs
 .next/
+.open-next/
+.wrangler/
 dist/
 coverage/
 playwright-report/
@@ -13,6 +15,8 @@ test-results/
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
 
 # Local database and generated files
 *.sqlite

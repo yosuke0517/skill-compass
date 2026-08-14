@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 
 function loginRedirect(request: NextRequest) {
@@ -8,7 +9,7 @@ function loginRedirect(request: NextRequest) {
   return NextResponse.redirect(loginUrl);
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const secret = process.env.SESSION_SECRET;
   if (!secret) return loginRedirect(request);
 

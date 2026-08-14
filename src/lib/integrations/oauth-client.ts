@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import { createKeychainSecretResolver } from "@/lib/secrets/keychain";
+import { isCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
 
 export function createPkcePair() {
   const verifier = randomBytes(32).toString("base64url");
@@ -9,7 +9,12 @@ export function createPkcePair() {
 }
 
 export function clientSecret(service: string) {
-  return createKeychainSecretResolver({ service });
+  return async () => {
+    if (isCloudflareWorkersRuntime()) return undefined;
+
+    const { createKeychainSecretResolver } = await import("@/lib/secrets/keychain");
+    return createKeychainSecretResolver({ service })();
+  };
 }
 
 export function oauthErrorUrl(base: string, error: string) {

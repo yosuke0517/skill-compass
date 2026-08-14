@@ -1,7 +1,11 @@
-import { createKeychainSecretResolver, type ExecFile } from "@/lib/secrets/keychain";
+import { isCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
 import type { TranslationProvider } from "../types";
 
 type ApiKeyResolver = () => Promise<string | undefined>;
+type ExecFile = (
+  command: string,
+  args: string[],
+) => Promise<{ stdout: string; stderr: string }>;
 type FetchLike = (url: string, init: { method: "POST"; headers: Record<string, string>; body: string }) => Promise<Response>;
 
 export function createGeminiTranslationProvider(options: {
@@ -57,7 +61,12 @@ export function createKeychainApiKeyResolver(options: {
   account?: string;
   execFile?: ExecFile;
 }): ApiKeyResolver {
-  return createKeychainSecretResolver(options);
+  return async () => {
+    if (isCloudflareWorkersRuntime()) return undefined;
+
+    const { createKeychainSecretResolver } = await import("@/lib/secrets/keychain");
+    return createKeychainSecretResolver(options)();
+  };
 }
 
 function buildPrompt(input: Parameters<TranslationProvider["translate"]>[0]): string {
