@@ -13,6 +13,8 @@ describe("safeReturnPath", () => {
     ["protocol-relative URL", "//evil.example"],
     ["backslash path", "/\\evil"],
     ["control characters", "/dashboard\nset-cookie:evil"],
+    ["C1 control characters", "/dashboard\u0085evil"],
+    ["percent-encoded C1 control characters", "/dashboard%C2%85evil"],
     ["invalid encoding", "/%E0%A4%A"],
     ["empty string", ""],
     ["null", null],

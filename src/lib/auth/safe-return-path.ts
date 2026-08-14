@@ -1,6 +1,6 @@
 const INTERNAL_ORIGIN = "https://skill-compass.invalid";
 const DEFAULT_RETURN_PATH = "/dashboard";
-const CONTROL_CHARACTER = /[\u0000-\u001F\u007F]/;
+const CONTROL_CHARACTER = /[\u0000-\u001F\u007F\u0080-\u009F]/;
 
 export function safeReturnPath(value: string | null | undefined): string {
   if (!value) return DEFAULT_RETURN_PATH;
