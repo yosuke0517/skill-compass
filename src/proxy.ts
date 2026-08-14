@@ -28,6 +28,7 @@ export const config = {
     "/concepts/:path*",
     "/sources/:path*",
     "/settings/:path*",
+    "/docs/:path*",
     "/admin/:path*",
     "/api/podcast/:path*",
     "/oauth/authorize/:path*",

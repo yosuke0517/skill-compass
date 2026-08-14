@@ -39,7 +39,7 @@ test("primary navigation stays fixed while scrolling long screens", async ({ pag
   const nav = page.getByRole("navigation", { name: "Primary" });
   await expect(nav).toBeVisible();
   await nav.getByRole("link", { name: "Today" }).click();
-  await expect(nav.locator("a")).toHaveCount(5);
+  await expect(nav.locator("a")).toHaveCount(6);
   const navItems = await nav.locator("a").evaluateAll((links) => links.map((link) => {
     const box = link.getBoundingClientRect();
     return { bottom: box.bottom, top: box.top };
