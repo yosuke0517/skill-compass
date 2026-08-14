@@ -35,8 +35,8 @@
         }
       ]
     },
-    "production": {
-      "name": "skill-compass-cloudflare-production",
+    "staging": {
+      "name": "skill-compass-cloudflare-staging",
       "assets": {
         "directory": ".open-next/assets",
         "binding": "ASSETS"
@@ -44,15 +44,15 @@
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "skill-compass-production",
-          // Placeholder: replace only during an authorized production provisioning task.
+          "database_name": "skill-compass-staging",
+          // Placeholder: replace only during an authorized staging provisioning task.
           "database_id": "00000000-0000-0000-0000-000000000002"
         }
       ],
       "r2_buckets": [
         {
           "binding": "PODCAST_AUDIO",
-          "bucket_name": "skill-compass-audio-production"
+          "bucket_name": "skill-compass-audio-staging"
         }
       ]
     }

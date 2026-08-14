@@ -37,11 +37,16 @@ corepack pnpm cf:typegen
 Build the OpenNext Worker, then start its local preview:
 
 ```bash
+set -a
+. ./.dev.vars.preview
+set +a
 corepack pnpm build:cloudflare
 corepack pnpm preview:cloudflare
 ```
 
-Wrangler reads `.dev.vars.preview` because the preview script selects the `preview` environment. It emulates the `DB` D1 binding and `PODCAST_AUDIO` R2 binding locally; neither binding connects to a remote Cloudflare resource.
+OpenNext invokes `next build` before Wrangler starts, so Next does not load `.dev.vars.preview` automatically. The first three commands above manually export the local-only values for the build subprocess. Run them in the same shell as `build:cloudflare`; do not substitute production values.
+
+Wrangler then reads `.dev.vars.preview` itself because the preview script selects the `preview` environment. It emulates the `DB` D1 binding and `PODCAST_AUDIO` R2 binding locally; neither binding connects to a remote Cloudflare resource.
 
 ## Smoke checks
 
@@ -59,4 +64,4 @@ Expected results:
 - `/.well-known/oauth-authorization-server` returns `200` JSON with the local issuer and OAuth endpoints.
 - An unauthenticated `/docs/cloud-migration` request redirects to `/login?next=%2Fdocs%2Fcloud-migration`.
 
-Stop the preview with `Ctrl-C`. The `deploy:cloudflare` script targets the named production environment, but deployment and production-domain routing are outside this local-preview procedure and require a separately authorized change.
+Stop the preview with `Ctrl-C`. In Phase 0, the `deploy:cloudflare` interface targets only the named staging environment. Its placeholder D1 ID must be replaced during a separately authorized staging provisioning task. There is no production environment or production-domain routing in this configuration.

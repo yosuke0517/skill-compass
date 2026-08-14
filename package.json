@@ -7,7 +7,7 @@
     "build": "next build",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "opennextjs-cloudflare preview --env preview",
-    "deploy:cloudflare": "opennextjs-cloudflare deploy --env production",
+    "deploy:cloudflare": "opennextjs-cloudflare deploy --env staging",
     "cf:typegen": "wrangler types --env preview --env-interface CloudflareEnv --include-runtime false cloudflare-env.d.ts",
     "start": "next start",
     "lint": "eslint .",

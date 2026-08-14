@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { clientSecret } from "@/lib/integrations/oauth-client";
+import { getAudioStorage } from "@/lib/podcast/audio-storage-provider";
 import { createLocalAudioStorage } from "@/lib/podcast/providers/local-audio-storage";
 import { createClaudeCliTranslationProvider } from "@/lib/translation/providers/claude-cli-provider";
 import { createKeychainApiKeyResolver } from "@/lib/translation/providers/gemini-provider";
@@ -13,6 +15,15 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const sourceRoot = path.join(projectRoot, "src");
 const appRoot = path.join(sourceRoot, "app");
 const sourceExtensions = [".ts", ".tsx"];
+
+type RuntimeImport = {
+  kind: "dynamic" | "require" | "static";
+  moduleSpecifier: string;
+};
+
+vi.mock("@/lib/secrets/keychain", () => ({
+  createKeychainSecretResolver: () => async () => "must-not-be-read",
+}));
 
 const forbiddenPackages = new Set([
   "child_process",
@@ -31,15 +42,61 @@ const forbiddenSourceFiles = new Map([
   ],
 ]);
 
+// Dynamic imports are allowed only at adapters that fail closed before loading
+// the Mac-only module. Every entry must be reachable, and its guard is covered
+// by a behavior test below so this list cannot become a generic escape hatch.
+const guardedDynamicImportAllowlist = new Map([
+  [
+    "src/lib/integrations/oauth-client.ts::@/lib/secrets/keychain",
+    "does not load OAuth client secrets from macOS Keychain in Workers",
+  ],
+  [
+    "src/lib/podcast/audio-storage-provider.ts::@/lib/podcast/providers/local-audio-storage",
+    "refuses filesystem-backed audio storage in the Workers runtime",
+  ],
+  [
+    "src/lib/podcast/audio-storage-provider.ts::@/lib/secrets/keychain",
+    "does not load Podcast R2 credentials from macOS Keychain in Workers",
+  ],
+  [
+    "src/lib/translation/providers/claude-cli-provider.ts::node:child_process",
+    "does not invoke a local CLI in the Workers runtime",
+  ],
+  [
+    "src/lib/translation/providers/gemini-provider.ts::@/lib/secrets/keychain",
+    "does not invoke macOS Keychain in the Workers runtime",
+  ],
+]);
+
 describe("Cloudflare request runtime contract", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("keeps request import graphs free of Mac-only process and filesystem providers", () => {
-    const violations = findViolations(findRequestEntrypoints());
+    const { allowlistedImports, violations } = findViolations(findRequestEntrypoints());
 
     expect(violations, violations.join("\n")).toEqual([]);
+    expect([...allowlistedImports].sort()).toEqual(
+      [...guardedDynamicImportAllowlist.keys()].sort(),
+    );
+  });
+
+  it("keeps the Phase 0 deploy interface scoped to staging", () => {
+    const packageJson = JSON.parse(
+      readFileSync(path.join(projectRoot, "package.json"), "utf8"),
+    ) as { scripts?: Record<string, string> };
+    const wranglerConfig = parseJsonc<{ env?: Record<string, unknown> }>(
+      path.join(projectRoot, "wrangler.jsonc"),
+    );
+
+    expect(packageJson.scripts?.["deploy:cloudflare"]).toBe(
+      "opennextjs-cloudflare deploy --env staging",
+    );
+    expect(wranglerConfig.env).toHaveProperty("staging");
+    expect(wranglerConfig.env).not.toHaveProperty("production");
+    expect(JSON.stringify(wranglerConfig)).not.toContain("production");
   });
 
   it("does not invoke macOS Keychain in the Workers runtime", async () => {
@@ -55,6 +112,12 @@ describe("Cloudflare request runtime contract", () => {
 
     await expect(resolveApiKey()).resolves.toBeUndefined();
     expect(invocations).toBe(0);
+  });
+
+  it("does not load OAuth client secrets from macOS Keychain in Workers", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+
+    await expect(clientSecret("local-oauth-secret")()).resolves.toBeUndefined();
   });
 
   it("does not invoke a local CLI in the Workers runtime", async () => {
@@ -87,6 +150,20 @@ describe("Cloudflare request runtime contract", () => {
       "Filesystem audio storage is unavailable in the Cloudflare Workers runtime.",
     );
   });
+
+  it("does not load Podcast R2 credentials from macOS Keychain in Workers", async () => {
+    vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
+    vi.stubEnv("DATABASE_URL", "mysql://user:password@127.0.0.1:3306/skill_compass");
+    vi.stubEnv("SESSION_SECRET", "12345678901234567890123456789012");
+    vi.stubEnv("PODCAST_AUDIO_STORAGE", "r2");
+    vi.stubEnv("PODCAST_R2_CREDENTIALS_SOURCE", "keychain");
+    vi.stubEnv("PODCAST_R2_ACCOUNT_ID", "local-account");
+    vi.stubEnv("PODCAST_R2_BUCKET_NAME", "local-bucket");
+
+    await expect(getAudioStorage()).rejects.toThrow(
+      "macOS Keychain is unavailable in the Cloudflare Workers runtime.",
+    );
+  });
 });
 
 function findRequestEntrypoints(): string[] {
@@ -101,7 +178,11 @@ function findRequestEntrypoints(): string[] {
   ];
 }
 
-function findViolations(entrypoints: string[]): string[] {
+function findViolations(entrypoints: string[]): {
+  allowlistedImports: Set<string>;
+  violations: string[];
+} {
+  const allowlistedImports = new Set<string>();
   const violations = new Set<string>();
 
   for (const entrypoint of entrypoints) {
@@ -115,10 +196,23 @@ function findViolations(entrypoints: string[]): string[] {
       if (!current || visited.has(current.file)) continue;
       visited.add(current.file);
 
-      for (const moduleSpecifier of readRuntimeImports(current.file)) {
+      for (const runtimeImport of readRuntimeImports(current.file)) {
+        const { moduleSpecifier } = runtimeImport;
         if (forbiddenPackages.has(moduleSpecifier)) {
+          const allowlistKey = guardedImportKey(current.file, moduleSpecifier);
+          if (
+            runtimeImport.kind === "dynamic" &&
+            guardedDynamicImportAllowlist.has(allowlistKey)
+          ) {
+            allowlistedImports.add(allowlistKey);
+            continue;
+          }
           violations.add(
-            formatViolation(entrypoint, [...current.chain, moduleSpecifier], moduleSpecifier),
+            formatViolation(
+              entrypoint,
+              [...current.chain, `${runtimeImport.kind}:${moduleSpecifier}`],
+              moduleSpecifier,
+            ),
           );
           continue;
         }
@@ -128,8 +222,20 @@ function findViolations(entrypoints: string[]): string[] {
 
         const forbiddenReason = forbiddenSourceFiles.get(importedFile);
         if (forbiddenReason) {
+          const allowlistKey = guardedImportKey(current.file, moduleSpecifier);
+          if (
+            runtimeImport.kind === "dynamic" &&
+            guardedDynamicImportAllowlist.has(allowlistKey)
+          ) {
+            allowlistedImports.add(allowlistKey);
+            continue;
+          }
           violations.add(
-            formatViolation(entrypoint, [...current.chain, importedFile], forbiddenReason),
+            formatViolation(
+              entrypoint,
+              [...current.chain, `${runtimeImport.kind}:${importedFile}`],
+              forbiddenReason,
+            ),
           );
           continue;
         }
@@ -139,10 +245,14 @@ function findViolations(entrypoints: string[]): string[] {
     }
   }
 
-  return [...violations].sort();
+  return { allowlistedImports, violations: [...violations].sort() };
 }
 
-function readRuntimeImports(file: string): string[] {
+function guardedImportKey(importer: string, moduleSpecifier: string): string {
+  return `${path.relative(projectRoot, importer)}::${moduleSpecifier}`;
+}
+
+function readRuntimeImports(file: string): RuntimeImport[] {
   const sourceFile = ts.createSourceFile(
     file,
     readFileSync(file, "utf8"),
@@ -151,7 +261,7 @@ function readRuntimeImports(file: string): string[] {
     file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
 
-  return sourceFile.statements.flatMap((statement) => {
+  const runtimeImports = sourceFile.statements.flatMap<RuntimeImport>((statement) => {
     if (ts.isImportDeclaration(statement)) {
       if (statement.importClause?.isTypeOnly || !ts.isStringLiteral(statement.moduleSpecifier)) {
         return [];
@@ -168,7 +278,7 @@ function readRuntimeImports(file: string): string[] {
         return [];
       }
 
-      return [statement.moduleSpecifier.text];
+      return [{ kind: "static", moduleSpecifier: statement.moduleSpecifier.text }];
     }
 
     if (
@@ -177,11 +287,38 @@ function readRuntimeImports(file: string): string[] {
       statement.moduleSpecifier &&
       ts.isStringLiteral(statement.moduleSpecifier)
     ) {
-      return [statement.moduleSpecifier.text];
+      return [{ kind: "static", moduleSpecifier: statement.moduleSpecifier.text }];
     }
 
     return [];
   });
+
+  function visit(node: ts.Node): void {
+    if (ts.isCallExpression(node) && node.arguments.length === 1) {
+      const [argument] = node.arguments;
+      if (argument && ts.isStringLiteral(argument)) {
+        if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          runtimeImports.push({ kind: "dynamic", moduleSpecifier: argument.text });
+        } else if (ts.isIdentifier(node.expression) && node.expression.text === "require") {
+          runtimeImports.push({ kind: "require", moduleSpecifier: argument.text });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  ts.forEachChild(sourceFile, visit);
+  return runtimeImports;
+}
+
+function parseJsonc<T>(file: string): T {
+  const parsed = ts.parseConfigFileTextToJson(file, readFileSync(file, "utf8"));
+  if (parsed.error) {
+    throw new Error(
+      ts.flattenDiagnosticMessageText(parsed.error.messageText, "\n"),
+    );
+  }
+  return parsed.config as T;
 }
 
 function resolveSourceImport(importer: string, moduleSpecifier: string): string | undefined {
