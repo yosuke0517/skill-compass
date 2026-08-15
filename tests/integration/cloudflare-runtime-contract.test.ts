@@ -92,7 +92,7 @@ describe("Cloudflare request runtime contract", () => {
     );
 
     expect(packageJson.scripts?.["deploy:cloudflare"]).toBe(
-      "opennextjs-cloudflare deploy --env staging",
+      "opennextjs-cloudflare deploy --config .cloudflare/deploy-values.json --env staging",
     );
     expect(wranglerConfig.env).toHaveProperty("staging");
     expect(wranglerConfig.env).not.toHaveProperty("production");

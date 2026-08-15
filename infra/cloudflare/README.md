@@ -1,8 +1,17 @@
 # Cloudflare Terraform foundation
 
-This directory owns Cloudflare infrastructure lifecycles. HCP Terraform stores encrypted state and provides locking, but every `plan` and `apply` runs locally in the invoking CLI (GitHub Actions in the deployment workflow). Wrangler owns application builds, deployments, bindings, migrations, and Workers Secrets; Terraform never uploads application code or secret values.
+This directory owns Cloudflare infrastructure lifecycles. HCP Terraform stores encrypted state and provides locking, but every `plan` and `apply` runs locally in the invoking CLI (GitHub Actions in the deployment workflow). Wrangler owns application builds, versions, deployments, bindings, migrations, and Workers Secrets; Terraform never uploads application code or secret values. The `cloudflare_worker.staging` resource uses provider 5.22's metadata-only Worker API to own the service name, tags, and `workers.dev` setting without declaring Worker content or bindings.
 
 Phase 0 is staging-only. Do not run a production apply. The production values reserve the future resource names and require D1 and R2 protection; the existing production R2 bucket must be verified and imported before the first production apply.
+
+The environment-specific resource addresses are deliberately explicit:
+
+| Environment | D1                                     | R2                                   | Worker metadata                |
+| ----------- | -------------------------------------- | ------------------------------------ | ------------------------------ |
+| Staging     | `cloudflare_d1_database.staging[0]`    | `cloudflare_r2_bucket.staging[0]`    | `cloudflare_worker.staging[0]` |
+| Production  | `cloudflare_d1_database.production[0]` | `cloudflare_r2_bucket.production[0]` | Deferred until Phase 1         |
+
+Production R2 is declaration-only in Phase 0. Do not apply or import it yet. Before the first authorized production plan, reconcile `environments/production.tfvars` with the actual bucket name, then import the existing bucket into `cloudflare_r2_bucket.production[0]`; never allow Terraform to recreate it.
 
 ## Required HCP Terraform setup
 
@@ -44,6 +53,13 @@ terraform -chdir=infra/cloudflare validate
 terraform -chdir=infra/cloudflare plan -input=false -var-file=environments/staging.tfvars
 ```
 
+Without Cloudflare credentials, the checked-in mocked-provider plan contract remains safe to run and proves the staging graph has exactly one staging D1 database, R2 bucket, and metadata-only Worker while production resource counts stay zero:
+
+```sh
+export TF_WORKSPACE=skill-compass-staging
+terraform -chdir=infra/cloudflare test -filter=tests/task5-staging.tftest.hcl
+```
+
 Production validation uses the production workspace but must not be applied during Phase 0:
 
 ```sh
@@ -59,6 +75,28 @@ Run formatting from the repository root:
 terraform -chdir=infra/cloudflare fmt -check -recursive
 ```
 
-The `protect_d1_data` and `protect_r2_data` inputs cannot be set to `false` when `environment` is `production`. Task 5 must route production resources through literal `lifecycle.prevent_destroy = true` blocks because Terraform lifecycle meta-arguments do not accept variable expressions.
+The `protect_d1_data` and `protect_r2_data` inputs cannot be set to `false` when `environment` is `production`. Production D1 and R2 use literal `lifecycle.prevent_destroy = true` blocks because Terraform lifecycle meta-arguments do not accept variable expressions.
 
-`d1_database_id` and `staging_url` intentionally remain null in this foundation commit. Task 5 replaces them with real resource-derived outputs; no placeholder identifier or fabricated workers.dev hostname is exposed to deployment automation.
+## Render and deploy staging
+
+After an authorized staging apply, render the non-secret Terraform outputs into the ignored Wrangler configuration. The renderer reads Terraform's JSON from standard input, requires the Worker name, D1 name and UUID, and R2 name to be explicitly non-sensitive, and rejects production or mixed staging/production names. It writes the file with owner-only permissions and relocates Worker and asset paths relative to the generated file.
+
+```sh
+terraform -chdir=infra/cloudflare output -json \
+  | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts
+```
+
+The result is `.cloudflare/deploy-values.json`. It contains no secret values and is ignored by Git. Use it only after the Terraform apply has returned real resource values:
+
+```sh
+pnpm build:cloudflare
+pnpm exec wrangler d1 migrations apply DB \
+  --config .cloudflare/deploy-values.json \
+  --env staging \
+  --remote
+pnpm exec opennextjs-cloudflare deploy \
+  --config .cloudflare/deploy-values.json \
+  --env staging
+```
+
+Terraform exposes the real D1 ID, D1 name, R2 name, Worker name, and whether `workers.dev` is enabled. Provider 5.22 does not expose the account-wide workers.dev subdomain through `cloudflare_worker`, so `staging_url` remains null instead of fabricating a hostname; Wrangler reports the account-specific URL after the first deployment.

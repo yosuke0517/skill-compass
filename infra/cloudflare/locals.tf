@@ -12,6 +12,7 @@ locals {
   )
 
   is_production = var.environment == "production"
+  is_staging    = var.environment == "staging"
 
   resource_names = {
     worker      = var.worker_name
@@ -24,5 +25,16 @@ check "workspace_matches_environment" {
   assert {
     condition     = local.selected_environment == var.environment
     error_message = "TF_WORKSPACE must select ${local.expected_workspace} when environment is ${var.environment}."
+  }
+}
+
+check "resource_names_match_environment" {
+  assert {
+    condition = alltrue([
+      for name in values(local.resource_names) :
+      can(regex("(^|[-_])${var.environment}($|[-_])", name)) &&
+      !can(regex("(^|[-_])${local.is_staging ? "production" : "staging"}($|[-_])", name))
+    ])
+    error_message = "Worker, D1, and R2 names must identify only the selected ${var.environment} environment."
   }
 }
