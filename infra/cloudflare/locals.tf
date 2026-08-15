@@ -14,6 +14,8 @@ locals {
   is_production = var.environment == "production"
   is_staging    = var.environment == "staging"
 
+  verified_production_r2_bucket_name = "skill-compass-podcast-dev"
+
   resource_names = {
     worker      = var.worker_name
     d1_database = var.d1_database_name
@@ -30,11 +32,19 @@ check "workspace_matches_environment" {
 
 check "resource_names_match_environment" {
   assert {
-    condition = alltrue([
-      for name in values(local.resource_names) :
-      can(regex("(^|[-_])${var.environment}($|[-_])", name)) &&
-      !can(regex("(^|[-_])${local.is_staging ? "production" : "staging"}($|[-_])", name))
-    ])
+    condition = local.is_staging ? (
+      alltrue([
+        for name in values(local.resource_names) :
+        can(regex("(^|[-_])staging($|[-_])", name)) &&
+        !can(regex("(^|[-_])production($|[-_])", name))
+      ]) && var.r2_bucket_name != local.verified_production_r2_bucket_name
+      ) : (
+      alltrue([
+        for name in [var.worker_name, var.d1_database_name] :
+        can(regex("(^|[-_])production($|[-_])", name)) &&
+        !can(regex("(^|[-_])staging($|[-_])", name))
+      ]) && var.r2_bucket_name == local.verified_production_r2_bucket_name
+    )
     error_message = "Worker, D1, and R2 names must identify only the selected ${var.environment} environment."
   }
 }

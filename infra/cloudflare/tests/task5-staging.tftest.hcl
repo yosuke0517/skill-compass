@@ -41,7 +41,7 @@ run "staging_plan_contains_only_staging_resources" {
   }
 }
 
-run "staging_rejects_the_reserved_production_r2_name" {
+run "staging_rejects_the_verified_production_r2_name" {
   command = plan
 
   variables {
@@ -50,7 +50,7 @@ run "staging_rejects_the_reserved_production_r2_name" {
     environment           = "staging"
     worker_name           = "skill-compass-cloudflare-staging"
     d1_database_name      = "skill-compass-staging"
-    r2_bucket_name        = "skill-compass-audio-production"
+    r2_bucket_name        = "skill-compass-podcast-dev"
     protect_d1_data       = false
     protect_r2_data       = false
   }

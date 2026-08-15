@@ -2,7 +2,7 @@
 
 This directory owns Cloudflare infrastructure lifecycles. HCP Terraform stores encrypted state and provides locking, but every `plan` and `apply` runs locally in the invoking CLI (GitHub Actions in the deployment workflow). Wrangler owns application builds, versions, deployments, bindings, migrations, and Workers Secrets; Terraform never uploads application code or secret values. The `cloudflare_worker.staging` resource uses provider 5.22's metadata-only Worker API to own the service name, tags, and `workers.dev` setting without declaring Worker content or bindings.
 
-Phase 0 is staging-only. Do not run a production apply. The production values reserve the future resource names and require D1 and R2 protection; the existing production R2 bucket must be verified and imported before the first production apply.
+Phase 0 is staging-only. Do not run a production apply. The production values reserve the future resource names and require D1 and R2 protection; the verified existing production R2 bucket must be imported before the first production apply.
 
 The environment-specific resource addresses are deliberately explicit:
 
@@ -11,7 +11,7 @@ The environment-specific resource addresses are deliberately explicit:
 | Staging     | `cloudflare_d1_database.staging[0]`    | `cloudflare_r2_bucket.staging[0]`    | `cloudflare_worker.staging[0]` |
 | Production  | `cloudflare_d1_database.production[0]` | `cloudflare_r2_bucket.production[0]` | Deferred until Phase 1         |
 
-Production R2 is declaration-only in Phase 0. Do not apply or import it yet. Before the first authorized production plan, reconcile `environments/production.tfvars` with the actual bucket name, then import the existing bucket into `cloudflare_r2_bucket.production[0]`; never allow Terraform to recreate it.
+Production R2 is declaration-only in Phase 0. Cloudflare account inventory verified its existing name as `skill-compass-podcast-dev`, and `environments/production.tfvars` reserves that exact name. Do not apply or import it yet. At the separately approved Phase 1 checkpoint, import the existing bucket into `cloudflare_r2_bucket.production[0]` before any production apply; never allow Terraform to recreate it.
 
 ## Required HCP Terraform setup
 
@@ -58,6 +58,13 @@ Without Cloudflare credentials, the checked-in mocked-provider plan contract rem
 ```sh
 export TF_WORKSPACE=skill-compass-staging
 terraform -chdir=infra/cloudflare test -filter=tests/task5-staging.tftest.hcl
+```
+
+The future-import declaration can be checked without Cloudflare access by selecting the production workspace and running only its mocked-provider contract:
+
+```sh
+export TF_WORKSPACE=skill-compass-production
+terraform -chdir=infra/cloudflare test -filter=tests/task5-production.tftest.hcl
 ```
 
 Production validation uses the production workspace but must not be applied during Phase 0:
