@@ -26,6 +26,7 @@ vi.mock("@/lib/secrets/keychain", () => ({
 }));
 
 const forbiddenPackages = new Set([
+  "@aws-sdk/client-s3",
   "child_process",
   "fs",
   "fs/promises",
@@ -49,14 +50,6 @@ const guardedDynamicImportAllowlist = new Map([
   [
     "src/lib/integrations/oauth-client.ts::@/lib/secrets/keychain",
     "does not load OAuth client secrets from macOS Keychain in Workers",
-  ],
-  [
-    "src/lib/podcast/audio-storage-provider.ts::@/lib/podcast/providers/local-audio-storage",
-    "refuses filesystem-backed audio storage in the Workers runtime",
-  ],
-  [
-    "src/lib/podcast/audio-storage-provider.ts::@/lib/secrets/keychain",
-    "does not load Podcast R2 credentials from macOS Keychain in Workers",
   ],
   [
     "src/lib/translation/providers/claude-cli-provider.ts::node:child_process",
