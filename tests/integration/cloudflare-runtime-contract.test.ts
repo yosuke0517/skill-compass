@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@opennextjs/cloudflare", () => ({
+  getCloudflareContext: () => ({ env: {} }),
+}));
+
 import { clientSecret } from "@/lib/integrations/oauth-client";
 import { getAudioStorage } from "@/lib/podcast/audio-storage-provider";
 import { createLocalAudioStorage } from "@/lib/podcast/providers/local-audio-storage";
@@ -148,7 +152,7 @@ describe("Cloudflare request runtime contract", () => {
     );
   });
 
-  it("does not load Podcast R2 credentials from macOS Keychain in Workers", async () => {
+  it("requires the native Podcast R2 binding instead of macOS Keychain in Workers", async () => {
     vi.stubGlobal("navigator", { userAgent: "Cloudflare-Workers" });
     vi.stubEnv("DATABASE_URL", "mysql://user:password@127.0.0.1:3306/skill_compass");
     vi.stubEnv("SESSION_SECRET", "12345678901234567890123456789012");
@@ -157,9 +161,7 @@ describe("Cloudflare request runtime contract", () => {
     vi.stubEnv("PODCAST_R2_ACCOUNT_ID", "local-account");
     vi.stubEnv("PODCAST_R2_BUCKET_NAME", "local-bucket");
 
-    await expect(getAudioStorage()).rejects.toThrow(
-      "macOS Keychain is unavailable in the Cloudflare Workers runtime.",
-    );
+    await expect(getAudioStorage()).rejects.toThrow("Missing Cloudflare binding: PODCAST_AUDIO");
   });
 });
 

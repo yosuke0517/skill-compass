@@ -1,9 +1,16 @@
 import { getEnv } from "@/lib/env";
 import type { AudioStorage } from "@/lib/podcast/audio-storage";
 import { createR2AudioStorage } from "@/lib/podcast/providers/r2-audio-storage";
-import { assertNotCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
+import { createCloudflareR2AudioStorage, type CloudflareR2AudioBucket } from "@/lib/podcast/providers/cloudflare-r2-audio-storage";
+import { getRuntimeBindings } from "@/lib/runtime/bindings";
+import { assertNotCloudflareWorkersRuntime, isCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
 
 export async function getAudioStorage(): Promise<AudioStorage> {
+  if (isCloudflareWorkersRuntime()) {
+    const bucket = getRuntimeBindings().PODCAST_AUDIO;
+    if (!bucket) throw new Error("Missing Cloudflare binding: PODCAST_AUDIO");
+    return createCloudflareR2AudioStorage(bucket as CloudflareR2AudioBucket);
+  }
   const env = getEnv();
   if (env.PODCAST_AUDIO_STORAGE === "r2") {
     const credentials = env.PODCAST_R2_CREDENTIALS_SOURCE === "keychain"

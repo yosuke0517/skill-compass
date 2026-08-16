@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { isCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
+import { getRuntimeSecret } from "@/lib/runtime/bindings";
 
 export function createPkcePair() {
   const verifier = randomBytes(32).toString("base64url");
@@ -8,9 +9,11 @@ export function createPkcePair() {
   return { verifier, challenge };
 }
 
-export function clientSecret(service: string) {
+export function clientSecret(service: string, cloudflareSecretName?: string) {
   return async () => {
-    if (isCloudflareWorkersRuntime()) return undefined;
+    if (isCloudflareWorkersRuntime()) {
+      return cloudflareSecretName ? getRuntimeSecret(cloudflareSecretName) : undefined;
+    }
 
     const { createKeychainSecretResolver } = await import("@/lib/secrets/keychain");
     return createKeychainSecretResolver({ service })();

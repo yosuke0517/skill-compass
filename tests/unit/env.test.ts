@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "@/lib/env";
+import { parseEnv, parseWorkerEnv } from "@/lib/env";
 
 describe("parseEnv", () => {
+  it("accepts D1-backed Worker configuration without a MySQL URL", () => {
+    const env = parseWorkerEnv({
+      SESSION_SECRET: "12345678901234567890123456789012",
+      PUBLIC_APP_URL: "https://staging.example.com",
+    });
+
+    expect(env.DATABASE_URL).toBeUndefined();
+    expect(env.SESSION_SECRET).toHaveLength(32);
+  });
   it("accepts public-safe local configuration", () => {
     const env = parseEnv({
       DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
