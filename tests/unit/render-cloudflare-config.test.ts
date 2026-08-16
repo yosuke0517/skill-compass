@@ -90,6 +90,13 @@ describe("Cloudflare deploy-config renderer", () => {
         bucket_name: "skill-compass-audio-staging",
       },
     ]);
+    expect(rendered.env.staging.vars).toMatchObject({
+      PUBLIC_APP_URL: "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
+      MCP_ISSUER_URL: "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
+      MCP_RESOURCE_URL: "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp",
+      MCP_ARCHITECTURE_RESOURCE_URL: "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp/architecture",
+      PODCAST_AUDIO_STORAGE: "r2",
+    });
     expect(path.resolve(path.dirname(outputPath), rendered.main)).toBe(
       path.join(repositoryRoot, ".open-next/worker.js"),
     );
