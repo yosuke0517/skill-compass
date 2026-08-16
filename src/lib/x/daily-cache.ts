@@ -41,7 +41,8 @@ export async function saveCachedDailyDigest(
       generatedAt: new Date(digest.generatedAt),
       expiresAt,
     })
-    .onDuplicateKeyUpdate({
+    .onConflictDoUpdate({
+      target: [xDailyTechDigestCache.userId, xDailyTechDigestCache.localDate],
       set: {
         digest,
         generatedAt: new Date(digest.generatedAt),

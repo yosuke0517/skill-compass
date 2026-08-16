@@ -1,20 +1,19 @@
 import { relations, sql } from "drizzle-orm";
 import {
-  boolean,
-  date,
-  datetime,
-  double,
   index,
-  int,
-  json,
-  mysqlEnum,
-  mysqlTable,
+  integer,
   primaryKey,
+  real,
+  sqliteTable,
   text,
-  timestamp,
   uniqueIndex,
-  varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/sqlite-core";
+
+const stringColumn = (name: string) => text(name);
+const booleanColumn = (name: string) => integer(name, { mode: "boolean" });
+const timestampColumn = (name: string) => integer(name, { mode: "timestamp" });
+const dateColumn = (name: string) => integer(name, { mode: "timestamp" });
+const jsonColumn = <T>(name: string) => text(name, { mode: "json" }).$type<T>();
 
 export const difficultyValues = ["beginner", "intermediate", "advanced"] as const;
 export const questionCaseTypeValues = [
@@ -38,71 +37,71 @@ export const sourceTrustTierEnum = {
   enumValues: sourceTrustTierValues,
 };
 
-export const categories = mysqlTable("categories", {
-  id: varchar("id", { length: 64 }).primaryKey(),
-  name: varchar("name", { length: 64 }).notNull().unique(),
+export const categories = sqliteTable("categories", {
+  id: stringColumn("id").primaryKey(),
+  name: stringColumn("name").notNull().unique(),
   description: text("description"),
-  displayOrder: int("display_order").notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  displayOrder: integer("display_order").notNull(),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const tags = mysqlTable(
+export const tags = sqliteTable(
   "tags",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    categoryId: varchar("category_id", { length: 64 })
+    id: stringColumn("id").primaryKey(),
+    categoryId: stringColumn("category_id")
       .notNull()
       .references(() => categories.id),
-    name: varchar("name", { length: 96 }).notNull(),
+    name: stringColumn("name").notNull(),
     description: text("description"),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("tags_category_idx").on(table.categoryId)],
 );
 
-export const translationCache = mysqlTable(
+export const translationCache = sqliteTable(
   "translation_cache",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    sourceHash: varchar("source_hash", { length: 64 }).notNull(),
+    id: stringColumn("id").primaryKey(),
+    sourceHash: stringColumn("source_hash").notNull(),
     sourceText: text("source_text").notNull(),
-    sourceLocale: varchar("source_locale", { length: 8 }).notNull(),
-    targetLocale: varchar("target_locale", { length: 8 }).notNull(),
-    purpose: varchar("purpose", { length: 64 }).notNull(),
+    sourceLocale: stringColumn("source_locale").notNull(),
+    targetLocale: stringColumn("target_locale").notNull(),
+    purpose: stringColumn("purpose").notNull(),
     translatedText: text("translated_text").notNull(),
-    provider: varchar("provider", { length: 64 }).notNull(),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    lastUsedAt: timestamp("last_used_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    provider: stringColumn("provider").notNull(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    lastUsedAt: timestampColumn("last_used_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [uniqueIndex("translation_cache_source_hash_idx").on(table.sourceHash)],
 );
 
-export const users = mysqlTable(
+export const users = sqliteTable(
   "users",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    email: varchar("email", { length: 320 }).notNull(),
-    displayName: varchar("display_name", { length: 120 }),
-    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    status: mysqlEnum("status", userStatusValues).default("active").notNull(),
-    role: varchar("role", { length: 32 }).default("normal").notNull(),
-    plan: varchar("plan", { length: 32 }).default("free").notNull(),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    id: stringColumn("id").primaryKey(),
+    email: stringColumn("email").notNull(),
+    displayName: stringColumn("display_name"),
+    passwordHash: stringColumn("password_hash").notNull(),
+    status: text("status", { enum: userStatusValues }).default("active").notNull(),
+    role: stringColumn("role").default("normal").notNull(),
+    plan: stringColumn("plan").default("free").notNull(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [uniqueIndex("users_email_idx").on(table.email)],
 );
 
-export const invites = mysqlTable(
+export const invites = sqliteTable(
   "invites",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    email: varchar("email", { length: 320 }).notNull(),
-    tokenHash: varchar("token_hash", { length: 255 }).notNull(),
-    invitedByUserId: varchar("invited_by_user_id", { length: 64 }).references(() => users.id),
-    expiresAt: datetime("expires_at").notNull(),
-    usedAt: datetime("used_at"),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    id: stringColumn("id").primaryKey(),
+    email: stringColumn("email").notNull(),
+    tokenHash: stringColumn("token_hash").notNull(),
+    invitedByUserId: stringColumn("invited_by_user_id").references(() => users.id),
+    expiresAt: timestampColumn("expires_at").notNull(),
+    usedAt: timestampColumn("used_at"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [
     uniqueIndex("invites_token_hash_idx").on(table.tokenHash),
@@ -110,53 +109,53 @@ export const invites = mysqlTable(
   ],
 );
 
-export const entitlements = mysqlTable("entitlements", {
-  id: varchar("id", { length: 96 }).primaryKey(),
-  description: varchar("description", { length: 255 }).notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+export const entitlements = sqliteTable("entitlements", {
+  id: stringColumn("id").primaryKey(),
+  description: stringColumn("description").notNull(),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const planEntitlements = mysqlTable(
+export const planEntitlements = sqliteTable(
   "plan_entitlements",
   {
-    planId: varchar("plan_id", { length: 32 }).notNull(),
-    entitlementId: varchar("entitlement_id", { length: 96 })
+    planId: stringColumn("plan_id").notNull(),
+    entitlementId: stringColumn("entitlement_id")
       .notNull()
       .references(() => entitlements.id),
-    enabled: boolean("enabled").default(true).notNull(),
+    enabled: booleanColumn("enabled").default(true).notNull(),
   },
   (table) => [primaryKey({ columns: [table.planId, table.entitlementId] })],
 );
 
-export const userEntitlementOverrides = mysqlTable(
+export const userEntitlementOverrides = sqliteTable(
   "user_entitlement_overrides",
   {
-    userId: varchar("user_id", { length: 64 })
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    entitlementId: varchar("entitlement_id", { length: 96 })
+    entitlementId: stringColumn("entitlement_id")
       .notNull()
       .references(() => entitlements.id),
-    enabled: boolean("enabled").notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    enabled: booleanColumn("enabled").notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.entitlementId] })],
 );
 
 export type AuditMetadata = Record<string, string | number | boolean | null>;
 
-export const auditLogs = mysqlTable(
+export const auditLogs = sqliteTable(
   "audit_logs",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    actorUserId: varchar("actor_user_id", { length: 64 })
+    id: stringColumn("id").primaryKey(),
+    actorUserId: stringColumn("actor_user_id")
       .notNull()
       .references(() => users.id),
-    action: varchar("action", { length: 96 }).notNull(),
-    targetType: varchar("target_type", { length: 48 }).notNull(),
-    targetId: varchar("target_id", { length: 96 }).notNull(),
-    metadata: json("metadata").$type<AuditMetadata>().notNull(),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    action: stringColumn("action").notNull(),
+    targetType: stringColumn("target_type").notNull(),
+    targetId: stringColumn("target_id").notNull(),
+    metadata: jsonColumn<AuditMetadata>("metadata").notNull(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [
     index("audit_logs_actor_idx").on(table.actorUserId),
@@ -168,33 +167,33 @@ export const podcastFrequencyValues = ["daily", "weekdays", "weekly", "manual"] 
 export const podcastLanguageValues = ["ja", "en"] as const;
 export const podcastSourceFrequencyValues = ["daily", "every_3_days", "weekly", "every_14_days", "monthly"] as const;
 
-export const podcastSettings = mysqlTable(
+export const podcastSettings = sqliteTable(
   "podcast_settings",
   {
-    userId: varchar("user_id", { length: 64 }).primaryKey().references(() => users.id),
-    generationFrequency: varchar("generation_frequency", { length: 32 }).default("daily").notNull(),
-    timezone: varchar("timezone", { length: 64 }).default("Asia/Tokyo").notNull(),
-    durationMinutes: int("duration_minutes").default(10).notNull(),
-    language: varchar("language", { length: 8 }).default("ja").notNull(),
-    useSources: boolean("use_sources").default(true).notNull(),
-    includeNews: boolean("include_news").default(true).notNull(),
-    includeCalendar: boolean("include_calendar").default(false).notNull(),
-    includeXPublic: boolean("include_x_public").default(false).notNull(),
-    includeXPersonal: boolean("include_x_personal").default(false).notNull(),
-    calendarReadMode: varchar("calendar_read_mode", { length: 32 }).default("time_title").notNull(),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    userId: stringColumn("user_id").primaryKey().references(() => users.id),
+    generationFrequency: stringColumn("generation_frequency").default("daily").notNull(),
+    timezone: stringColumn("timezone").default("Asia/Tokyo").notNull(),
+    durationMinutes: integer("duration_minutes").default(10).notNull(),
+    language: stringColumn("language").default("ja").notNull(),
+    useSources: booleanColumn("use_sources").default(true).notNull(),
+    includeNews: booleanColumn("include_news").default(true).notNull(),
+    includeCalendar: booleanColumn("include_calendar").default(false).notNull(),
+    includeXPublic: booleanColumn("include_x_public").default(false).notNull(),
+    includeXPersonal: booleanColumn("include_x_personal").default(false).notNull(),
+    calendarReadMode: stringColumn("calendar_read_mode").default("time_title").notNull(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
 );
 
-export const sourcePodcastSettings = mysqlTable(
+export const sourcePodcastSettings = sqliteTable(
   "source_podcast_settings",
   {
-    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
-    sourceId: varchar("source_id", { length: 64 }).notNull().references(() => sources.id),
-    enabled: boolean("enabled").default(true).notNull(),
-    frequency: varchar("frequency", { length: 32 }).default("daily").notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    sourceId: stringColumn("source_id").notNull().references(() => sources.id),
+    enabled: booleanColumn("enabled").default(true).notNull(),
+    frequency: stringColumn("frequency").default("daily").notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.sourceId] })],
 );
@@ -202,133 +201,133 @@ export const sourcePodcastSettings = mysqlTable(
 export const podcastEpisodeStatusValues = ["queued", "collecting", "scripting", "synthesizing", "ready", "failed"] as const;
 export const podcastJobStatusValues = ["queued", "running", "succeeded", "failed"] as const;
 
-export const podcastEpisodes = mysqlTable(
+export const podcastEpisodes = sqliteTable(
   "podcast_episodes",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
-    localDate: date("local_date").notNull(),
-    title: varchar("title", { length: 240 }).notNull(),
-    language: varchar("language", { length: 8 }).notNull(),
-    status: varchar("status", { length: 32 }).notNull(),
-    sourceSnapshot: json("source_snapshot").$type<Array<{ id: string; title: string; url: string }>>().notNull(),
-    script: json("script").$type<{ language: "ja" | "en"; speakers: Array<{ speaker: "host_a" | "host_b"; text: string }> } | null>(),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    id: stringColumn("id").primaryKey(),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    localDate: dateColumn("local_date").notNull(),
+    title: stringColumn("title").notNull(),
+    language: stringColumn("language").notNull(),
+    status: stringColumn("status").notNull(),
+    sourceSnapshot: jsonColumn<unknown>("source_snapshot").$type<Array<{ id: string; title: string; url: string }>>().notNull(),
+    script: jsonColumn<unknown>("script").$type<{ language: "ja" | "en"; speakers: Array<{ speaker: "host_a" | "host_b"; text: string }> } | null>(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("podcast_episodes_user_idx").on(table.userId, table.localDate)],
 );
 
-export const podcastJobs = mysqlTable(
+export const podcastJobs = sqliteTable(
   "podcast_jobs",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
-    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
-    kind: varchar("kind", { length: 48 }).notNull(),
-    status: varchar("status", { length: 32 }).notNull(),
-    attempts: int("attempts").default(0).notNull(),
-    idempotencyKey: varchar("idempotency_key", { length: 160 }).notNull(),
-    nextRunAt: datetime("next_run_at").notNull(),
-    leaseOwner: varchar("lease_owner", { length: 96 }),
-    leaseExpiresAt: datetime("lease_expires_at"),
-    errorCode: varchar("error_code", { length: 96 }),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    id: stringColumn("id").primaryKey(),
+    episodeId: stringColumn("episode_id").notNull().references(() => podcastEpisodes.id),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    kind: stringColumn("kind").notNull(),
+    status: stringColumn("status").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    idempotencyKey: stringColumn("idempotency_key").notNull(),
+    nextRunAt: timestampColumn("next_run_at").notNull(),
+    leaseOwner: stringColumn("lease_owner"),
+    leaseExpiresAt: timestampColumn("lease_expires_at"),
+    errorCode: stringColumn("error_code"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [uniqueIndex("podcast_jobs_idempotency_idx").on(table.idempotencyKey), index("podcast_jobs_claim_idx").on(table.status, table.nextRunAt)],
 );
 
-export const podcastAssets = mysqlTable(
+export const podcastAssets = sqliteTable(
   "podcast_assets",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
-    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
-    language: varchar("language", { length: 8 }).notNull(),
-    storageProvider: varchar("storage_provider", { length: 32 }).notNull(),
-    storageKey: varchar("storage_key", { length: 1024 }).notNull(),
-    mediaType: varchar("media_type", { length: 96 }).notNull(),
-    sizeBytes: int("size_bytes").notNull(),
-    durationSeconds: int("duration_seconds"),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    id: stringColumn("id").primaryKey(),
+    episodeId: stringColumn("episode_id").notNull().references(() => podcastEpisodes.id),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    language: stringColumn("language").notNull(),
+    storageProvider: stringColumn("storage_provider").notNull(),
+    storageKey: stringColumn("storage_key").notNull(),
+    mediaType: stringColumn("media_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    durationSeconds: integer("duration_seconds"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("podcast_assets_episode_idx").on(table.episodeId)],
 );
 
-export const podcastAudioChunks = mysqlTable(
+export const podcastAudioChunks = sqliteTable(
   "podcast_audio_chunks",
   {
-    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
-    chunkIndex: int("chunk_index").notNull(),
-    status: varchar("status", { length: 32 }).notNull(),
-    storageProvider: varchar("storage_provider", { length: 32 }),
-    storageKey: varchar("storage_key", { length: 1024 }),
-    mediaType: varchar("media_type", { length: 96 }),
-    sizeBytes: int("size_bytes"),
-    attempts: int("attempts").default(0).notNull(),
-    errorCode: varchar("error_code", { length: 96 }),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    episodeId: stringColumn("episode_id").notNull().references(() => podcastEpisodes.id),
+    chunkIndex: integer("chunk_index").notNull(),
+    status: stringColumn("status").notNull(),
+    storageProvider: stringColumn("storage_provider"),
+    storageKey: stringColumn("storage_key"),
+    mediaType: stringColumn("media_type"),
+    sizeBytes: integer("size_bytes"),
+    attempts: integer("attempts").default(0).notNull(),
+    errorCode: stringColumn("error_code"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [primaryKey({ columns: [table.episodeId, table.chunkIndex] })],
 );
 
-export const podcastChatMessages = mysqlTable(
+export const podcastChatMessages = sqliteTable(
   "podcast_chat_messages",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    episodeId: varchar("episode_id", { length: 64 }).notNull().references(() => podcastEpisodes.id),
-    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
-    role: varchar("role", { length: 16 }).notNull(),
+    id: stringColumn("id").primaryKey(),
+    episodeId: stringColumn("episode_id").notNull().references(() => podcastEpisodes.id),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    role: stringColumn("role").notNull(),
     text: text("text").notNull(),
-    provider: varchar("provider", { length: 32 }),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    provider: stringColumn("provider"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("podcast_chat_messages_episode_idx").on(table.episodeId, table.createdAt)],
 );
 
-export const concepts = mysqlTable("concepts", {
-  id: varchar("id", { length: 64 }).primaryKey(),
-  title: varchar("title", { length: 160 }).notNull(),
+export const concepts = sqliteTable("concepts", {
+  id: stringColumn("id").primaryKey(),
+  title: stringColumn("title").notNull(),
   summary: text("summary"),
   currentUnderstanding: text("current_understanding"),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const conceptTags = mysqlTable(
+export const conceptTags = sqliteTable(
   "concept_tags",
   {
-    conceptId: varchar("concept_id", { length: 64 })
+    conceptId: stringColumn("concept_id")
       .notNull()
       .references(() => concepts.id),
-    tagId: varchar("tag_id", { length: 64 })
+    tagId: stringColumn("tag_id")
       .notNull()
       .references(() => tags.id),
   },
   (table) => [primaryKey({ columns: [table.conceptId, table.tagId] })],
 );
 
-export const sources = mysqlTable("sources", {
-  id: varchar("id", { length: 64 }).primaryKey(),
-  title: varchar("title", { length: 240 }).notNull(),
-  url: varchar("url", { length: 1024 }).notNull(),
-  trustTier: mysqlEnum("trust_tier", sourceTrustTierValues).notNull(),
-  official: boolean("official").default(false).notNull(),
-  status: mysqlEnum("status", sourceStatusValues).default("pending").notNull(),
-  lastFetchedAt: datetime("last_fetched_at"),
+export const sources = sqliteTable("sources", {
+  id: stringColumn("id").primaryKey(),
+  title: stringColumn("title").notNull(),
+  url: stringColumn("url").notNull(),
+  trustTier: text("trust_tier", { enum: sourceTrustTierValues }).notNull(),
+  official: booleanColumn("official").default(false).notNull(),
+  status: text("status", { enum: sourceStatusValues }).default("pending").notNull(),
+  lastFetchedAt: timestampColumn("last_fetched_at"),
   failureReason: text("failure_reason"),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const conceptSources = mysqlTable(
+export const conceptSources = sqliteTable(
   "concept_sources",
   {
-    conceptId: varchar("concept_id", { length: 64 })
+    conceptId: stringColumn("concept_id")
       .notNull()
       .references(() => concepts.id),
-    sourceId: varchar("source_id", { length: 64 })
+    sourceId: stringColumn("source_id")
       .notNull()
       .references(() => sources.id),
   },
@@ -352,76 +351,76 @@ export type QuestionChoice = {
   consequence: string;
 };
 
-export const questions = mysqlTable(
+export const questions = sqliteTable(
   "questions",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    conceptId: varchar("concept_id", { length: 64 })
+    id: stringColumn("id").primaryKey(),
+    conceptId: stringColumn("concept_id")
       .notNull()
       .references(() => concepts.id),
-    sourceId: varchar("source_id", { length: 64 }).references(() => sources.id),
+    sourceId: stringColumn("source_id").references(() => sources.id),
     scenario: text("scenario").notNull(),
-    artifacts: json("artifacts").$type<QuestionArtifact[]>().notNull(),
-    caseType: mysqlEnum("case_type", questionCaseTypeValues).notNull(),
-    decisionCriteria: json("decision_criteria").$type<string[]>().notNull(),
-    practicalNotes: json("practical_notes").$type<string[]>().notNull(),
+    artifacts: jsonColumn<QuestionArtifact[]>("artifacts").notNull(),
+    caseType: text("case_type", { enum: questionCaseTypeValues }).notNull(),
+    decisionCriteria: jsonColumn<string[]>("decision_criteria").notNull(),
+    practicalNotes: jsonColumn<string[]>("practical_notes").notNull(),
     checkQuestion: text("check_question").notNull(),
     prompt: text("prompt").notNull(),
-    choices: json("choices").$type<QuestionChoice[]>().notNull(),
-    difficulty: mysqlEnum("difficulty", difficultyValues).notNull(),
+    choices: jsonColumn<QuestionChoice[]>("choices").notNull(),
+    difficulty: text("difficulty", { enum: difficultyValues }).notNull(),
     rationale: text("rationale").notNull(),
-    active: boolean("active").default(true).notNull(),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    active: booleanColumn("active").default(true).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("questions_concept_idx").on(table.conceptId)],
 );
 
-export const quizDays = mysqlTable("quiz_days", {
-  id: varchar("id", { length: 64 }).primaryKey(),
-  userId: varchar("user_id", { length: 64 })
+export const quizDays = sqliteTable("quiz_days", {
+  id: stringColumn("id").primaryKey(),
+  userId: stringColumn("user_id")
     .notNull()
     .references(() => users.id),
-  quizDate: date("quiz_date").notNull(),
-  preparedAt: datetime("prepared_at").notNull(),
+  quizDate: dateColumn("quiz_date").notNull(),
+  preparedAt: timestampColumn("prepared_at").notNull(),
 }, (table) => [uniqueIndex("quiz_days_user_date_idx").on(table.userId, table.quizDate)]);
 
-export const quizDayQuestions = mysqlTable(
+export const quizDayQuestions = sqliteTable(
   "quiz_day_questions",
   {
-    quizDayId: varchar("quiz_day_id", { length: 64 })
+    quizDayId: stringColumn("quiz_day_id")
       .notNull()
       .references(() => quizDays.id),
-    questionId: varchar("question_id", { length: 64 })
+    questionId: stringColumn("question_id")
       .notNull()
       .references(() => questions.id),
-    slot: int("slot").notNull(),
-    reason: varchar("reason", { length: 64 }).notNull(),
+    slot: integer("slot").notNull(),
+    reason: stringColumn("reason").notNull(),
   },
   (table) => [primaryKey({ columns: [table.quizDayId, table.questionId] })],
 );
 
-export const answers = mysqlTable(
+export const answers = sqliteTable(
   "answers",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    userId: varchar("user_id", { length: 64 })
+    id: stringColumn("id").primaryKey(),
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    quizDayId: varchar("quiz_day_id", { length: 64 })
+    quizDayId: stringColumn("quiz_day_id")
       .notNull()
       .references(() => quizDays.id),
-    questionId: varchar("question_id", { length: 64 })
+    questionId: stringColumn("question_id")
       .notNull()
       .references(() => questions.id),
-    selectedChoiceId: varchar("selected_choice_id", { length: 16 }).notNull(),
-    confidence: int("confidence"),
+    selectedChoiceId: stringColumn("selected_choice_id").notNull(),
+    confidence: integer("confidence"),
     reasoning: text("reasoning").notNull(),
-    correct: boolean("correct"),
-    reasoningQuality: varchar("reasoning_quality", { length: 32 }),
+    correct: booleanColumn("correct"),
+    reasoningQuality: stringColumn("reasoning_quality"),
     feedback: text("feedback"),
-    scoreDelta: double("score_delta"),
-    nextReviewOn: date("next_review_on"),
-    answeredAt: datetime("answered_at").notNull(),
+    scoreDelta: real("score_delta"),
+    nextReviewOn: dateColumn("next_review_on"),
+    answeredAt: timestampColumn("answered_at").notNull(),
   },
   (table) => [
     index("answers_user_quiz_day_idx").on(table.userId, table.quizDayId),
@@ -429,81 +428,81 @@ export const answers = mysqlTable(
   ],
 );
 
-export const scores = mysqlTable(
+export const scores = sqliteTable(
   "scores",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    userId: varchar("user_id", { length: 64 })
+    id: stringColumn("id").primaryKey(),
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    subjectType: mysqlEnum("subject_type", scoreSubjectTypeValues).notNull(),
-    subjectId: varchar("subject_id", { length: 64 }).notNull(),
-    value: double("value").notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    subjectType: text("subject_type", { enum: scoreSubjectTypeValues }).notNull(),
+    subjectId: stringColumn("subject_id").notNull(),
+    value: real("value").notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [uniqueIndex("scores_user_subject_idx").on(table.userId, table.subjectType, table.subjectId)],
 );
 
-export const selfAssessments = mysqlTable(
+export const selfAssessments = sqliteTable(
   "self_assessments",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    userId: varchar("user_id", { length: 64 })
+    id: stringColumn("id").primaryKey(),
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    subjectType: mysqlEnum("subject_type", selfAssessmentSubjectTypeValues).notNull(),
-    subjectId: varchar("subject_id", { length: 64 }).notNull(),
-    rating: double("rating").notNull(),
+    subjectType: text("subject_type", { enum: selfAssessmentSubjectTypeValues }).notNull(),
+    subjectId: stringColumn("subject_id").notNull(),
+    rating: real("rating").notNull(),
     note: text("note"),
-    assessedOn: date("assessed_on").notNull(),
+    assessedOn: dateColumn("assessed_on").notNull(),
   },
   (table) => [index("self_assessments_user_subject_idx").on(table.userId, table.subjectType, table.subjectId)],
 );
 
-export const sessions = mysqlTable("sessions", {
-  id: varchar("id", { length: 128 }).primaryKey(),
-  expiresAt: datetime("expires_at").notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+export const sessions = sqliteTable("sessions", {
+  id: stringColumn("id").primaryKey(),
+  expiresAt: timestampColumn("expires_at").notNull(),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const oauthConnections = mysqlTable(
+export const oauthConnections = sqliteTable(
   "oauth_connections",
   {
-    id: varchar("id", { length: 64 }).primaryKey(),
-    userId: varchar("user_id", { length: 64 }).notNull().references(() => users.id),
-    provider: varchar("provider", { length: 32 }).notNull(),
+    id: stringColumn("id").primaryKey(),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    provider: stringColumn("provider").notNull(),
     accessTokenCiphertext: text("access_token_ciphertext").notNull(),
     refreshTokenCiphertext: text("refresh_token_ciphertext"),
-    tokenType: varchar("token_type", { length: 32 }),
+    tokenType: stringColumn("token_type"),
     scope: text("scope"),
-    expiresAt: datetime("expires_at"),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).onUpdateNow().notNull(),
+    expiresAt: timestampColumn("expires_at"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [uniqueIndex("oauth_connections_user_provider_idx").on(table.userId, table.provider)],
 );
 
-export const xPublicPostCache = mysqlTable(
+export const xPublicPostCache = sqliteTable(
   "x_public_post_cache",
   {
-    postId: varchar("post_id", { length: 32 }).primaryKey(),
-    snapshot: json("snapshot").notNull(),
-    fetchedAt: datetime("fetched_at").notNull(),
-    expiresAt: datetime("expires_at").notNull(),
+    postId: stringColumn("post_id").primaryKey(),
+    snapshot: jsonColumn<unknown>("snapshot").notNull(),
+    fetchedAt: timestampColumn("fetched_at").notNull(),
+    expiresAt: timestampColumn("expires_at").notNull(),
   },
   (table) => [index("x_public_post_cache_expires_idx").on(table.expiresAt)],
 );
 
-export const xDailyTechDigestCache = mysqlTable(
+export const xDailyTechDigestCache = sqliteTable(
   "x_daily_tech_digest_cache",
   {
-    userId: varchar("user_id", { length: 64 })
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    localDate: date("local_date").notNull(),
-    digest: json("digest").notNull(),
-    generatedAt: datetime("generated_at").notNull(),
-    expiresAt: datetime("expires_at").notNull(),
+    localDate: dateColumn("local_date").notNull(),
+    digest: jsonColumn<unknown>("digest").notNull(),
+    generatedAt: timestampColumn("generated_at").notNull(),
+    expiresAt: timestampColumn("expires_at").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.localDate] }),
@@ -511,66 +510,66 @@ export const xDailyTechDigestCache = mysqlTable(
   ],
 );
 
-export const mcpOauthClients = mysqlTable("mcp_oauth_clients", {
-  id: varchar("id", { length: 191 }).primaryKey(),
-  redirectUris: json("redirect_uris").$type<string[]>().notNull(),
-  clientName: varchar("client_name", { length: 191 }).notNull(),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+export const mcpOauthClients = sqliteTable("mcp_oauth_clients", {
+  id: stringColumn("id").primaryKey(),
+  redirectUris: jsonColumn<string[]>("redirect_uris").notNull(),
+  clientName: stringColumn("client_name").notNull(),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
-export const mcpAuthorizationCodes = mysqlTable(
+export const mcpAuthorizationCodes = sqliteTable(
   "mcp_authorization_codes",
   {
-    codeHash: varchar("code_hash", { length: 64 }).primaryKey(),
-    clientId: varchar("client_id", { length: 191 })
+    codeHash: stringColumn("code_hash").primaryKey(),
+    clientId: stringColumn("client_id")
       .notNull()
       .references(() => mcpOauthClients.id),
-    userId: varchar("user_id", { length: 64 })
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
     redirectUri: text("redirect_uri").notNull(),
-    codeChallenge: varchar("code_challenge", { length: 191 }).notNull(),
-    expiresAt: datetime("expires_at").notNull(),
-    usedAt: datetime("used_at"),
+    codeChallenge: stringColumn("code_challenge").notNull(),
+    expiresAt: timestampColumn("expires_at").notNull(),
+    usedAt: timestampColumn("used_at"),
   },
   (table) => [index("mcp_authorization_codes_user_idx").on(table.userId)],
 );
 
-export const mcpAccessTokens = mysqlTable(
+export const mcpAccessTokens = sqliteTable(
   "mcp_access_tokens",
   {
-    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
-    familyId: varchar("family_id", { length: 64 }),
-    clientId: varchar("client_id", { length: 191 })
+    tokenHash: stringColumn("token_hash").primaryKey(),
+    familyId: stringColumn("family_id"),
+    clientId: stringColumn("client_id")
       .notNull()
       .references(() => mcpOauthClients.id),
-    userId: varchar("user_id", { length: 64 })
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    expiresAt: datetime("expires_at").notNull(),
-    revokedAt: datetime("revoked_at"),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    expiresAt: timestampColumn("expires_at").notNull(),
+    revokedAt: timestampColumn("revoked_at"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [index("mcp_access_tokens_user_idx").on(table.userId)],
 );
 
-export const mcpRefreshTokens = mysqlTable(
+export const mcpRefreshTokens = sqliteTable(
   "mcp_refresh_tokens",
   {
-    tokenHash: varchar("token_hash", { length: 64 }).primaryKey(),
-    familyId: varchar("family_id", { length: 64 }).notNull(),
-    clientId: varchar("client_id", { length: 191 })
+    tokenHash: stringColumn("token_hash").primaryKey(),
+    familyId: stringColumn("family_id").notNull(),
+    clientId: stringColumn("client_id")
       .notNull()
       .references(() => mcpOauthClients.id),
-    userId: varchar("user_id", { length: 64 })
+    userId: stringColumn("user_id")
       .notNull()
       .references(() => users.id),
-    familyExpiresAt: datetime("family_expires_at").notNull(),
-    expiresAt: datetime("expires_at").notNull(),
-    consumedAt: datetime("consumed_at"),
-    replacementTokenHash: varchar("replacement_token_hash", { length: 64 }),
-    revokedAt: datetime("revoked_at"),
-    createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    familyExpiresAt: timestampColumn("family_expires_at").notNull(),
+    expiresAt: timestampColumn("expires_at").notNull(),
+    consumedAt: timestampColumn("consumed_at"),
+    replacementTokenHash: stringColumn("replacement_token_hash"),
+    revokedAt: timestampColumn("revoked_at"),
+    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   },
   (table) => [
     index("mcp_refresh_tokens_family_idx").on(table.familyId),
@@ -578,22 +577,22 @@ export const mcpRefreshTokens = mysqlTable(
   ],
 );
 
-export const exportRuns = mysqlTable("export_runs", {
-  id: varchar("id", { length: 64 }).primaryKey(),
-  status: mysqlEnum("status", jobStatusValues).notNull(),
-  outputPath: varchar("output_path", { length: 1024 }),
+export const exportRuns = sqliteTable("export_runs", {
+  id: stringColumn("id").primaryKey(),
+  status: text("status", { enum: jobStatusValues }).notNull(),
+  outputPath: stringColumn("output_path"),
   error: text("error"),
-  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-  finishedAt: datetime("finished_at"),
+  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  finishedAt: timestampColumn("finished_at"),
 });
 
-export const jobRuns = mysqlTable("job_runs", {
-  id: varchar("id", { length: 64 }).primaryKey(),
-  name: varchar("name", { length: 96 }).notNull(),
-  status: mysqlEnum("status", jobStatusValues).notNull(),
+export const jobRuns = sqliteTable("job_runs", {
+  id: stringColumn("id").primaryKey(),
+  name: stringColumn("name").notNull(),
+  status: text("status", { enum: jobStatusValues }).notNull(),
   error: text("error"),
-  startedAt: datetime("started_at").notNull(),
-  finishedAt: datetime("finished_at"),
+  startedAt: timestampColumn("started_at").notNull(),
+  finishedAt: timestampColumn("finished_at"),
 });
 
 export const categoryRelations = relations(categories, ({ many }) => ({

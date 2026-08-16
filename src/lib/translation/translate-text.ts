@@ -91,7 +91,7 @@ export function createDrizzleTranslationRepository(): TranslationRepository {
     },
     async saveTranslation(input) {
       const db = await getDb();
-      await db.insert(translationCache).ignore().values(input);
+      await db.insert(translationCache).values(input).onConflictDoNothing();
     },
     async touchCache(sourceHash) {
       const db = await getDb();

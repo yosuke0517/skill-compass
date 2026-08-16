@@ -1,4 +1,4 @@
-import { MySqlDialect } from "drizzle-orm/mysql-core";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { describe, expect, it, vi } from "vitest";
 
 import { answers, conceptTags, scores } from "@/db/schema";
@@ -338,7 +338,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
     expect(answerQueries).toHaveLength(2);
     for (const query of answerQueries) {
       expect(renderWhere(query.where)).toMatchObject({
-        sql: expect.stringContaining("`user_id` = ?"),
+        sql: expect.stringContaining('"user_id" = ?'),
         params: expect.arrayContaining(["user_a"]),
       });
     }
@@ -418,7 +418,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
       "answeredAt",
     ] as const) {
       expect(renderSqlValue(answerInsert?.upsertSet?.[field])).toMatchObject({
-        sql: expect.stringContaining("`correct` is null"),
+        sql: expect.stringContaining('"correct" is null'),
       });
     }
   });
@@ -455,7 +455,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
       (capture) => capture.operation === "update" && capture.table === "answers",
     );
     expect(renderWhere(answerUpdate?.where)).toMatchObject({
-      sql: expect.stringContaining("`correct` is null"),
+      sql: expect.stringContaining('"correct" is null'),
       params: expect.arrayContaining([
         "user_a",
         "answer_existing",
@@ -518,7 +518,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
       inTransaction: true,
     });
     expect(renderSqlValue(scoreInsert?.upsertSet?.value)).toMatchObject({
-      sql: expect.stringMatching(/`value`\s*\+\s*\?/),
+      sql: expect.stringMatching(/"value"\s*\+\s*\?/),
       params: expect.arrayContaining([0.1]),
     });
     expect(
@@ -622,12 +622,18 @@ function createRepositoryDb(input: {
                 set,
                 inTransaction,
               });
-              return Promise.resolve([
-                {
-                  affectedRows:
-                    table === answers ? (input.finalizationAffectedRows ?? 1) : 1,
+              const rows = table === answers && (input.finalizationAffectedRows ?? 1) === 0
+                ? []
+                : [{ id: "updated" }];
+              return {
+                returning: () => Promise.resolve(rows),
+                then<TResult1 = unknown, TResult2 = never>(
+                  onfulfilled?: ((value: unknown[]) => TResult1 | PromiseLike<TResult1>) | null,
+                  onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+                ) {
+                  return Promise.resolve(rows).then(onfulfilled, onrejected);
                 },
-              ]);
+              };
             },
           };
         },
@@ -644,7 +650,7 @@ function createRepositoryDb(input: {
           };
           captures.push(capture);
           return {
-            onDuplicateKeyUpdate(inputUpdate: { set: Record<string, unknown> }) {
+            onConflictDoUpdate(inputUpdate: { set: Record<string, unknown> }) {
               capture.upsert = true;
               capture.upsertSet = inputUpdate.set;
               if (table === scores && input.failScoreInsert) {
@@ -684,8 +690,8 @@ function renderWhere(where: unknown) {
   if (!where || typeof where !== "object" || !("getSQL" in where)) {
     throw new Error("missing where condition");
   }
-  const query = new MySqlDialect().sqlToQuery(
-    (where as { getSQL(): ReturnType<Parameters<MySqlDialect["sqlToQuery"]>[0]["getSQL"]> }).getSQL(),
+  const query = new SQLiteSyncDialect().sqlToQuery(
+    (where as { getSQL(): ReturnType<Parameters<SQLiteSyncDialect["sqlToQuery"]>[0]["getSQL"]> }).getSQL(),
   );
   return { sql: query.sql, params: query.params };
 }
@@ -694,8 +700,8 @@ function renderSqlValue(value: unknown) {
   if (!value || typeof value !== "object" || !("getSQL" in value)) {
     throw new Error("missing SQL value");
   }
-  const query = new MySqlDialect().sqlToQuery(
-    (value as { getSQL(): ReturnType<Parameters<MySqlDialect["sqlToQuery"]>[0]["getSQL"]> }).getSQL(),
+  const query = new SQLiteSyncDialect().sqlToQuery(
+    (value as { getSQL(): ReturnType<Parameters<SQLiteSyncDialect["sqlToQuery"]>[0]["getSQL"]> }).getSQL(),
   );
   return { sql: query.sql, params: query.params };
 }

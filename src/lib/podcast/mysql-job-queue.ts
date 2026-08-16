@@ -20,7 +20,10 @@ export function createMySqlPodcastJobQueue(): PodcastJobQueue {
         idempotencyKey: input.idempotencyKey,
         nextRunAt: now,
       } as const;
-      await db.insert(podcastJobs).values(row).onDuplicateKeyUpdate({ set: { updatedAt: now } });
+      await db.insert(podcastJobs).values(row).onConflictDoUpdate({
+        target: podcastJobs.idempotencyKey,
+        set: { updatedAt: now },
+      });
       const [stored] = await db.select().from(podcastJobs).where(eq(podcastJobs.idempotencyKey, input.idempotencyKey)).limit(1);
       return {
         id: stored?.id ?? id,

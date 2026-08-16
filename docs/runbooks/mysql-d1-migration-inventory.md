@@ -28,7 +28,7 @@ The scanner currently finds 36 MySQL table declarations with these features:
 | JSON columns | 6 | Drizzle SQLite `text(..., { mode: "json" })`, preserving typed serialization |
 | `timestamp` | 25 | One consistent integer Unix timestamp representation with application-level `Date` mapping |
 | `datetime` | 14 | The same integer timestamp representation; nullable behavior is preserved |
-| `date` | 5 | ISO `YYYY-MM-DD` text because these values represent local calendar dates |
+| `date` | 5 | Integer Unix timestamps with existing `Date` mapping; tests preserve local-date normalization before storage |
 | `onUpdateNow()` | 11 | Explicit `updatedAt` writes in each mutation; D1 has no MySQL automatic-update clause |
 | Foreign keys | 25 | SQLite foreign keys with `PRAGMA foreign_keys = ON` in tests and D1 defaults verified |
 | Composite primary keys | 8 | SQLite composite primary keys with the same column order |

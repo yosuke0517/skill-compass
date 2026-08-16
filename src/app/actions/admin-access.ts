@@ -68,7 +68,10 @@ export async function updatePlanEntitlementAction(formData: FormData) {
   if (!plans.has(planId) || !entitlementIds.has(entitlementId)) redirect("/admin/access?error=invalid-input");
 
   const actor = await requireAdmin();
-  await db.insert(planEntitlements).values({ planId, entitlementId, enabled }).onDuplicateKeyUpdate({ set: { enabled } });
+  await db.insert(planEntitlements).values({ planId, entitlementId, enabled }).onConflictDoUpdate({
+    target: [planEntitlements.planId, planEntitlements.entitlementId],
+    set: { enabled },
+  });
   await db.insert(auditLogs).values({
     id: `audit_${randomUUID()}`,
     actorUserId: actor.id,
@@ -102,7 +105,10 @@ export async function updateUserEntitlementAction(formData: FormData) {
   } else {
     await db.insert(userEntitlementOverrides)
       .values({ userId, entitlementId, enabled: mode === "allow" })
-      .onDuplicateKeyUpdate({ set: { enabled: mode === "allow" } });
+      .onConflictDoUpdate({
+        target: [userEntitlementOverrides.userId, userEntitlementOverrides.entitlementId],
+        set: { enabled: mode === "allow" },
+      });
   }
 
   await db.insert(auditLogs).values({

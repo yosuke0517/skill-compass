@@ -13,7 +13,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 describe("MySQL to D1 migration inventory", () => {
   it("classifies every table declared by the current MySQL schema", () => {
-    const schemaPath = path.join(projectRoot, "src/db/schema.ts");
+    const schemaPath = path.join(projectRoot, "src/db/mysql-schema.ts");
     const schemaSource = readFileSync(schemaPath, "utf8");
     const inventory = buildMigrationInventory({
       projectRoot,
@@ -32,7 +32,7 @@ describe("MySQL to D1 migration inventory", () => {
   it("serializes counts and classifications without row values or secrets", () => {
     const inventory = buildMigrationInventory({
       projectRoot,
-      schemaPath: path.join(projectRoot, "src/db/schema.ts"),
+      schemaPath: path.join(projectRoot, "src/db/mysql-schema.ts"),
       tableCounts: { users: 1 },
     });
     const serialized = serializeMigrationInventory(inventory);

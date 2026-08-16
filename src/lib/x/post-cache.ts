@@ -54,7 +54,8 @@ export async function saveCachedPublicPost(
       fetchedAt: new Date(),
       expiresAt,
     })
-    .onDuplicateKeyUpdate({
+    .onConflictDoUpdate({
+      target: xPublicPostCache.postId,
       set: { snapshot: post, fetchedAt: new Date(), expiresAt },
     });
 }

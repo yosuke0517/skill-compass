@@ -223,12 +223,13 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
           reasoning: answer.reasoning,
           answeredAt: answer.answeredAt,
         })
-        .onDuplicateKeyUpdate({
+        .onConflictDoUpdate({
+          target: answers.id,
           set: {
-            selectedChoiceId: sql`if(${answers.correct} is null, ${answer.selectedChoiceId}, ${answers.selectedChoiceId})`,
-            confidence: sql`if(${answers.correct} is null, ${answer.confidence}, ${answers.confidence})`,
-            reasoning: sql`if(${answers.correct} is null, ${answer.reasoning}, ${answers.reasoning})`,
-            answeredAt: sql`if(${answers.correct} is null, ${answer.answeredAt}, ${answers.answeredAt})`,
+            selectedChoiceId: sql`case when ${answers.correct} is null then ${answer.selectedChoiceId} else ${answers.selectedChoiceId} end`,
+            confidence: sql`case when ${answers.correct} is null then ${answer.confidence} else ${answers.confidence} end`,
+            reasoning: sql`case when ${answers.correct} is null then ${answer.reasoning} else ${answers.reasoning} end`,
+            answeredAt: sql`case when ${answers.correct} is null then ${answer.answeredAt} else ${answers.answeredAt} end`,
           },
         });
     },
@@ -239,7 +240,7 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
           input.expectedRaw.confidence === null
             ? isNull(answers.confidence)
             : eq(answers.confidence, input.expectedRaw.confidence);
-        const [result] = await tx
+        const updated = await tx
           .update(answers)
           .set({
             correct: input.evaluation.correct,
@@ -257,8 +258,9 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
               confidenceMatches,
               eq(answers.reasoning, input.expectedRaw.reasoning),
             ),
-          );
-        if (result.affectedRows !== 1) return false;
+          )
+          .returning({ id: answers.id });
+        if (updated.length !== 1) return false;
 
         await bumpScore(
           tx,
@@ -320,9 +322,10 @@ async function bumpScore(
       subjectId,
       value: clampScore(0.45 + delta),
     })
-    .onDuplicateKeyUpdate({
+    .onConflictDoUpdate({
+      target: [scores.userId, scores.subjectType, scores.subjectId],
       set: {
-        value: sql`round(least(1, greatest(0, ${scores.value} + ${delta})), 3)`,
+        value: sql`round(min(1, max(0, ${scores.value} + ${delta})), 3)`,
       },
     });
 }

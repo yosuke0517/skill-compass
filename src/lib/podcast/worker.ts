@@ -70,7 +70,10 @@ async function preparePodcastChunks(job: typeof podcastJobs.$inferSelect, now: D
       : await createDeterministicScriptGenerator().generate({ language: settings.settings.language, durationMinutes: settings.settings.durationMinutes, sources: allCollected });
     const chunks = chunkScript(script.speakers, 2);
     await db.update(podcastEpisodes).set({ sourceSnapshot: allCollected.map((source) => ({ id: source.id, title: source.title, url: source.url })), script, status: "synthesizing" }).where(eq(podcastEpisodes.id, job.episodeId));
-    await db.insert(podcastAudioChunks).values(chunks.map((_, chunkIndex) => ({ episodeId: job.episodeId, chunkIndex, status: "queued" }))).onDuplicateKeyUpdate({ set: { status: "queued", errorCode: null } });
+    await db.insert(podcastAudioChunks).values(chunks.map((_, chunkIndex) => ({ episodeId: job.episodeId, chunkIndex, status: "queued" }))).onConflictDoUpdate({
+      target: [podcastAudioChunks.episodeId, podcastAudioChunks.chunkIndex],
+      set: { status: "queued", errorCode: null },
+    });
     await db.update(podcastJobs).set({ status: "succeeded", errorCode: "audio_chunks_queued" }).where(eq(podcastJobs.id, job.id));
     return { status: "script_ready" as const, jobId: job.id };
   } catch {
@@ -108,7 +111,7 @@ async function processPodcastChunk(chunk: typeof podcastAudioChunks.$inferSelect
 
     const audio = combineWavBuffers(await Promise.all(allChunks.map((item) => storage.read(item.storageKey as string))));
     const final = await storage.save({ key: `users/${episode.userId}/episodes/${episode.id}.wav`, audio, mediaType: "audio/wav" });
-    await db.insert(podcastAssets).ignore().values({ id: `podcast_asset_${episode.id}`, episodeId: episode.id, userId: episode.userId, language: episode.language, storageProvider: env.PODCAST_AUDIO_STORAGE, storageKey: final.key, mediaType: final.mediaType, sizeBytes: final.sizeBytes, durationSeconds: getWavDurationSeconds(audio) });
+    await db.insert(podcastAssets).values({ id: `podcast_asset_${episode.id}`, episodeId: episode.id, userId: episode.userId, language: episode.language, storageProvider: env.PODCAST_AUDIO_STORAGE, storageKey: final.key, mediaType: final.mediaType, sizeBytes: final.sizeBytes, durationSeconds: getWavDurationSeconds(audio) }).onConflictDoNothing();
     await db.update(podcastEpisodes).set({ status: "ready" }).where(eq(podcastEpisodes.id, episode.id));
     return { status: "audio_ready" as const, jobId: episode.id };
   } catch (error) {

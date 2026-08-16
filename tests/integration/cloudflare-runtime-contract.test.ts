@@ -30,12 +30,16 @@ const forbiddenPackages = new Set([
   "child_process",
   "fs",
   "fs/promises",
+  "drizzle-orm/mysql2",
+  "mysql2",
+  "mysql2/promise",
   "node:child_process",
   "node:fs",
   "node:fs/promises",
 ]);
 
 const forbiddenSourceFiles = new Map([
+  [path.join(sourceRoot, "db/mysql-export-client.ts"), "migration-only MySQL access"],
   [path.join(sourceRoot, "lib/secrets/keychain.ts"), "macOS Keychain access"],
   [
     path.join(sourceRoot, "lib/podcast/providers/local-audio-storage.ts"),
