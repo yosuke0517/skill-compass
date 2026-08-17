@@ -5,10 +5,10 @@ export default defineConfig({
   fullyParallel: true,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: process.env.STAGING_BASE_URL ?? "http://127.0.0.1:3000",
     trace: "on-first-retry",
   },
-  webServer: {
+  webServer: process.env.STAGING_BASE_URL ? undefined : {
     command: "pnpm dev",
     env: {
       DATABASE_URL: "mysql://skill_compass:skill_compass@127.0.0.1:3306/skill_compass",
