@@ -42,6 +42,7 @@
         "MCP_ISSUER_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
         "MCP_RESOURCE_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp",
         "MCP_ARCHITECTURE_RESOURCE_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp/architecture",
+        "MCP_ALLOWED_USER_ID": "user_staging",
         "PODCAST_AUDIO_STORAGE": "r2"
       },
       "assets": {

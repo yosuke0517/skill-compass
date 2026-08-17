@@ -31,4 +31,14 @@ describe("D1 application schema boundary", () => {
     expect(answerConfig.foreignKeys.length).toBeGreaterThan(0);
     expect(quizDayConfig.indexes.some((index) => index.config.name === "quiz_days_user_date_idx")).toBe(true);
   });
+
+  it("stores automatic timestamps as Unix seconds for D1 integer timestamp columns", () => {
+    const migration = readFileSync(
+      path.join(projectRoot, "drizzle-d1/0000_adorable_prism.sql"),
+      "utf8",
+    );
+
+    expect(migration).not.toContain("integer DEFAULT CURRENT_TIMESTAMP");
+    expect(migration).toContain("integer DEFAULT (unixepoch()) NOT NULL");
+  });
 });

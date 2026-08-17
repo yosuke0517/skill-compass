@@ -42,7 +42,7 @@ export const categories = sqliteTable("categories", {
   name: stringColumn("name").notNull().unique(),
   description: text("description"),
   displayOrder: integer("display_order").notNull(),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
 });
 
 export const tags = sqliteTable(
@@ -54,7 +54,7 @@ export const tags = sqliteTable(
       .references(() => categories.id),
     name: stringColumn("name").notNull(),
     description: text("description"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [index("tags_category_idx").on(table.categoryId)],
 );
@@ -70,8 +70,8 @@ export const translationCache = sqliteTable(
     purpose: stringColumn("purpose").notNull(),
     translatedText: text("translated_text").notNull(),
     provider: stringColumn("provider").notNull(),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    lastUsedAt: timestampColumn("last_used_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    lastUsedAt: timestampColumn("last_used_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [uniqueIndex("translation_cache_source_hash_idx").on(table.sourceHash)],
 );
@@ -86,8 +86,8 @@ export const users = sqliteTable(
     status: text("status", { enum: userStatusValues }).default("active").notNull(),
     role: stringColumn("role").default("normal").notNull(),
     plan: stringColumn("plan").default("free").notNull(),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [uniqueIndex("users_email_idx").on(table.email)],
 );
@@ -101,7 +101,7 @@ export const invites = sqliteTable(
     invitedByUserId: stringColumn("invited_by_user_id").references(() => users.id),
     expiresAt: timestampColumn("expires_at").notNull(),
     usedAt: timestampColumn("used_at"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [
     uniqueIndex("invites_token_hash_idx").on(table.tokenHash),
@@ -112,7 +112,7 @@ export const invites = sqliteTable(
 export const entitlements = sqliteTable("entitlements", {
   id: stringColumn("id").primaryKey(),
   description: stringColumn("description").notNull(),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
 });
 
 export const planEntitlements = sqliteTable(
@@ -137,7 +137,7 @@ export const userEntitlementOverrides = sqliteTable(
       .notNull()
       .references(() => entitlements.id),
     enabled: booleanColumn("enabled").notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.entitlementId] })],
 );
@@ -155,7 +155,7 @@ export const auditLogs = sqliteTable(
     targetType: stringColumn("target_type").notNull(),
     targetId: stringColumn("target_id").notNull(),
     metadata: jsonColumn<AuditMetadata>("metadata").notNull(),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [
     index("audit_logs_actor_idx").on(table.actorUserId),
@@ -181,8 +181,8 @@ export const podcastSettings = sqliteTable(
     includeXPublic: booleanColumn("include_x_public").default(false).notNull(),
     includeXPersonal: booleanColumn("include_x_personal").default(false).notNull(),
     calendarReadMode: stringColumn("calendar_read_mode").default("time_title").notNull(),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
 );
 
@@ -193,7 +193,7 @@ export const sourcePodcastSettings = sqliteTable(
     sourceId: stringColumn("source_id").notNull().references(() => sources.id),
     enabled: booleanColumn("enabled").default(true).notNull(),
     frequency: stringColumn("frequency").default("daily").notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.sourceId] })],
 );
@@ -212,8 +212,8 @@ export const podcastEpisodes = sqliteTable(
     status: stringColumn("status").notNull(),
     sourceSnapshot: jsonColumn<unknown>("source_snapshot").$type<Array<{ id: string; title: string; url: string }>>().notNull(),
     script: jsonColumn<unknown>("script").$type<{ language: "ja" | "en"; speakers: Array<{ speaker: "host_a" | "host_b"; text: string }> } | null>(),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [index("podcast_episodes_user_idx").on(table.userId, table.localDate)],
 );
@@ -232,8 +232,8 @@ export const podcastJobs = sqliteTable(
     leaseOwner: stringColumn("lease_owner"),
     leaseExpiresAt: timestampColumn("lease_expires_at"),
     errorCode: stringColumn("error_code"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [uniqueIndex("podcast_jobs_idempotency_idx").on(table.idempotencyKey), index("podcast_jobs_claim_idx").on(table.status, table.nextRunAt)],
 );
@@ -250,7 +250,7 @@ export const podcastAssets = sqliteTable(
     mediaType: stringColumn("media_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     durationSeconds: integer("duration_seconds"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [index("podcast_assets_episode_idx").on(table.episodeId)],
 );
@@ -267,8 +267,8 @@ export const podcastAudioChunks = sqliteTable(
     sizeBytes: integer("size_bytes"),
     attempts: integer("attempts").default(0).notNull(),
     errorCode: stringColumn("error_code"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [primaryKey({ columns: [table.episodeId, table.chunkIndex] })],
 );
@@ -282,7 +282,7 @@ export const podcastChatMessages = sqliteTable(
     role: stringColumn("role").notNull(),
     text: text("text").notNull(),
     provider: stringColumn("provider"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [index("podcast_chat_messages_episode_idx").on(table.episodeId, table.createdAt)],
 );
@@ -292,8 +292,8 @@ export const concepts = sqliteTable("concepts", {
   title: stringColumn("title").notNull(),
   summary: text("summary"),
   currentUnderstanding: text("current_understanding"),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+  updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
 });
 
 export const conceptTags = sqliteTable(
@@ -318,7 +318,7 @@ export const sources = sqliteTable("sources", {
   status: text("status", { enum: sourceStatusValues }).default("pending").notNull(),
   lastFetchedAt: timestampColumn("last_fetched_at"),
   failureReason: text("failure_reason"),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
 });
 
 export const conceptSources = sqliteTable(
@@ -370,7 +370,7 @@ export const questions = sqliteTable(
     difficulty: text("difficulty", { enum: difficultyValues }).notNull(),
     rationale: text("rationale").notNull(),
     active: booleanColumn("active").default(true).notNull(),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [index("questions_concept_idx").on(table.conceptId)],
 );
@@ -438,7 +438,7 @@ export const scores = sqliteTable(
     subjectType: text("subject_type", { enum: scoreSubjectTypeValues }).notNull(),
     subjectId: stringColumn("subject_id").notNull(),
     value: real("value").notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [uniqueIndex("scores_user_subject_idx").on(table.userId, table.subjectType, table.subjectId)],
 );
@@ -462,7 +462,7 @@ export const selfAssessments = sqliteTable(
 export const sessions = sqliteTable("sessions", {
   id: stringColumn("id").primaryKey(),
   expiresAt: timestampColumn("expires_at").notNull(),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
 });
 
 export const oauthConnections = sqliteTable(
@@ -476,8 +476,8 @@ export const oauthConnections = sqliteTable(
     tokenType: stringColumn("token_type"),
     scope: text("scope"),
     expiresAt: timestampColumn("expires_at"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
-    updatedAt: timestampColumn("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [uniqueIndex("oauth_connections_user_provider_idx").on(table.userId, table.provider)],
 );
@@ -514,7 +514,7 @@ export const mcpOauthClients = sqliteTable("mcp_oauth_clients", {
   id: stringColumn("id").primaryKey(),
   redirectUris: jsonColumn<string[]>("redirect_uris").notNull(),
   clientName: stringColumn("client_name").notNull(),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
 });
 
 export const mcpAuthorizationCodes = sqliteTable(
@@ -548,7 +548,7 @@ export const mcpAccessTokens = sqliteTable(
       .references(() => users.id),
     expiresAt: timestampColumn("expires_at").notNull(),
     revokedAt: timestampColumn("revoked_at"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [index("mcp_access_tokens_user_idx").on(table.userId)],
 );
@@ -569,7 +569,7 @@ export const mcpRefreshTokens = sqliteTable(
     consumedAt: timestampColumn("consumed_at"),
     replacementTokenHash: stringColumn("replacement_token_hash"),
     revokedAt: timestampColumn("revoked_at"),
-    createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   },
   (table) => [
     index("mcp_refresh_tokens_family_idx").on(table.familyId),
@@ -582,7 +582,7 @@ export const exportRuns = sqliteTable("export_runs", {
   status: text("status", { enum: jobStatusValues }).notNull(),
   outputPath: stringColumn("output_path"),
   error: text("error"),
-  createdAt: timestampColumn("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+  createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
   finishedAt: timestampColumn("finished_at"),
 });
 

@@ -26,7 +26,7 @@ CREATE TABLE `audit_logs` (
 	`target_type` text NOT NULL,
 	`target_id` text NOT NULL,
 	`metadata` text NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`actor_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -37,7 +37,7 @@ CREATE TABLE `categories` (
 	`name` text NOT NULL,
 	`description` text,
 	`display_order` integer NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `categories_name_unique` ON `categories` (`name`);--> statement-breakpoint
@@ -62,14 +62,14 @@ CREATE TABLE `concepts` (
 	`title` text NOT NULL,
 	`summary` text,
 	`current_understanding` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `entitlements` (
 	`id` text PRIMARY KEY NOT NULL,
 	`description` text NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `export_runs` (
@@ -77,7 +77,7 @@ CREATE TABLE `export_runs` (
 	`status` text NOT NULL,
 	`output_path` text,
 	`error` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`finished_at` integer
 );
 --> statement-breakpoint
@@ -88,7 +88,7 @@ CREATE TABLE `invites` (
 	`invited_by_user_id` text,
 	`expires_at` integer NOT NULL,
 	`used_at` integer,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`invited_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -110,7 +110,7 @@ CREATE TABLE `mcp_access_tokens` (
 	`user_id` text NOT NULL,
 	`expires_at` integer NOT NULL,
 	`revoked_at` integer,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`client_id`) REFERENCES `mcp_oauth_clients`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -133,7 +133,7 @@ CREATE TABLE `mcp_oauth_clients` (
 	`id` text PRIMARY KEY NOT NULL,
 	`redirect_uris` text NOT NULL,
 	`client_name` text NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `mcp_refresh_tokens` (
@@ -146,7 +146,7 @@ CREATE TABLE `mcp_refresh_tokens` (
 	`consumed_at` integer,
 	`replacement_token_hash` text,
 	`revoked_at` integer,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`client_id`) REFERENCES `mcp_oauth_clients`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -162,8 +162,8 @@ CREATE TABLE `oauth_connections` (
 	`token_type` text,
 	`scope` text,
 	`expires_at` integer,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -186,7 +186,7 @@ CREATE TABLE `podcast_assets` (
 	`media_type` text NOT NULL,
 	`size_bytes` integer NOT NULL,
 	`duration_seconds` integer,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`episode_id`) REFERENCES `podcast_episodes`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -202,8 +202,8 @@ CREATE TABLE `podcast_audio_chunks` (
 	`size_bytes` integer,
 	`attempts` integer DEFAULT 0 NOT NULL,
 	`error_code` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	PRIMARY KEY(`episode_id`, `chunk_index`),
 	FOREIGN KEY (`episode_id`) REFERENCES `podcast_episodes`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -215,7 +215,7 @@ CREATE TABLE `podcast_chat_messages` (
 	`role` text NOT NULL,
 	`text` text NOT NULL,
 	`provider` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`episode_id`) REFERENCES `podcast_episodes`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -230,8 +230,8 @@ CREATE TABLE `podcast_episodes` (
 	`status` text NOT NULL,
 	`source_snapshot` text NOT NULL,
 	`script` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -248,8 +248,8 @@ CREATE TABLE `podcast_jobs` (
 	`lease_owner` text,
 	`lease_expires_at` integer,
 	`error_code` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`episode_id`) REFERENCES `podcast_episodes`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -268,8 +268,8 @@ CREATE TABLE `podcast_settings` (
 	`include_x_public` integer DEFAULT false NOT NULL,
 	`include_x_personal` integer DEFAULT false NOT NULL,
 	`calendar_read_mode` text DEFAULT 'time_title' NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -288,7 +288,7 @@ CREATE TABLE `questions` (
 	`difficulty` text NOT NULL,
 	`rationale` text NOT NULL,
 	`active` integer DEFAULT true NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`concept_id`) REFERENCES `concepts`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`source_id`) REFERENCES `sources`(`id`) ON UPDATE no action ON DELETE no action
 );
@@ -319,7 +319,7 @@ CREATE TABLE `scores` (
 	`subject_type` text NOT NULL,
 	`subject_id` text NOT NULL,
 	`value` real NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -339,7 +339,7 @@ CREATE INDEX `self_assessments_user_subject_idx` ON `self_assessments` (`user_id
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`expires_at` integer NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `source_podcast_settings` (
@@ -347,7 +347,7 @@ CREATE TABLE `source_podcast_settings` (
 	`source_id` text NOT NULL,
 	`enabled` integer DEFAULT true NOT NULL,
 	`frequency` text DEFAULT 'daily' NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	PRIMARY KEY(`user_id`, `source_id`),
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`source_id`) REFERENCES `sources`(`id`) ON UPDATE no action ON DELETE no action
@@ -362,7 +362,7 @@ CREATE TABLE `sources` (
 	`status` text DEFAULT 'pending' NOT NULL,
 	`last_fetched_at` integer,
 	`failure_reason` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `tags` (
@@ -370,7 +370,7 @@ CREATE TABLE `tags` (
 	`category_id` text NOT NULL,
 	`name` text NOT NULL,
 	`description` text,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -384,8 +384,8 @@ CREATE TABLE `translation_cache` (
 	`purpose` text NOT NULL,
 	`translated_text` text NOT NULL,
 	`provider` text NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`last_used_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`last_used_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `translation_cache_source_hash_idx` ON `translation_cache` (`source_hash`);--> statement-breakpoint
@@ -393,7 +393,7 @@ CREATE TABLE `user_entitlement_overrides` (
 	`user_id` text NOT NULL,
 	`entitlement_id` text NOT NULL,
 	`enabled` integer NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	PRIMARY KEY(`user_id`, `entitlement_id`),
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`entitlement_id`) REFERENCES `entitlements`(`id`) ON UPDATE no action ON DELETE no action
@@ -407,8 +407,8 @@ CREATE TABLE `users` (
 	`status` text DEFAULT 'active' NOT NULL,
 	`role` text DEFAULT 'normal' NOT NULL,
 	`plan` text DEFAULT 'free' NOT NULL,
-	`created_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	`updated_at` integer DEFAULT CURRENT_TIMESTAMP NOT NULL
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_idx` ON `users` (`email`);--> statement-breakpoint
