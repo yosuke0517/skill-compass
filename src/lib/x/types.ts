@@ -19,6 +19,12 @@ export type XMedia = {
   altText?: string;
 };
 
+export type XArticle = {
+  title: string;
+  previewText?: string;
+  plainText: string;
+};
+
 export type PublicXPost = {
   id: string;
   url: string;
@@ -32,6 +38,7 @@ export type PublicXPost = {
   canonicalLinks: string[];
   metrics: XPostMetrics;
   media: XMedia[];
+  article?: XArticle;
 };
 
 export type RankedTechPost = PublicXPost & {

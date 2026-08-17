@@ -46,11 +46,22 @@ function sqlValue(value: SqlValue): string {
   return `'${text.replaceAll("'", "''")}'`;
 }
 
-function insert(table: string, row: Record<string, SqlValue>, mode = "OR REPLACE") {
+function insert(table: string, row: Record<string, SqlValue>, mode = "OR IGNORE") {
   const entries = Object.entries(row);
   const columns = entries.map(([column]) => `\`${column}\``).join(", ");
   const values = entries.map(([, value]) => sqlValue(value)).join(", ");
   return `INSERT ${mode} INTO \`${table}\` (${columns}) VALUES (${values});`;
+}
+
+function upsert(table: string, row: Record<string, SqlValue>, primaryKey: string[] = ["id"]) {
+  const entries = Object.entries(row);
+  const columns = entries.map(([column]) => `\`${column}\``).join(", ");
+  const values = entries.map(([, value]) => sqlValue(value)).join(", ");
+  const mutable = entries.map(([column]) => column).filter((column) => !primaryKey.includes(column));
+  const action = mutable.length > 0
+    ? `DO UPDATE SET ${mutable.map((column) => `\`${column}\` = excluded.\`${column}\``).join(", ")}`
+    : "DO NOTHING";
+  return `INSERT INTO \`${table}\` (${columns}) VALUES (${values}) ON CONFLICT (${primaryKey.map((column) => `\`${column}\``).join(", ")}) ${action};`;
 }
 
 export function buildStagingSeedSql(input: SeedInput): string {
@@ -81,7 +92,7 @@ export function buildStagingSeedSql(input: SeedInput): string {
 
   const statements = [
     "PRAGMA foreign_keys = ON;",
-    insert("users", {
+    upsert("users", {
       id: input.userId,
       email: input.email,
       display_name: "Staging User",
@@ -93,15 +104,15 @@ export function buildStagingSeedSql(input: SeedInput): string {
       updated_at: now,
     }),
     ...entitlementRows.map(([id, description]) =>
-      insert("entitlements", { id, description, created_at: now }),
+      upsert("entitlements", { id, description, created_at: now }),
     ),
     ...proEntitlementIds.map((entitlementId) =>
-      insert("plan_entitlements", { plan_id: "pro", entitlement_id: entitlementId, enabled: true }),
+      upsert("plan_entitlements", { plan_id: "pro", entitlement_id: entitlementId, enabled: true }, ["plan_id", "entitlement_id"]),
     ),
-    ...categories.map((row) => insert("categories", row)),
-    ...tags.map((row) => insert("tags", row)),
+    ...categories.map((row) => upsert("categories", row)),
+    ...tags.map((row) => upsert("tags", row)),
     ...concepts.map((row) =>
-      insert("concepts", {
+      upsert("concepts", {
         id: row.id,
         title: row.title,
         summary: row.summary,
@@ -111,7 +122,7 @@ export function buildStagingSeedSql(input: SeedInput): string {
       }),
     ),
     ...learningSourceRows.map((row) =>
-      insert("sources", {
+      upsert("sources", {
         id: row.id,
         title: row.title,
         url: row.url,
@@ -134,7 +145,7 @@ export function buildStagingSeedSql(input: SeedInput): string {
       }, "OR IGNORE"),
     ),
     ...questions.map((row) =>
-      insert("questions", {
+      upsert("questions", {
         id: row.id,
         concept_id: row.conceptId,
         source_id: row.sourceId,

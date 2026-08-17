@@ -13,10 +13,11 @@ describe("staging D1 seed", () => {
   it("contains the public catalog and one isolated Pro test user", () => {
     const sql = buildStagingSeedSql(input);
 
-    expect(sql).toContain("INSERT OR REPLACE INTO `users`");
+    expect(sql).toContain("INSERT INTO `users`");
+    expect(sql).toContain("ON CONFLICT (`id`) DO UPDATE SET");
     expect(sql).toContain("staging-user@skill-compass.invalid");
-    expect(sql).toContain("INSERT OR REPLACE INTO `questions`");
-    expect(sql).toContain("INSERT OR REPLACE INTO `categories`");
+    expect(sql).toContain("INSERT INTO `questions`");
+    expect(sql).toContain("INSERT INTO `categories`");
     expect(sql).toContain("'pro'");
     expect(sql).toContain("scrypt$test''hash");
   });

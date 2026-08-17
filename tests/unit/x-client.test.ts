@@ -8,6 +8,11 @@ const apiResponse = {
       id: "123",
       text: "short text",
       note_tweet: { text: "full long-form text" },
+      article: {
+        title: "Ten production AI questions",
+        preview_text: "How do you separate model and code responsibilities?",
+        plain_text: "Q1. Model and code responsibilities\nQ2. Evaluation and safety",
+      },
       author_id: "u1",
       created_at: "2026-07-24T00:00:00.000Z",
       lang: "en",
@@ -67,11 +72,18 @@ describe("createXApiClient", () => {
           altText: "A diagram",
         },
       ],
+      article: {
+        title: "Ten production AI questions",
+        previewText: "How do you separate model and code responsibilities?",
+        plainText: "Q1. Model and code responsibilities\nQ2. Evaluation and safety",
+      },
     });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toMatch(/^https:\/\/api\.x\.com\/2\/tweets\/123\?/);
     expect(String(url)).toContain("tweet.fields=");
+    expect(new URL(String(url)).searchParams.get("tweet.fields")?.split(",")).toContain("article");
+    expect(new URL(String(url)).searchParams.get("expansions")?.split(",")).toContain("article.media_entities");
     expect(init.headers.authorization).toBe("Bearer secret-bearer");
   });
 
