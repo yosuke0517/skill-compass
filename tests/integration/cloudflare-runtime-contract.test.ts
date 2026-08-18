@@ -84,11 +84,15 @@ describe("Cloudflare request runtime contract", () => {
     );
   });
 
-  it("keeps the Phase 0 deploy interface scoped to staging", () => {
+  it("keeps production promotion explicit and free of DNS routes", () => {
     const packageJson = JSON.parse(
       readFileSync(path.join(projectRoot, "package.json"), "utf8"),
     ) as { scripts?: Record<string, string> };
-    const wranglerConfig = parseJsonc<{ env?: Record<string, unknown> }>(
+    const wranglerConfig = parseJsonc<{
+      env?: Record<string, { routes?: unknown; route?: unknown }>;
+      routes?: unknown;
+      route?: unknown;
+    }>(
       path.join(projectRoot, "wrangler.jsonc"),
     );
 
@@ -96,8 +100,11 @@ describe("Cloudflare request runtime contract", () => {
       "opennextjs-cloudflare deploy --config .cloudflare/deploy-values.json --env staging",
     );
     expect(wranglerConfig.env).toHaveProperty("staging");
-    expect(wranglerConfig.env).not.toHaveProperty("production");
-    expect(JSON.stringify(wranglerConfig)).not.toContain("production");
+    expect(wranglerConfig.env).toHaveProperty("production");
+    expect(wranglerConfig).not.toHaveProperty("route");
+    expect(wranglerConfig).not.toHaveProperty("routes");
+    expect(wranglerConfig.env?.production).not.toHaveProperty("route");
+    expect(wranglerConfig.env?.production).not.toHaveProperty("routes");
   });
 
   it("does not invoke macOS Keychain in the Workers runtime", async () => {

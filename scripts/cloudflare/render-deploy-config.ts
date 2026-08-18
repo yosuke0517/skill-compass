@@ -90,12 +90,21 @@ function terraformString(outputs: TerraformOutputs, name: string): string {
   return output.value;
 }
 
-function stagingResourceName(outputs: TerraformOutputs, name: string): string {
+function environmentResourceName(
+  outputs: TerraformOutputs,
+  name: string,
+  environment: "staging" | "production",
+): string {
   const value = terraformString(outputs, name);
   const namesStaging = /(^|[-_])staging($|[-_])/.test(value);
   const namesProduction = /(^|[-_])production($|[-_])/.test(value);
-  if (!namesStaging || namesProduction) {
-    throw new Error(`Terraform output "${name}" must name a staging resource`);
+  const valid = environment === "staging"
+    ? namesStaging && !namesProduction
+    : name === "r2_bucket_name"
+      ? value === "skill-compass-podcast-dev"
+      : namesProduction && !namesStaging;
+  if (!valid) {
+    throw new Error(`Terraform output "${name}" must name a ${environment} resource`);
   }
 
   return value;
@@ -118,23 +127,30 @@ function d1DatabaseId(outputs: TerraformOutputs): string {
 function main(): void {
   const wranglerConfigPath = argumentValue("--wrangler-config", "wrangler.jsonc");
   const outputPath = argumentValue("--output", ".cloudflare/deploy-values.json");
+  const environmentArgument = argumentValue("--environment", "staging");
+  if (environmentArgument !== "staging" && environmentArgument !== "production") {
+    throw new Error("environment must be staging or production");
+  }
+  const environment = environmentArgument;
   const outputs = JSON.parse(readFileSync(0, "utf8")) as TerraformOutputs;
   const config = parseJsonc(readFileSync(wranglerConfigPath, "utf8"));
   relocateConfigPaths(config, wranglerConfigPath, outputPath);
-  const staging = config.env.staging;
+  const selected = config.env[environment];
+  if (!selected) throw new Error(`Wrangler environment "${environment}" is missing`);
+  config.env = { [environment]: selected };
 
-  staging.name = stagingResourceName(outputs, "worker_name");
-  staging.d1_databases = [
+  selected.name = environmentResourceName(outputs, "worker_name", environment);
+  selected.d1_databases = [
     {
       binding: "DB",
-      database_name: stagingResourceName(outputs, "d1_database_name"),
+      database_name: environmentResourceName(outputs, "d1_database_name", environment),
       database_id: d1DatabaseId(outputs),
     },
   ];
-  staging.r2_buckets = [
+  selected.r2_buckets = [
     {
       binding: "PODCAST_AUDIO",
-      bucket_name: stagingResourceName(outputs, "r2_bucket_name"),
+      bucket_name: environmentResourceName(outputs, "r2_bucket_name", environment),
     },
   ];
 
