@@ -84,8 +84,12 @@ describe("Cloudflare deploy-config renderer", () => {
         binding: "DB",
         database_name: "skill-compass-staging",
         database_id: "11111111-1111-4111-8111-111111111111",
+        migrations_dir: expect.any(String),
       },
     ]);
+    expect(path.resolve(path.dirname(outputPath), rendered.env.staging.d1_databases[0].migrations_dir)).toBe(
+      path.join(repositoryRoot, "drizzle-d1"),
+    );
     expect(rendered.env.staging.r2_buckets).toEqual([
       {
         binding: "PODCAST_AUDIO",
@@ -133,6 +137,9 @@ describe("Cloudflare deploy-config renderer", () => {
       database_name: "skill-compass-production",
       database_id: "22222222-2222-4222-8222-222222222222",
     });
+    expect(path.resolve(path.dirname(outputPath), rendered.env.production.d1_databases[0].migrations_dir)).toBe(
+      path.join(repositoryRoot, "drizzle-d1"),
+    );
     expect(rendered.env.production.r2_buckets).toEqual([{
       binding: "PODCAST_AUDIO",
       bucket_name: "skill-compass-podcast-dev",

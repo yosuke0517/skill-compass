@@ -83,6 +83,7 @@ describe("deterministic MySQL to D1 migration", () => {
 
     await importD1(input);
     const first = [...requests];
+    expect(JSON.parse(first[0]!)).toEqual({ batch: expect.any(Array) });
     requests.length = 0;
     await importD1(input);
 
