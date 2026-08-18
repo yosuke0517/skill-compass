@@ -91,7 +91,8 @@ async function seedLearningCatalog() {
     await db
       .insert(categories)
       .values(category)
-      .onDuplicateKeyUpdate({
+      .onConflictDoUpdate({
+        target: categories.id,
         set: {
           name: category.name,
           description: category.description,
@@ -104,7 +105,8 @@ async function seedLearningCatalog() {
     await db
       .insert(tags)
       .values(tag)
-      .onDuplicateKeyUpdate({
+      .onConflictDoUpdate({
+        target: tags.id,
         set: {
           categoryId: tag.categoryId,
           name: tag.name,
@@ -117,7 +119,8 @@ async function seedLearningCatalog() {
     await db
       .insert(concepts)
       .values(concept)
-      .onDuplicateKeyUpdate({
+      .onConflictDoUpdate({
+        target: concepts.id,
         set: {
           title: concept.title,
           summary: concept.summary,
@@ -130,7 +133,8 @@ async function seedLearningCatalog() {
     await db
       .insert(sources)
       .values(source)
-      .onDuplicateKeyUpdate({
+      .onConflictDoUpdate({
+        target: sources.id,
         set: {
           title: source.title,
           url: source.url,
@@ -144,8 +148,8 @@ async function seedLearningCatalog() {
   await db
     .delete(conceptSources)
     .where(inArray(conceptSources.conceptId, conceptRows.map((concept) => concept.id)));
-  await db.insert(conceptTags).ignore().values(conceptTagRows);
-  await db.insert(conceptSources).ignore().values(conceptSourceRows);
+  await db.insert(conceptTags).values(conceptTagRows).onConflictDoNothing();
+  await db.insert(conceptSources).values(conceptSourceRows).onConflictDoNothing();
 }
 
 async function seedReviewedQuestions() {
@@ -157,7 +161,7 @@ async function seedReviewedQuestions() {
     await db
       .insert(questions)
       .values(row)
-      .onDuplicateKeyUpdate({ set: toQuestionUpdate(row) });
+      .onConflictDoUpdate({ target: questions.id, set: toQuestionUpdate(row) });
   }
 }
 
@@ -175,9 +179,12 @@ async function main() {
       role: "admin",
       plan: "pro",
     })
-    .onDuplicateKeyUpdate({ set: { role: "admin", plan: "pro", status: "active" } });
+    .onConflictDoUpdate({
+      target: users.id,
+      set: { role: "admin", plan: "pro", status: "active" },
+    });
 
-  await db.insert(users).ignore().values({
+  await db.insert(users).values({
     id: "user_member",
     email: "member@example.com",
     displayName: "Local Member",
@@ -185,20 +192,19 @@ async function main() {
     status: "active",
     role: "normal",
     plan: "free",
-  });
+  }).onConflictDoNothing();
 
-  await db.insert(entitlements).ignore().values([...entitlementRows]);
-  await db.insert(planEntitlements).ignore().values([
+  await db.insert(entitlements).values([...entitlementRows]).onConflictDoNothing();
+  await db.insert(planEntitlements).values([
     ...freeEntitlementIds.map((entitlementId) => ({ planId: "free", entitlementId, enabled: true })),
     ...proEntitlementIds.map((entitlementId) => ({ planId: "pro", entitlementId, enabled: true })),
-  ]);
+  ]).onConflictDoNothing();
 
   await seedLearningCatalog();
   await seedReviewedQuestions();
 
   await db
     .insert(scores)
-    .ignore()
     .values([
       ...categoryRows.map((category) => ({
         id: `score_${category.id}`,
@@ -221,11 +227,11 @@ async function main() {
         subjectId: concept.id,
         value: 0.45,
       })),
-    ]);
+    ])
+    .onConflictDoNothing();
 
   await db
     .insert(selfAssessments)
-    .ignore()
     .values(
       categoryRows.map((category) => ({
         id: `self_${category.id}_initial`,
@@ -236,7 +242,8 @@ async function main() {
         note: "Initial public-safe seed self assessment.",
         assessedOn: new Date("2026-07-08T00:00:00.000Z"),
       })),
-    );
+    )
+    .onConflictDoNothing();
 }
 
 main()

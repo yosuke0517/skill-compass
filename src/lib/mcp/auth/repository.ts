@@ -31,8 +31,7 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
               gt(mcpAuthorizationCodes.expiresAt, now),
             ),
           )
-          .limit(1)
-          .for("update");
+          .limit(1);
         if (!code) return null;
         await tx
           .update(mcpAuthorizationCodes)
@@ -64,8 +63,7 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
           .select()
           .from(mcpRefreshTokens)
           .where(eq(mcpRefreshTokens.tokenHash, input.tokenHash))
-          .limit(1)
-          .for("update");
+          .limit(1);
         if (
           !stored ||
           stored.clientId !== input.clientId ||

@@ -3,6 +3,8 @@ node_modules/
 
 # Build outputs
 .next/
+.open-next/
+.wrangler/
 dist/
 coverage/
 playwright-report/
@@ -13,6 +15,19 @@ test-results/
 .env
 .env.*
 !.env.example
+.dev.vars*
+
+# Terraform state, plans, providers, and task-local tooling
+.terraform/
+.terraform-tool/
+*.tfstate*
+*.tfplan
+*.plan
+crash.log
+crash.*.log
+
+# Generated Cloudflare deployment values
+.cloudflare/deploy-values*.json
 
 # Local database and generated files
 *.sqlite

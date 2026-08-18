@@ -1,0 +1,68 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "skill-compass-cloudflare",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-04-26",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "env": {
+    "preview": {
+      "name": "skill-compass-cloudflare-preview",
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "skill-compass-preview",
+          // Placeholder used only by local preview. Provisioning is a separate task.
+          "database_id": "00000000-0000-0000-0000-000000000001",
+          "remote": false
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PODCAST_AUDIO",
+          "bucket_name": "skill-compass-audio-preview",
+          "remote": false
+        }
+      ]
+    },
+    "staging": {
+      "name": "skill-compass-cloudflare-staging",
+      "vars": {
+        "PUBLIC_APP_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
+        "MCP_ISSUER_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
+        "MCP_RESOURCE_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp",
+        "MCP_ARCHITECTURE_RESOURCE_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp/architecture",
+        "MCP_ALLOWED_USER_ID": "user_staging",
+        "PODCAST_AUDIO_STORAGE": "r2"
+      },
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "skill-compass-staging",
+          // Placeholder: replace only during an authorized staging provisioning task.
+          "database_id": "00000000-0000-0000-0000-000000000002"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PODCAST_AUDIO",
+          "bucket_name": "skill-compass-audio-staging"
+        }
+      ]
+    }
+  }
+}

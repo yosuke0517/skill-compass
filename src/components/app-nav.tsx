@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Radio, Settings, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, CalendarDays, Radio, Settings, Sparkles } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dash", icon: BarChart3 },
   { href: "/today", label: "Today", icon: Sparkles },
   { href: "/podcast", label: "Podcast", icon: Radio },
   { href: "/history", label: "Archive", icon: CalendarDays },
+  { href: "/docs/cloud-migration", label: "Guide", icon: BookOpen },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

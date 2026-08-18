@@ -1,8 +1,5 @@
-import { execFile as nodeExecFile } from "node:child_process";
-import { promisify } from "node:util";
+import { isCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
 import type { TranslationProvider } from "../types";
-
-const execFileAsync = promisify(nodeExecFile) as ExecFile;
 
 type ExecFile = (command: string, args: string[], options: { timeout: number }) => Promise<{ stdout: string; stderr: string }>;
 
@@ -11,14 +8,21 @@ export function createClaudeCliTranslationProvider(options: {
   timeoutMs: number;
   execFile?: ExecFile;
 }): TranslationProvider {
-  const execFile = options.execFile ?? execFileAsync;
-
   return {
     cacheScope: `claude_cli:${options.command}`,
     async translate(input) {
+      if (isCloudflareWorkersRuntime()) {
+        return {
+          unavailable: true,
+          provider: "claude_cli",
+          reason: "Claude CLI is unavailable in the Cloudflare Workers runtime.",
+        };
+      }
+
       const prompt = buildPrompt(input);
 
       try {
+        const execFile = options.execFile ?? await getNodeExecFile();
         const result = await execFile(options.command, ["-p", prompt], { timeout: options.timeoutMs });
         const translatedText = result.stdout.trim();
 
@@ -32,6 +36,14 @@ export function createClaudeCliTranslationProvider(options: {
       }
     },
   };
+}
+
+async function getNodeExecFile(): Promise<ExecFile> {
+  const [{ execFile }, { promisify }] = await Promise.all([
+    import("node:child_process"),
+    import("node:util"),
+  ]);
+  return promisify(execFile) as ExecFile;
 }
 
 function buildPrompt(input: Parameters<TranslationProvider["translate"]>[0]): string {

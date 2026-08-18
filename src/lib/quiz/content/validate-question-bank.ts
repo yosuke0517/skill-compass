@@ -23,7 +23,7 @@ const genericRationales = new Set([
 ]);
 
 export function validateQuestionBank(questions: ReviewedQuestion[]): void {
-  assert(questions.length === 70, "question_bank_count");
+  assert(questions.length >= 70, "question_bank_count");
 
   const categoryById = new Map<string, LearningCategory>(
     learningCatalog.map((category): [string, LearningCategory] => [category.id, category]),
@@ -80,7 +80,7 @@ export function validateQuestionBank(questions: ReviewedQuestion[]): void {
   }
 
   for (const category of learningCatalog) {
-    assert(categoryCounts.get(category.id) === 10, "question_category_count");
+    assert((categoryCounts.get(category.id) ?? 0) >= 10, "question_category_count");
     const coveredSubtopics = categorySubtopics.get(category.id) ?? new Set<string>();
     assert(category.subtopics.every((subtopic) => coveredSubtopics.has(subtopic.id)), "question_subtopic_coverage");
     const coveredCaseTypes = categoryCaseTypes.get(category.id) ?? new Set<string>();

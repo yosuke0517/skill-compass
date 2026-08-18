@@ -1,6 +1,21 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  authenticateUser: vi.fn(),
+  cookieStore: { set: vi.fn(), delete: vi.fn() },
+  cookies: vi.fn(),
+  redirect: vi.fn((path: string): never => {
+    throw new Error(`redirect:${path}`);
+  }),
+}));
+
+vi.mock("next/headers", () => ({ cookies: mocks.cookies }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("@/lib/auth/users", () => ({ authenticateUser: mocks.authenticateUser }));
+
+import { loginAction } from "@/app/actions/auth";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
 import { hashPassword, verifyPasswordHash } from "@/lib/auth/password";
 
@@ -41,5 +56,46 @@ describe("session tokens", () => {
 
     expect(verified).toMatchObject({ authenticated: true, userId: "user_test", email: "test@example.com" });
     expect(session.expiresAt.toISOString()).toBe("2026-07-09T00:00:00.000Z");
+  });
+});
+
+describe("loginAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("DATABASE_URL", "mysql://user:password@localhost:3306/skill_compass");
+    vi.stubEnv("SESSION_SECRET", "12345678901234567890123456789012");
+    mocks.cookies.mockResolvedValue(mocks.cookieStore);
+  });
+
+  it("keeps a safe return path when credentials are invalid", async () => {
+    mocks.authenticateUser.mockResolvedValue(undefined);
+    const formData = new FormData();
+    formData.set("email", "person@example.com");
+    formData.set("password", "wrong-password");
+    formData.set("next", "/docs/cloud-migration?from=chat");
+
+    await expect(loginAction(formData)).rejects.toThrow(
+      "redirect:/login?error=invalid&next=%2Fdocs%2Fcloud-migration%3Ffrom%3Dchat",
+    );
+
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/login?error=invalid&next=%2Fdocs%2Fcloud-migration%3Ffrom%3Dchat",
+    );
+    expect(mocks.cookieStore.set).not.toHaveBeenCalled();
+  });
+
+  it("redirects a successful login to its safe return path after setting the session cookie", async () => {
+    mocks.authenticateUser.mockResolvedValue({ id: "user_1", email: "person@example.com" });
+    const formData = new FormData();
+    formData.set("email", "person@example.com");
+    formData.set("password", "correct-password");
+    formData.set("next", "/docs/cloud-migration?from=chat");
+
+    await expect(loginAction(formData)).rejects.toThrow(
+      "redirect:/docs/cloud-migration?from=chat",
+    );
+
+    expect(mocks.cookieStore.set).toHaveBeenCalledOnce();
+    expect(mocks.redirect).toHaveBeenCalledWith("/docs/cloud-migration?from=chat");
   });
 });

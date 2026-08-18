@@ -17,6 +17,7 @@ type XTweet = {
   id?: string;
   text?: string;
   note_tweet?: { text?: string };
+  article?: { title?: string; preview_text?: string; plain_text?: string };
   author_id?: string;
   created_at?: string;
   lang?: string;
@@ -82,8 +83,14 @@ const tweetFields = [
   "attachments",
   "entities",
   "note_tweet",
+  "article",
 ].join(",");
-const expansions = ["author_id", "attachments.media_keys"].join(",");
+const expansions = [
+  "author_id",
+  "attachments.media_keys",
+  "article.cover_media",
+  "article.media_entities",
+].join(",");
 const userFields = ["id", "name", "username"].join(",");
 const mediaFields = [
   "media_key",
@@ -190,6 +197,14 @@ function normalizePosts(envelope: XApiEnvelope): PublicXPost[] {
           quotes: row.public_metrics?.quote_count ?? 0,
         },
         media: normalizedMedia,
+        article:
+          row.article?.title && row.article.plain_text
+            ? {
+                title: row.article.title,
+                previewText: row.article.preview_text,
+                plainText: row.article.plain_text,
+              }
+            : undefined,
       },
     ];
   });

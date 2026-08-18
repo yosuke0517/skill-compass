@@ -88,13 +88,13 @@ export async function getTodayQuiz(userId: string, today = localDateKey()): Prom
 
   await db
     .insert(quizDays)
-    .ignore()
     .values({
       id: generatedQuizDayId,
       userId,
       quizDate,
       preparedAt: new Date(),
-    });
+    })
+    .onConflictDoNothing();
 
   const [ownedQuizDay] = await db
     .select({ id: quizDays.id })
@@ -181,7 +181,6 @@ export async function getTodayQuiz(userId: string, today = localDateKey()): Prom
     if (selected.length > 0) {
       await db
         .insert(quizDayQuestions)
-        .ignore()
         .values(
           selected.map((item) => ({
             quizDayId,
@@ -189,7 +188,8 @@ export async function getTodayQuiz(userId: string, today = localDateKey()): Prom
             slot: item.slot,
             reason: item.reason,
           })),
-        );
+        )
+        .onConflictDoNothing();
     }
 
     preparedRows = await loadPreparedQuestions(db, userId, quizDayId);

@@ -25,7 +25,8 @@ export async function saveOAuthToken(userId: string, provider: "google-calendar"
     tokenType: token.tokenType ?? "Bearer",
     scope: token.scope ?? null,
     expiresAt: token.expiresInSeconds ? new Date(now.getTime() + token.expiresInSeconds * 1000) : null,
-  }).onDuplicateKeyUpdate({
+  }).onConflictDoUpdate({
+    target: [oauthConnections.userId, oauthConnections.provider],
     set: {
       accessTokenCiphertext: encrypt(token.accessToken),
       refreshTokenCiphertext: token.refreshToken ? encrypt(token.refreshToken) : undefined,

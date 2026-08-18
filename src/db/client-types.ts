@@ -1,0 +1,5 @@
+import type { DrizzleD1Database } from "drizzle-orm/d1";
+
+import type * as schema from "./schema";
+
+export type D1DatabaseClient = DrizzleD1Database<typeof schema>;

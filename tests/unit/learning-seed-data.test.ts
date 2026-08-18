@@ -14,7 +14,7 @@ describe("learning seed data", () => {
       reviewedQuestionBank.map((question) => [question.conceptId, question]),
     );
 
-    expect(conceptRows).toHaveLength(70);
+    expect(conceptRows).toHaveLength(75);
     for (const concept of conceptRows) {
       const question = questionByConceptId.get(concept.id)!;
       expect(concept.currentUnderstanding).toEqual(expect.any(String));

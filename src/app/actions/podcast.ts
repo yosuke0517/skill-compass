@@ -40,7 +40,8 @@ export async function savePodcastSettingsAction(formData: FormData) {
     includeXPublic: formData.get("includeXPublic") === "on",
     includeXPersonal: formData.get("includeXPersonal") === "on",
     calendarReadMode: "time_title",
-  }).onDuplicateKeyUpdate({
+  }).onConflictDoUpdate({
+    target: podcastSettings.userId,
     set: { generationFrequency, timezone: timezone.slice(0, 64), durationMinutes, language, useSources: formData.get("useSources") === "on", includeNews: formData.get("includeNews") === "on", includeCalendar: formData.get("includeCalendar") === "on", includeXPublic: formData.get("includeXPublic") === "on", includeXPersonal: formData.get("includeXPersonal") === "on" },
   });
 
@@ -52,7 +53,10 @@ export async function savePodcastSettingsAction(formData: FormData) {
       sourceId: source.id,
       enabled: formData.get(`sourceEnabled_${source.id}`) === "on",
       frequency,
-    }).onDuplicateKeyUpdate({ set: { enabled: formData.get(`sourceEnabled_${source.id}`) === "on", frequency } });
+    }).onConflictDoUpdate({
+      target: [sourcePodcastSettings.userId, sourcePodcastSettings.sourceId],
+      set: { enabled: formData.get(`sourceEnabled_${source.id}`) === "on", frequency },
+    });
   }
 
   revalidatePath("/podcast");

@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-const envSchema = z
+import { getRuntimeBindings } from "@/lib/runtime/bindings";
+import { isCloudflareWorkersRuntime } from "@/lib/runtime/cloudflare";
+
+const workerEnvSchema = z
   .object({
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.string().url().optional(),
     SESSION_SECRET: z.string().min(32),
     PUBLIC_APP_URL: z.string().url().optional(),
     MARKDOWN_EXPORT_DIR: z.string().default("./exports/skill-compass"),
@@ -60,15 +63,33 @@ const envSchema = z
     PODCAST_R2_KEYCHAIN_ACCOUNT: z.string().optional(),
   });
 
-export type AppEnv = z.infer<typeof envSchema>;
+const localEnvSchema = workerEnvSchema.extend({
+  DATABASE_URL: z.string().url(),
+});
+
+export type AppEnv = z.infer<typeof workerEnvSchema>;
 
 let cachedEnv: AppEnv | undefined;
 
 export function parseEnv(input: Record<string, string | undefined>): AppEnv {
-  return envSchema.parse(input);
+  return localEnvSchema.parse(input);
+}
+
+export function parseWorkerEnv(input: Record<string, string | undefined>): AppEnv {
+  return workerEnvSchema.parse(input);
 }
 
 export function getEnv(): AppEnv {
-  cachedEnv ??= parseEnv(process.env);
+  cachedEnv ??= isCloudflareWorkersRuntime()
+    ? parseWorkerEnv(stringBindings(getRuntimeBindings()))
+    : parseEnv(process.env);
   return cachedEnv;
+}
+
+function stringBindings(bindings: Record<string, unknown>): Record<string, string | undefined> {
+  const values: Record<string, string | undefined> = { ...process.env };
+  for (const [name, value] of Object.entries(bindings)) {
+    if (typeof value === "string") values[name] = value;
+  }
+  return values;
 }

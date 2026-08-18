@@ -59,6 +59,7 @@ async function defaultClientCredentials() {
   }
   const secret = await clientSecret(
     env.X_OAUTH_CLIENT_SECRET_KEYCHAIN_SERVICE,
+    "X_OAUTH_CLIENT_SECRET",
   )();
   return secret
     ? { clientId: env.X_OAUTH_CLIENT_ID, clientSecret: secret }

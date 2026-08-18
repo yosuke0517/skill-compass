@@ -1,10 +1,14 @@
 import { and, eq } from "drizzle-orm";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db/client";
 import { podcastAssets } from "@/db/schema";
-import { getAudioStorage } from "@/lib/podcast/audio-storage-provider";
 import { getSession } from "@/lib/auth/session";
+import {
+  createCloudflareR2AudioStorage,
+  type CloudflareR2AudioBucket,
+} from "@/lib/podcast/providers/cloudflare-r2-audio-storage";
 
 export async function GET(request: Request, { params }: { params: Promise<{ assetId: string }> }) {
   const session = await getSession();
@@ -15,7 +19,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
   if (!asset) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   try {
-    const audio = await (await getAudioStorage()).read(asset.storageKey);
+    const { env } = await getCloudflareContext({ async: true });
+    const bucket = (env as { PODCAST_AUDIO?: CloudflareR2AudioBucket })
+      .PODCAST_AUDIO;
+    if (!bucket) throw new Error("PODCAST_AUDIO binding is unavailable.");
+    const audio = await createCloudflareR2AudioStorage(bucket).read(
+      asset.storageKey,
+    );
     const download = new URL(request.url).searchParams.get("download") === "1";
     const contentDisposition = download ? `attachment; filename="skill-compass-${asset.episodeId}.wav"` : "inline";
     const range = request.headers.get("range");

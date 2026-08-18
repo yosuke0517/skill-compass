@@ -125,7 +125,6 @@ export async function appendAdditionalQuizQuestions(userId: string, quizDayId: s
   if (selected.length > 0) {
     await db
       .insert(quizDayQuestions)
-      .ignore()
       .values(
         selected.map((item) => ({
           quizDayId,
@@ -133,7 +132,8 @@ export async function appendAdditionalQuizQuestions(userId: string, quizDayId: s
           slot: item.slot,
           reason: item.reason,
         })),
-      );
+      )
+      .onConflictDoNothing();
   }
 
   return { added: selected.length, total: currentTotal + selected.length, limit: DAILY_QUIZ_LIMIT };

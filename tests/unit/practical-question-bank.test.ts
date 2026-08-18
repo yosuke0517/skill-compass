@@ -15,6 +15,7 @@ const expectedIds = [
   ...Array.from({ length: 10 }, (_, index) => `q_design_${String(index + 1).padStart(2, "0")}`),
   ...Array.from({ length: 10 }, (_, index) => `q_ai_${String(index + 1).padStart(2, "0")}`),
 ];
+const addedAiIds = Array.from({ length: 5 }, (_, index) => `q_ai_${String(index + 11).padStart(2, "0")}`);
 
 function groupCount(questions: ReviewedQuestion[], key: "categoryId" | "caseType" | "subtopicId") {
   return questions.reduce<Record<string, number>>((counts, question) => {
@@ -49,9 +50,9 @@ function correctIdSequence(categoryId: string) {
 }
 
 describe("reviewed practical question bank", () => {
-  it("publishes the 70 stable IDs with ten questions in every category", () => {
-    expect(reviewedQuestionBank).toHaveLength(70);
-    expect(reviewedQuestionBank.map(({ id }) => id)).toEqual(expectedIds);
+  it("preserves the 70 stable IDs and extends the AI Engineering bank", () => {
+    expect(reviewedQuestionBank).toHaveLength(75);
+    expect(reviewedQuestionBank.map(({ id }) => id)).toEqual([...expectedIds, ...addedAiIds]);
     expect(groupCount(reviewedQuestionBank, "categoryId")).toEqual({
       cs_foundations: 10,
       web_backend: 10,
@@ -59,7 +60,7 @@ describe("reviewed practical question bank", () => {
       infrastructure: 10,
       security: 10,
       software_design: 10,
-      ai_engineering: 10,
+      ai_engineering: 15,
     });
   });
 
@@ -78,8 +79,9 @@ describe("reviewed practical question bank", () => {
       "ai_engineering",
     ]) {
       const categoryQuestions = reviewedQuestionBank.filter((item) => item.categoryId === categoryId);
+      const expectedPerType = categoryId === "ai_engineering" ? 3 : 2;
       expect(groupCount(categoryQuestions, "caseType")).toEqual(
-        Object.fromEntries(questionCaseTypeValues.map((caseType) => [caseType, 2])),
+        Object.fromEntries(questionCaseTypeValues.map((caseType) => [caseType, expectedPerType])),
       );
     }
   });
@@ -91,7 +93,7 @@ describe("reviewed practical question bank", () => {
       return counts;
     }, {});
 
-    expect(correctIdCounts).toEqual({ a: 18, b: 17, c: 17, d: 18 });
+    expect(correctIdCounts).toEqual({ a: 20, b: 18, c: 18, d: 19 });
   });
 
   it("does not repeat a short correct-ID period within any category", () => {
@@ -237,7 +239,7 @@ describe("reviewed question seed conversion", () => {
   it("marks every reviewed ID active while excluding a legacy ID from the active set", () => {
     const plan = createQuestionSeedPlan(reviewedQuestionBank);
 
-    expect([...plan.activeQuestionIds]).toEqual(expectedIds);
+    expect([...plan.activeQuestionIds]).toEqual([...expectedIds, ...addedAiIds]);
     expect(plan.activeQuestionIds.has("question_extra_01")).toBe(false);
     expect(plan.rows.every(({ active }) => active)).toBe(true);
   });
