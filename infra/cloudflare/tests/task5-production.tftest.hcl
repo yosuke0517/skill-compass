@@ -21,6 +21,8 @@ run "production_reserves_the_verified_existing_r2_for_future_import" {
       length(cloudflare_worker.staging) == 0 &&
       length(cloudflare_d1_database.production) == 1 &&
       length(cloudflare_r2_bucket.production) == 1 &&
+      length(cloudflare_worker.production) == 1 &&
+      cloudflare_worker.production[0].subdomain.enabled == true &&
       cloudflare_r2_bucket.production[0].name == "skill-compass-podcast-dev"
     )
     error_message = "The production declaration must reserve only the verified existing R2 bucket for future import."

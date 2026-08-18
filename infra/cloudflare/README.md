@@ -1,17 +1,15 @@
 # Cloudflare Terraform foundation
 
-This directory owns Cloudflare infrastructure lifecycles. HCP Terraform stores encrypted state and provides locking, but every `plan` and `apply` runs locally in the invoking CLI (GitHub Actions in the deployment workflow). Wrangler owns application builds, versions, deployments, bindings, migrations, and Workers Secrets; Terraform never uploads application code or secret values. The `cloudflare_worker.staging` resource uses provider 5.22's metadata-only Worker API to own the service name, tags, and `workers.dev` setting without declaring Worker content or bindings.
-
-Phase 0 is staging-only. Do not run a production apply. The production values reserve the future resource names and require D1 and R2 protection; the verified existing production R2 bucket must be imported before the first production apply.
+This directory owns Cloudflare infrastructure lifecycles. HCP Terraform stores encrypted state and provides locking, but every `plan` and `apply` runs locally in the invoking CLI (GitHub Actions in the deployment workflow). Wrangler owns application builds, versions, deployments, bindings, migrations, and Workers Secrets; Terraform never uploads application code or secret values. The `cloudflare_worker` resources use provider 5.22's metadata-only Worker API to own service names, tags, and `workers.dev` settings without declaring Worker content or bindings.
 
 The environment-specific resource addresses are deliberately explicit:
 
 | Environment | D1                                     | R2                                   | Worker metadata                |
 | ----------- | -------------------------------------- | ------------------------------------ | ------------------------------ |
 | Staging     | `cloudflare_d1_database.staging[0]`    | `cloudflare_r2_bucket.staging[0]`    | `cloudflare_worker.staging[0]` |
-| Production  | `cloudflare_d1_database.production[0]` | `cloudflare_r2_bucket.production[0]` | Deferred until Phase 1         |
+| Production  | `cloudflare_d1_database.production[0]` | `cloudflare_r2_bucket.production[0]` | `cloudflare_worker.production[0]` |
 
-Production R2 is declaration-only in Phase 0. Cloudflare account inventory verified its existing name as `skill-compass-podcast-dev`, and `environments/production.tfvars` reserves that exact name. Do not apply or import it yet. At the separately approved Phase 1 checkpoint, import the existing bucket into `cloudflare_r2_bucket.production[0]` before any production apply; never allow Terraform to recreate it.
+Cloudflare account inventory verified the existing production Podcast bucket as `skill-compass-podcast-dev`. Import it into `cloudflare_r2_bucket.production[0]` before the first production apply; never allow Terraform to recreate it.
 
 ## Required HCP Terraform setup
 
@@ -67,7 +65,7 @@ export TF_WORKSPACE=skill-compass-production
 terraform -chdir=infra/cloudflare test -filter=tests/task5-production.tftest.hcl
 ```
 
-Production validation uses the production workspace but must not be applied during Phase 0:
+Production validation uses the production workspace:
 
 ```sh
 export TF_WORKSPACE=skill-compass-production
@@ -107,3 +105,15 @@ pnpm exec opennextjs-cloudflare deploy \
 ```
 
 Terraform exposes the real D1 ID, D1 name, R2 name, Worker name, and whether `workers.dev` is enabled. Provider 5.22 does not expose the account-wide workers.dev subdomain through `cloudflare_worker`, so `staging_url` remains null instead of fabricating a hostname; Wrangler reports the account-specific URL after the first deployment.
+## Production promotion
+
+Production uses the HCP Terraform workspace `skill-compass-production`. The
+existing `skill-compass-podcast-dev` bucket must be imported once with the
+provider's three-part ID:
+
+`<account_id>/skill-compass-podcast-dev/default`
+
+Run **Promote production** manually with an exact 40-character commit SHA that
+already has a successful `Deploy staging` run. The GitHub `production`
+environment is the approval boundary. The workflow rejects destructive D1/R2
+plans and does not change DNS or the existing Cloudflare Tunnel route.

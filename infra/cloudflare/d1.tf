@@ -22,5 +22,6 @@ resource "cloudflare_d1_database" "production" {
 
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [read_replication]
   }
 }

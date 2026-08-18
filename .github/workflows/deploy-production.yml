@@ -1,0 +1,133 @@
+name: Promote production
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character commit SHA already verified in staging
+        required: true
+        type: string
+      bootstrap_existing_r2:
+        description: Import the existing Podcast R2 bucket on the first run only
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: skill-compass-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-staging:
+    runs-on: ubuntu-latest
+    env:
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+    outputs:
+      staging_run_id: ${{ steps.staging.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - name: Locate successful staging run
+        id: staging
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = process.env.REQUESTED_SHA.trim().toLowerCase();
+            if (!/^[0-9a-f]{40}$/.test(sha)) core.setFailed('commit_sha must be an exact 40-character SHA');
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy-staging.yml',
+              branch: 'main',
+              event: 'push',
+              status: 'success',
+              per_page: 100,
+            });
+            const run = response.data.workflow_runs.find(item => item.head_sha.toLowerCase() === sha);
+            if (!run) core.setFailed(`No successful main staging run found for ${sha}`);
+            core.setOutput('run_id', String(run.id));
+            require('fs').writeFileSync('staging-run.json', JSON.stringify({
+              headSha: run.head_sha,
+              conclusion: run.conclusion,
+              event: run.event,
+              headBranch: run.head_branch,
+            }));
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.staging.outputs.run_id }}
+          name: staging-verification-${{ env.REQUESTED_SHA }}
+          path: staging-verification
+      - run: pnpm install --frozen-lockfile
+      - name: Verify immutable staging evidence
+        run: pnpm exec tsx scripts/cloudflare/verify-staging-sha.ts "$REQUESTED_SHA" staging-run.json staging-verification/commit-sha.txt
+
+  deploy-production:
+    needs: verify-staging
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      REQUESTED_SHA: ${{ inputs.commit_sha }}
+      TF_WORKSPACE: skill-compass-production
+      TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
+      TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: terraform -chdir=infra/cloudflare init -input=false
+      - name: Import existing Podcast R2 bucket
+        if: ${{ inputs.bootstrap_existing_r2 }}
+        run: terraform -chdir=infra/cloudflare import -input=false -var-file=environments/production.tfvars 'cloudflare_r2_bucket.production[0]' "${CLOUDFLARE_ACCOUNT_ID}/skill-compass-podcast-dev/default"
+      - run: terraform -chdir=infra/cloudflare plan -input=false -var-file=environments/production.tfvars -out=/tmp/production.tfplan
+      - run: terraform -chdir=infra/cloudflare show -json /tmp/production.tfplan > /tmp/production-plan.json
+      - run: pnpm exec tsx scripts/cloudflare/assert-production-plan.ts /tmp/production-plan.json
+      - run: terraform -chdir=infra/cloudflare apply -input=false -auto-approve /tmp/production.tfplan
+      - run: terraform -chdir=infra/cloudflare output -json | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts --environment production
+      - run: pnpm build:cloudflare
+      - name: Update required production Worker secret
+        run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
+      - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production
+      - name: Record production deployment evidence
+        run: |
+          mkdir -p production-verification
+          git rev-parse HEAD > production-verification/commit-sha.txt
+          sha256sum /tmp/production-plan.json > production-verification/terraform-plan.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-verification-${{ env.REQUESTED_SHA }}
+          path: production-verification
+          retention-days: 30

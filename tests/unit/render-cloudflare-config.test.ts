@@ -36,7 +36,7 @@ function validTerraformOutputs(): Record<string, TerraformOutput> {
   };
 }
 
-function runRenderer(outputs: Record<string, TerraformOutput>) {
+function runRenderer(outputs: Record<string, TerraformOutput>, environment = "staging") {
   const directory = mkdtempSync(path.join(tmpdir(), "skill-compass-render-cloudflare-"));
   temporaryDirectories.push(directory);
   const outputPath = path.join(directory, "deploy-values.json");
@@ -51,6 +51,8 @@ function runRenderer(outputs: Record<string, TerraformOutput>) {
       path.join(repositoryRoot, "wrangler.jsonc"),
       "--output",
       outputPath,
+      "--environment",
+      environment,
     ],
     {
       cwd: repositoryRoot,
@@ -109,6 +111,33 @@ describe("Cloudflare deploy-config renderer", () => {
     expect(renderedSource).not.toContain("must-not-leak");
     expect(renderedSource).not.toContain("unrelated_secret");
     expect(renderedSource).not.toContain("production");
+  });
+
+  test("renders production bindings without including staging configuration", () => {
+    const outputs = {
+      worker_name: terraformOutput("skill-compass-cloudflare-production"),
+      d1_database_name: terraformOutput("skill-compass-production"),
+      d1_database_id: terraformOutput("22222222-2222-4222-8222-222222222222"),
+      r2_bucket_name: terraformOutput("skill-compass-podcast-dev"),
+    };
+
+    const { outputPath, result } = runRenderer(outputs, "production");
+
+    expect(result.status, result.stderr).toBe(0);
+    const renderedSource = readFileSync(outputPath, "utf8");
+    const rendered = JSON.parse(renderedSource);
+    expect(Object.keys(rendered.env)).toEqual(["production"]);
+    expect(rendered.env.production.name).toBe("skill-compass-cloudflare-production");
+    expect(rendered.env.production.d1_databases[0]).toMatchObject({
+      binding: "DB",
+      database_name: "skill-compass-production",
+      database_id: "22222222-2222-4222-8222-222222222222",
+    });
+    expect(rendered.env.production.r2_buckets).toEqual([{
+      binding: "PODCAST_AUDIO",
+      bucket_name: "skill-compass-podcast-dev",
+    }]);
+    expect(renderedSource).not.toContain("skill-compass-staging");
   });
 
   test("rejects input when any required staging Terraform output is absent", () => {

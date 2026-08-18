@@ -15,3 +15,21 @@ resource "cloudflare_worker" "staging" {
     previews_enabled = false
   }
 }
+
+# Terraform owns only the production service metadata. Wrangler owns code,
+# versions, deployments, application bindings, and secrets.
+resource "cloudflare_worker" "production" {
+  count = local.is_production ? 1 : 0
+
+  account_id = var.cloudflare_account_id
+  name       = var.worker_name
+  tags = [
+    "application:skill-compass",
+    "environment:production",
+  ]
+
+  subdomain = {
+    enabled          = true
+    previews_enabled = false
+  }
+}
