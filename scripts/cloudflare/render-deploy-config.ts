@@ -145,6 +145,7 @@ function main(): void {
       binding: "DB",
       database_name: environmentResourceName(outputs, "d1_database_name", environment),
       database_id: d1DatabaseId(outputs),
+      migrations_dir: relocatePath("drizzle-d1", wranglerConfigPath, outputPath),
     },
   ];
   selected.r2_buckets = [

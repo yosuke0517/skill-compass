@@ -34,7 +34,7 @@ export async function importD1(input: { accountId: string; databaseId: string; a
     const response = await fetchImpl(`https://api.cloudflare.com/client/v4/accounts/${input.accountId}/d1/database/${input.databaseId}/query`, {
       method: "POST",
       headers: { authorization: `Bearer ${input.apiToken}`, "content-type": "application/json" },
-      body: JSON.stringify(batch),
+      body: JSON.stringify({ batch }),
     });
     if (!response.ok) throw new Error(`d1_import_failed:${response.status}`);
     const body = await response.json() as { success?: boolean };
