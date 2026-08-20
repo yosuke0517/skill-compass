@@ -152,4 +152,25 @@ describe("deterministic MySQL to D1 migration", () => {
     expect(report.failures).toContain("questions:concept_id:foreign_reference_missing");
     expect(JSON.stringify(report)).not.toContain("concept_1");
   });
+
+  it("can verify a final cutover import without deleting valid D1-only rows", () => {
+    const source = buildMigrationSnapshot(fixture, {
+      createdAt: "2026-08-17T00:00:00.000Z",
+      sourceSchema: "skill_compass",
+    });
+    const target = structuredClone(source);
+    target.tables.sessions.rows.push({
+      id: "cloud-session",
+      user_id: "user_1",
+      token_hash: "cloud-hash",
+      expires_at: 2_000_000_000,
+      created_at: 1_800_000_000,
+    });
+
+    const report = verifyMigration(source, target, { allowTargetSuperset: true });
+
+    expect(report.ok).toBe(true);
+    expect(report.extras.sessions).toBe(1);
+    expect(JSON.stringify(report)).not.toContain("cloud-session");
+  });
 });
