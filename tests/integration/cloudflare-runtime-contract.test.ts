@@ -89,7 +89,11 @@ describe("Cloudflare request runtime contract", () => {
       readFileSync(path.join(projectRoot, "package.json"), "utf8"),
     ) as { scripts?: Record<string, string> };
     const wranglerConfig = parseJsonc<{
-      env?: Record<string, { routes?: unknown; route?: unknown }>;
+      env?: Record<string, {
+        routes?: unknown;
+        route?: unknown;
+        vars?: Record<string, unknown>;
+      }>;
       routes?: unknown;
       route?: unknown;
     }>(
@@ -105,6 +109,9 @@ describe("Cloudflare request runtime contract", () => {
     expect(wranglerConfig).not.toHaveProperty("routes");
     expect(wranglerConfig.env?.production).not.toHaveProperty("route");
     expect(wranglerConfig.env?.production).not.toHaveProperty("routes");
+    expect(wranglerConfig.env?.production?.vars?.MCP_ALLOWED_USER_ID).toBe(
+      "user_local",
+    );
   });
 
   it("does not invoke macOS Keychain in the Workers runtime", async () => {
