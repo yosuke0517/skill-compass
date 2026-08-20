@@ -13,6 +13,7 @@ import {
 import { localDateKey } from "@/lib/datetime/local-date";
 import { getLlmProvider } from "@/lib/llm/provider";
 import type { LlmProvider } from "@/lib/llm/types";
+import { assertWritesAllowed } from "@/lib/runtime/maintenance";
 
 import { evaluateAnswer, type EvaluatedAnswer, type EvaluatableQuestion } from "./evaluate-answer";
 
@@ -142,6 +143,7 @@ export async function submitAnswer(
 }
 
 export async function submitTodayAnswer(input: Omit<SubmitAnswerInput, "today"> & { today?: string }) {
+  assertWritesAllowed("quiz.submit");
   return submitAnswer(
     {
       ...input,

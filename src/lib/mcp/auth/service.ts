@@ -1,5 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import { assertWritesAllowed } from "@/lib/runtime/maintenance";
+
 export type StoredAuthorizationCode = {
   codeHash: string;
   clientId: string;
@@ -85,6 +87,7 @@ export async function createAuthorizationCode(
   repo: McpAuthRepository,
   options: TokenFactory = {},
 ): Promise<string> {
+  assertWritesAllowed("mcp.authorization-code.create");
   const now = options.now?.() ?? new Date();
   const code = options.randomToken?.() ?? randomToken();
   await repo.saveAuthorizationCode({
@@ -114,6 +117,7 @@ export async function exchangeAuthorizationCode(
     randomFamilyId?: () => string;
   },
 ): Promise<IssuedTokenPair> {
+  assertWritesAllowed("mcp.authorization-code.exchange");
   const now = options.now?.() ?? new Date();
   const stored = await repo.consumeAuthorizationCode(sha256Hex(input.code), now);
   if (!stored) throw new Error("authorization_code_invalid");
@@ -172,6 +176,7 @@ export async function exchangeRefreshToken(
     accessTokenTtlSeconds: number;
   },
 ): Promise<IssuedTokenPair> {
+  assertWritesAllowed("mcp.refresh-token.exchange");
   const now = options.now?.() ?? new Date();
   const accessToken = options.randomToken?.() ?? randomToken();
   const refreshToken = options.randomToken?.() ?? randomToken();

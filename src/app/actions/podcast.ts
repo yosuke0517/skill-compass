@@ -10,6 +10,7 @@ import { podcastEpisodes, podcastJobs, podcastSettings, sourcePodcastSettings, s
 import { requireCurrentUser } from "@/lib/access/current-user";
 import { createMySqlPodcastJobQueue } from "@/lib/podcast/mysql-job-queue";
 import { getPodcastSettings } from "@/lib/podcast/settings";
+import { getMaintenanceMode } from "@/lib/runtime/maintenance";
 
 const frequencyValues = new Set(["daily", "weekdays", "weekly", "manual"]);
 const sourceFrequencyValues = new Set(["daily", "every_3_days", "weekly", "every_14_days", "monthly"]);
@@ -17,6 +18,7 @@ const languageValues = new Set(["ja", "en"]);
 
 export async function savePodcastSettingsAction(formData: FormData) {
   const user = await requireCurrentUser();
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   if (!user.entitlements.has("podcast.generate")) redirect("/podcast?error=pro-required");
 
   const generationFrequency = String(formData.get("generationFrequency") ?? "daily");
@@ -66,6 +68,7 @@ export async function savePodcastSettingsAction(formData: FormData) {
 
 export async function enqueuePodcastGenerationAction() {
   const user = await requireCurrentUser();
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   if (!user.entitlements.has("podcast.generate")) redirect("/podcast?error=pro-required");
 
   const data = await getPodcastSettings(user.id);
@@ -92,6 +95,7 @@ export async function enqueuePodcastGenerationAction() {
 
 export async function retryPodcastJobAction(formData: FormData) {
   const user = await requireCurrentUser();
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   const jobId = String(formData.get("jobId") ?? "");
   if (!jobId) redirect("/podcast");
   const [job] = await db.select().from(podcastJobs).where(eq(podcastJobs.id, jobId)).limit(1);

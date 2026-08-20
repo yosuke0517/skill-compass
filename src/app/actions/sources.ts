@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { sources } from "@/db/schema";
+import { getMaintenanceMode } from "@/lib/runtime/maintenance";
 
 const trustTiers = new Set(["tier1", "tier2", "tier3", "tier4"]);
 
 export async function saveSourceAction(formData: FormData) {
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   const title = String(formData.get("title") ?? "").trim();
   const url = String(formData.get("url") ?? "").trim();
   const trustTier = String(formData.get("trustTier") ?? "tier3");

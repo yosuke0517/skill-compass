@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
@@ -17,6 +17,8 @@ vi.mock("@/lib/access/current-user", () => ({ requireCurrentUser: mocks.requireC
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
 
 describe("submitQuizAnswerAction", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.submitTodayAnswer.mockResolvedValue(undefined);
@@ -57,5 +59,14 @@ describe("submitQuizAnswerAction", () => {
 
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
     expect(mocks.redirect).toHaveBeenCalledWith("/today?error=submit-failed");
+  });
+
+  it("redirects to the maintenance explanation without saving", async () => {
+    vi.stubEnv("MAINTENANCE_MODE", "read_only");
+
+    await expect(submitQuizAnswerAction(new FormData())).rejects.toThrow(
+      "redirect:/maintenance",
+    );
+    expect(mocks.submitTodayAnswer).not.toHaveBeenCalled();
   });
 });
