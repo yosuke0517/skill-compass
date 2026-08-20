@@ -2,6 +2,13 @@
 
 Run this checklist against the exact commit intended for production. Record only pass/fail, counts, commit SHA, Worker version, and migration version; never record passwords, cookies, OAuth codes, access/refresh tokens, personal Podcast text, or X credentials.
 
+Production deployment copies `SESSION_SECRET`, `X_OAUTH_CLIENT_ID`, and
+`X_OAUTH_CLIENT_SECRET` from the protected GitHub `production` environment into
+Worker secrets. Secret values must never be committed to Wrangler or Terraform
+configuration. The X callback remains
+`https://agent.finegate.xyz/api/integrations/x/callback` so it starts reaching
+Cloudflare only when the custom domain is cut over.
+
 ## Automated read-only checks
 
 - `/login` returns 200 and authenticated redirect targets remain same-origin.

@@ -72,6 +72,7 @@
         "MCP_RESOURCE_URL": "https://skill-compass-cloudflare-production.yosuke-takeuchi-dev.workers.dev/mcp",
         "MCP_ARCHITECTURE_RESOURCE_URL": "https://skill-compass-cloudflare-production.yosuke-takeuchi-dev.workers.dev/mcp/architecture",
         "MCP_ALLOWED_USER_ID": "user_1",
+        "X_OAUTH_REDIRECT_URI": "https://agent.finegate.xyz/api/integrations/x/callback",
         "PODCAST_AUDIO_STORAGE": "r2"
       },
       "assets": {

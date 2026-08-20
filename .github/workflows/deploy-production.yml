@@ -88,6 +88,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      X_OAUTH_CLIENT_ID: ${{ secrets.X_OAUTH_CLIENT_ID }}
+      X_OAUTH_CLIENT_SECRET: ${{ secrets.X_OAUTH_CLIENT_SECRET }}
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
     steps:
       - uses: actions/checkout@v4
@@ -118,8 +120,10 @@ jobs:
       - run: terraform -chdir=infra/cloudflare apply -input=false -auto-approve /tmp/production.tfplan
       - run: terraform -chdir=infra/cloudflare output -json | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts --environment production
       - run: pnpm build:cloudflare
-      - name: Update required production Worker secret
+      - name: Update required production Worker secrets
         run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
+      - run: printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
+      - run: printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
       - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production
       - name: Record production deployment evidence
         run: |
