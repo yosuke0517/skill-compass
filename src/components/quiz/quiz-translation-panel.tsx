@@ -3,7 +3,9 @@ import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 export function QuizTranslationPanel({ translation }: { translation: TranslatedQuizCard }) {
   if (translation.unavailable || translation.prompt === null) {
     return (
-      <p className="translation-unavailable">Japanese translation is unavailable right now.</p>
+      <p className="translation-unavailable" role="alert">
+        翻訳を利用できません。AI設定または通信状態を確認してください。
+      </p>
     );
   }
 

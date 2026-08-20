@@ -17,6 +17,12 @@ export async function POST(request: NextRequest) {
   if (!translated) {
     return NextResponse.json({ error: "question not found" }, { status: 404 });
   }
+  if (translated.unavailable) {
+    return NextResponse.json(
+      { error: "AI translation service is unavailable" },
+      { status: 503 },
+    );
+  }
 
   const response = NextResponse.json(translated);
   response.cookies.set(TRANSLATED_QUIZ_COOKIE, addTranslatedQuizQuestionId(request.cookies.get(TRANSLATED_QUIZ_COOKIE)?.value, questionId), {

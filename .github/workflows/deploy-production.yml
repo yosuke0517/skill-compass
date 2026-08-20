@@ -90,6 +90,7 @@ jobs:
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       X_OAUTH_CLIENT_ID: ${{ secrets.X_OAUTH_CLIENT_ID }}
       X_OAUTH_CLIENT_SECRET: ${{ secrets.X_OAUTH_CLIENT_SECRET }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
     steps:
       - uses: actions/checkout@v4
@@ -124,6 +125,7 @@ jobs:
         run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
       - run: printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
       - run: printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
+      - run: printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env production
       - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production
       - name: Record production deployment evidence
         run: |

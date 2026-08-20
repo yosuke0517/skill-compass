@@ -112,6 +112,25 @@ describe("Cloudflare request runtime contract", () => {
     expect(wranglerConfig.env?.production?.vars?.MCP_ALLOWED_USER_ID).toBe(
       "user_local",
     );
+    expect(wranglerConfig.env?.production?.vars).toMatchObject({
+      ASSISTANT_PROVIDER: "gemini",
+      GEMINI_API_KEY_SOURCE: "env",
+      TRANSLATION_PROVIDER: "gemini",
+    });
+    expect(wranglerConfig.env?.staging?.vars).toMatchObject({
+      ASSISTANT_PROVIDER: "gemini",
+      GEMINI_API_KEY_SOURCE: "env",
+      TRANSLATION_PROVIDER: "gemini",
+    });
+
+    for (const workflow of ["deploy-staging.yml", "deploy-production.yml"]) {
+      const source = readFileSync(
+        path.join(projectRoot, ".github/workflows", workflow),
+        "utf8",
+      );
+      expect(source).toContain("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}");
+      expect(source).toContain("wrangler secret put GEMINI_API_KEY");
+    }
   });
 
   it("does not invoke macOS Keychain in the Workers runtime", async () => {

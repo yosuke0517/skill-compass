@@ -6,6 +6,7 @@ import { Bot, Send, Sparkles, X } from "lucide-react";
 type Message = {
   role: "user" | "assistant";
   text: string;
+  error?: boolean;
 };
 
 const promptChips = ["この問題をやさしく説明して", "ヒントだけください", "なぜこの答え？", "日本語で要約して"];
@@ -216,14 +217,22 @@ export function TodayAssistantWidget({ questionId }: { questionId: string }) {
       }
 
       const payload = (await response.json()) as { answer?: string };
+      const answer = payload.answer?.trim();
+      if (!answer) {
+        throw new Error("assistant returned an empty answer");
+      }
       setMessages((current) => [
         ...current,
-        { role: "assistant", text: payload.answer ?? "いまは回答を作れませんでした。" },
+        { role: "assistant", text: answer },
       ]);
     } catch {
       setMessages((current) => [
         ...current,
-        { role: "assistant", text: "いまは相談エージェントに接続できませんでした。少し後でもう一度試してください。" },
+        {
+          role: "assistant",
+          text: "Today coachを利用できません。AIサービスへの接続に失敗しました。",
+          error: true,
+        },
       ]);
     } finally {
       setPending(false);
@@ -348,6 +357,7 @@ export function TodayAssistantWidget({ questionId }: { questionId: string }) {
               <p
                 key={`${message.role}-${index}`}
                 className={message.role === "user" ? "assistant-message user" : "assistant-message"}
+                role={message.error ? "alert" : undefined}
                 style={message.role === "user" ? userMessageStyle : assistantMessageStyle}
               >
                 {message.text}
