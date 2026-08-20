@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 
 import { buildMigrationSnapshot, decryptSnapshot, migrationTableOrder, tableChecksum, type MigrationSnapshot } from "./types";
 
-export type MigrationReport = { ok: boolean; failures: string[]; counts: Record<string, number> };
+export type MigrationReport = {
+  ok: boolean;
+  failures: string[];
+  counts: Record<string, number>;
+  extras: Record<string, number>;
+};
 
 const foreignReferences = [
   ["tags", "category_id", "categories", "id"], ["invites", "invited_by_user_id", "users", "id"],
@@ -25,21 +30,39 @@ const foreignReferences = [
   ["mcp_refresh_tokens", "client_id", "mcp_oauth_clients", "id"], ["mcp_refresh_tokens", "user_id", "users", "id"],
 ] as const;
 
-export function verifyMigration(source: MigrationSnapshot, target: MigrationSnapshot): MigrationReport {
+export function verifyMigration(
+  source: MigrationSnapshot,
+  target: MigrationSnapshot,
+  options: { allowTargetSuperset?: boolean } = {},
+): MigrationReport {
   const failures: string[] = [];
   const counts: Record<string, number> = {};
+  const extras: Record<string, number> = {};
   for (const [table, expected] of Object.entries(source.tables)) {
     const actual = target.tables[table];
     counts[table] = actual?.rows.length ?? 0;
-    if (!actual || actual.rows.length !== expected.rows.length) failures.push(`${table}:count_mismatch`);
-    else if (tableChecksum(actual.rows) !== expected.checksum) failures.push(`${table}:checksum_mismatch`);
+    extras[table] = Math.max(0, (actual?.rows.length ?? 0) - expected.rows.length);
+    if (!actual) {
+      failures.push(`${table}:count_mismatch`);
+      continue;
+    }
+    if (!options.allowTargetSuperset) {
+      if (actual.rows.length !== expected.rows.length) failures.push(`${table}:count_mismatch`);
+      else if (tableChecksum(actual.rows) !== expected.checksum) failures.push(`${table}:checksum_mismatch`);
+      continue;
+    }
+    const keys = expected.primaryKey;
+    const sourceKeys = new Set(expected.rows.map((row) => keys.map((key) => String(row[key])).join("\0")));
+    const importedRows = actual.rows.filter((row) => sourceKeys.has(keys.map((key) => String(row[key])).join("\0")));
+    if (importedRows.length !== expected.rows.length) failures.push(`${table}:source_rows_missing`);
+    else if (tableChecksum(importedRows) !== expected.checksum) failures.push(`${table}:source_rows_mismatch`);
   }
   for (const [table, column, parentTable, parentColumn] of foreignReferences) {
     const parentValues = new Set((target.tables[parentTable]?.rows ?? []).map((row) => row[parentColumn]));
     const missing = (target.tables[table]?.rows ?? []).some((row) => row[column] !== null && row[column] !== undefined && !parentValues.has(row[column]));
     if (missing) failures.push(`${table}:${column}:foreign_reference_missing`);
   }
-  return { ok: failures.length === 0, failures, counts };
+  return { ok: failures.length === 0, failures, counts, extras };
 }
 
 export async function readD1Snapshot(input: { accountId: string; databaseId: string; apiToken: string; source: MigrationSnapshot; fetchImpl?: typeof fetch }) {
@@ -68,7 +91,9 @@ async function main() {
   if (!artifactPath || !accountId || !databaseId || !apiToken || !passphrase) throw new Error("artifact path and Cloudflare migration environment are required");
   const source = decryptSnapshot(await readFile(artifactPath), passphrase);
   const target = await readD1Snapshot({ accountId, databaseId, apiToken, source });
-  const report = verifyMigration(source, target);
+  const report = verifyMigration(source, target, {
+    allowTargetSuperset: process.argv.includes("--allow-target-superset"),
+  });
   console.log(JSON.stringify(report));
   if (!report.ok) process.exitCode = 1;
 }

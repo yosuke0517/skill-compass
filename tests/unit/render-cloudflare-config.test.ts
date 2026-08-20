@@ -144,6 +144,13 @@ describe("Cloudflare deploy-config renderer", () => {
       binding: "PODCAST_AUDIO",
       bucket_name: "skill-compass-podcast-dev",
     }]);
+    expect(rendered.env.production.vars).toMatchObject({
+      PUBLIC_APP_URL: "https://agent.finegate.xyz",
+      MCP_ISSUER_URL: "https://agent.finegate.xyz",
+      MCP_RESOURCE_URL: "https://agent.finegate.xyz/mcp",
+      MCP_ARCHITECTURE_RESOURCE_URL: "https://agent.finegate.xyz/mcp/architecture",
+      X_OAUTH_REDIRECT_URI: "https://agent.finegate.xyz/api/integrations/x/callback",
+    });
     expect(renderedSource).not.toContain("skill-compass-staging");
   });
 
