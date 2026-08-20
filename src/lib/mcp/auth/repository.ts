@@ -20,30 +20,18 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
     },
     async consumeAuthorizationCode(codeHash, now) {
       const { db } = await import("@/db/client");
-      return db.transaction(async (tx) => {
-        const [code] = await tx
-          .select()
-          .from(mcpAuthorizationCodes)
-          .where(
-            and(
-              eq(mcpAuthorizationCodes.codeHash, codeHash),
-              isNull(mcpAuthorizationCodes.usedAt),
-              gt(mcpAuthorizationCodes.expiresAt, now),
-            ),
-          )
-          .limit(1);
-        if (!code) return null;
-        await tx
-          .update(mcpAuthorizationCodes)
-          .set({ usedAt: now })
-          .where(
-            and(
-              eq(mcpAuthorizationCodes.codeHash, codeHash),
-              isNull(mcpAuthorizationCodes.usedAt),
-            ),
-          );
-        return toStoredCode(code, now);
-      });
+      const [code] = await db
+        .update(mcpAuthorizationCodes)
+        .set({ usedAt: now })
+        .where(
+          and(
+            eq(mcpAuthorizationCodes.codeHash, codeHash),
+            isNull(mcpAuthorizationCodes.usedAt),
+            gt(mcpAuthorizationCodes.expiresAt, now),
+          ),
+        )
+        .returning();
+      return code ? toStoredCode(code, now) : null;
     },
     async saveAccessToken(token) {
       const { db } = await import("@/db/client");
@@ -51,41 +39,47 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
     },
     async saveTokenPair(accessToken, refreshToken) {
       const { db } = await import("@/db/client");
-      await db.transaction(async (tx) => {
-        await tx.insert(mcpAccessTokens).values(accessToken);
-        await tx.insert(mcpRefreshTokens).values(refreshToken);
-      });
+      await db.batch([
+        db.insert(mcpAccessTokens).values(accessToken),
+        db.insert(mcpRefreshTokens).values(refreshToken),
+      ]);
     },
     async rotateRefreshToken(input) {
       const { db } = await import("@/db/client");
-      return db.transaction(async (tx) => {
-        const [stored] = await tx
-          .select()
-          .from(mcpRefreshTokens)
-          .where(eq(mcpRefreshTokens.tokenHash, input.tokenHash))
-          .limit(1);
-        if (
-          !stored ||
-          stored.clientId !== input.clientId ||
-          stored.userId !== input.userId ||
-          stored.revokedAt !== null ||
-          stored.expiresAt <= input.now ||
-          stored.familyExpiresAt <= input.now
-        ) {
-          return { status: "invalid" as const };
-        }
-        if (stored.consumedAt !== null) {
-          await tx
-            .update(mcpRefreshTokens)
-            .set({ revokedAt: input.now })
-            .where(eq(mcpRefreshTokens.familyId, stored.familyId));
-          await tx
-            .update(mcpAccessTokens)
-            .set({ revokedAt: input.now })
-            .where(eq(mcpAccessTokens.familyId, stored.familyId));
-          return { status: "replayed" as const };
-        }
-        await tx
+      const [stored] = await db
+        .select()
+        .from(mcpRefreshTokens)
+        .where(eq(mcpRefreshTokens.tokenHash, input.tokenHash))
+        .limit(1);
+      if (
+        !stored ||
+        stored.clientId !== input.clientId ||
+        stored.userId !== input.userId ||
+        stored.revokedAt !== null ||
+        stored.expiresAt <= input.now ||
+        stored.familyExpiresAt <= input.now
+      ) {
+        return { status: "invalid" as const };
+      }
+
+      const revokeFamily = () => db.batch([
+        db
+          .update(mcpRefreshTokens)
+          .set({ revokedAt: input.now })
+          .where(eq(mcpRefreshTokens.familyId, stored.familyId)),
+        db
+          .update(mcpAccessTokens)
+          .set({ revokedAt: input.now })
+          .where(eq(mcpAccessTokens.familyId, stored.familyId)),
+      ]);
+
+      if (stored.consumedAt !== null) {
+        await revokeFamily();
+        return { status: "replayed" as const };
+      }
+
+      const [claimed] = await db.batch([
+        db
           .update(mcpRefreshTokens)
           .set({
             consumedAt: input.now,
@@ -95,17 +89,19 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
             and(
               eq(mcpRefreshTokens.tokenHash, input.tokenHash),
               isNull(mcpRefreshTokens.consumedAt),
+              isNull(mcpRefreshTokens.revokedAt),
             ),
-          );
-        await tx.insert(mcpAccessTokens).values({
+          )
+          .returning(),
+        db.insert(mcpAccessTokens).values({
           tokenHash: input.newAccessTokenHash,
           familyId: stored.familyId,
           clientId: stored.clientId,
           userId: stored.userId,
           expiresAt: input.accessExpiresAt,
           revokedAt: null,
-        });
-        await tx.insert(mcpRefreshTokens).values({
+        }),
+        db.insert(mcpRefreshTokens).values({
           tokenHash: input.newRefreshTokenHash,
           familyId: stored.familyId,
           clientId: stored.clientId,
@@ -115,13 +111,17 @@ export function createDrizzleMcpAuthRepository(): McpAuthRepository {
           consumedAt: null,
           replacementTokenHash: null,
           revokedAt: null,
-        });
-        return {
-          status: "rotated" as const,
-          familyId: stored.familyId,
-          familyExpiresAt: stored.familyExpiresAt,
-        };
-      });
+        }),
+      ]);
+      if (claimed.length === 0) {
+        await revokeFamily();
+        return { status: "replayed" as const };
+      }
+      return {
+        status: "rotated" as const,
+        familyId: stored.familyId,
+        familyExpiresAt: stored.familyExpiresAt,
+      };
     },
     async findAccessToken(tokenHash) {
       const { db } = await import("@/db/client");
