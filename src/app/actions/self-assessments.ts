@@ -6,9 +6,11 @@ import { createHash } from "node:crypto";
 
 import { selfAssessments } from "@/db/schema";
 import { requireCurrentUser } from "@/lib/access/current-user";
+import { getMaintenanceMode } from "@/lib/runtime/maintenance";
 
 export async function saveSelfAssessmentAction(formData: FormData) {
   const user = await requireCurrentUser();
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   const subjectId = String(formData.get("subjectId") ?? "");
   const rating = Number(formData.get("rating") ?? Number.NaN);
 

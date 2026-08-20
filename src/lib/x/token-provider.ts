@@ -1,5 +1,6 @@
 import { getEnv } from "@/lib/env";
 import { clientSecret } from "@/lib/integrations/oauth-client";
+import { assertWritesAllowed } from "@/lib/runtime/maintenance";
 
 type StoredXToken = {
   accessToken: string;
@@ -92,6 +93,8 @@ export async function getValidXAccessToken(
     return stored.accessToken;
   }
   if (!stored.refreshToken) throw new XReconnectRequiredError();
+
+  assertWritesAllowed("oauth.x.refresh");
 
   const existingRefresh = refreshesInFlight.get(userId);
   if (existingRefresh) return existingRefresh;

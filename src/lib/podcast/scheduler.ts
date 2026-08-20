@@ -5,6 +5,7 @@ import { podcastEpisodes, podcastJobs, podcastSettings } from "@/db/schema";
 import { createMySqlPodcastJobQueue } from "@/lib/podcast/mysql-job-queue";
 import type { PodcastSettings } from "@/lib/podcast/types";
 import type { PodcastSourceSetting } from "@/lib/podcast/types";
+import { assertWritesAllowed } from "@/lib/runtime/maintenance";
 
 export function isPodcastGenerationDue(
   frequency: PodcastSettings["generationFrequency"],
@@ -40,6 +41,7 @@ export function localDateKey(now: Date, timezone: string): string {
 }
 
 export async function enqueueDuePodcastGenerations(now = new Date()): Promise<number> {
+  assertWritesAllowed("podcast.schedule.enqueue");
   const { db } = await import("@/db/client");
   const rows = await db.select().from(podcastSettings);
   const queue = createMySqlPodcastJobQueue();

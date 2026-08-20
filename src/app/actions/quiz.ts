@@ -6,9 +6,11 @@ import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/lib/access/current-user";
 import { appendAdditionalQuizQuestions } from "@/lib/quiz/extend-daily-quiz";
 import { submitTodayAnswer } from "@/lib/quiz/submit-answer";
+import { getMaintenanceMode } from "@/lib/runtime/maintenance";
 
 export async function submitQuizAnswerAction(formData: FormData) {
   const user = await requireCurrentUser();
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   const quizDayId = String(formData.get("quizDayId") ?? "");
   const questionId = String(formData.get("questionId") ?? "");
   const selectedChoiceId = String(formData.get("selectedChoiceId") ?? "");
@@ -46,6 +48,7 @@ export async function submitQuizAnswerAction(formData: FormData) {
 
 export async function addMoreQuizQuestionsAction(formData: FormData) {
   const user = await requireCurrentUser();
+  if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   const quizDayId = String(formData.get("quizDayId") ?? "");
   if (!quizDayId) redirect("/today");
 

@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { oauthConnections } from "@/db/schema";
 import { db } from "@/db/client";
 import { getEnv } from "@/lib/env";
+import { assertWritesAllowed } from "@/lib/runtime/maintenance";
 
 type OAuthToken = {
   accessToken: string;
@@ -15,6 +16,7 @@ type OAuthToken = {
 };
 
 export async function saveOAuthToken(userId: string, provider: "google-calendar" | "x", token: OAuthToken) {
+  assertWritesAllowed("oauth.token.save");
   const now = new Date();
   await db.insert(oauthConnections).values({
     id: `oauth_${randomUUID()}`,

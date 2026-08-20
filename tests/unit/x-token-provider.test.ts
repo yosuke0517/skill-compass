@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getValidXAccessToken,
@@ -31,6 +31,8 @@ function dependencies(
 }
 
 describe("getValidXAccessToken", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("returns an access token that remains valid beyond the refresh buffer", async () => {
     const deps = dependencies();
 
@@ -150,5 +152,23 @@ describe("getValidXAccessToken", () => {
     await expect(getValidXAccessToken("user-1", deps)).rejects.toEqual(
       new XReconnectRequiredError(),
     );
+  });
+
+  it("does not contact X or persist a token while read-only", async () => {
+    vi.stubEnv("MAINTENANCE_MODE", "read_only");
+    const deps = dependencies({
+      loadToken: vi.fn().mockResolvedValue({
+        accessToken: "old-access",
+        refreshToken: "old-refresh",
+        expiresAt: new Date("2026-07-23T00:00:00.000Z"),
+      }),
+    });
+
+    await expect(getValidXAccessToken("user-1", deps)).rejects.toMatchObject({
+      code: "maintenance_read_only",
+    });
+    expect(deps.getClientCredentials).not.toHaveBeenCalled();
+    expect(deps.fetch).not.toHaveBeenCalled();
+    expect(deps.saveToken).not.toHaveBeenCalled();
   });
 });
