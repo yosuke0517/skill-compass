@@ -71,7 +71,7 @@
         "MCP_ISSUER_URL": "https://agent.finegate.xyz",
         "MCP_RESOURCE_URL": "https://agent.finegate.xyz/mcp",
         "MCP_ARCHITECTURE_RESOURCE_URL": "https://agent.finegate.xyz/mcp/architecture",
-        "MCP_ALLOWED_USER_ID": "user_1",
+        "MCP_ALLOWED_USER_ID": "user_local",
         "X_OAUTH_REDIRECT_URI": "https://agent.finegate.xyz/api/integrations/x/callback",
         "PODCAST_AUDIO_STORAGE": "r2"
       },
