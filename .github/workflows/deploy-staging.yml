@@ -57,10 +57,10 @@ jobs:
       - run: terraform -chdir=infra/cloudflare apply -input=false -auto-approve /tmp/staging.tfplan
       - run: terraform -chdir=infra/cloudflare output -json | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts
       - run: pnpm build:cloudflare
+      - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env staging
       - name: Update staging Worker secret
         run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env staging
       - run: printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env staging
-      - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env staging
       - run: pnpm exec playwright install chromium
       - run: pnpm exec playwright test tests/e2e/cloudflare-staging.spec.ts
       - run: pnpm exec tsx scripts/cloudflare/mcp-smoke.ts > staging-mcp-smoke.json
