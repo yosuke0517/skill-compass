@@ -95,6 +95,13 @@ export function QuizCardNavigator({
     return () => window.clearTimeout(timeout);
   }, [resultMotionQuestionId]);
 
+  useEffect(() => {
+    if (!resultMotionQuestionId) return;
+
+    const timeout = window.setTimeout(() => setResultMotionQuestionId(null), 1_550);
+    return () => window.clearTimeout(timeout);
+  }, [resultMotionQuestionId]);
+
   if (!activeQuestion) {
     return <p className="form-error">No quiz questions are available.</p>;
   }
