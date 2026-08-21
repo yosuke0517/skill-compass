@@ -2,6 +2,7 @@
 
 import {
   type RefObject,
+  useActionState,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -11,7 +12,10 @@ import {
 } from "react";
 import { CheckCircle2, CircleHelp, Languages, Sparkles, XCircle } from "lucide-react";
 
-import { submitQuizAnswerAction } from "@/app/actions/quiz";
+import {
+  submitQuizAnswerAction,
+  type QuizAnswerActionState,
+} from "@/app/actions/quiz";
 import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
@@ -25,7 +29,7 @@ type QuizQuestionCardProps = {
   translation?: TranslatedQuizCard;
   isActive?: boolean;
   activeCardFocusRef?: RefObject<HTMLHeadingElement | null>;
-  onAnswerSubmit?: (questionId: string) => void;
+  onAnswerSuccess?: (item: Extract<WebTodayQuizQuestion, { status: "answered" }>) => void;
   resultMotion?: "correct" | "incorrect";
 };
 
@@ -36,6 +40,8 @@ const reasonLabels: Record<string, string> = {
   balancing: "Balance",
   fallback: "Fallback",
 };
+
+const initialQuizAnswerActionState: QuizAnswerActionState = { status: "idle" };
 
 function selectCurrentTranslation(
   localTranslation: TranslatedQuizCard | undefined,
@@ -59,13 +65,23 @@ function selectCurrentTranslation(
 
 export function QuizQuestionCard({
   quizDayId,
-  item,
+  item: initialItem,
   translation,
   isActive = false,
   activeCardFocusRef,
-  onAnswerSubmit,
+  onAnswerSuccess,
   resultMotion,
 }: QuizQuestionCardProps) {
+  const [answerState, answerAction, isSubmitting] = useActionState(
+    submitQuizAnswerAction,
+    initialQuizAnswerActionState,
+  );
+  const handledAnswer = useRef<string | null>(null);
+  const item =
+    answerState.status === "success" &&
+    answerState.item.question.id === initialItem.question.id
+      ? answerState.item
+      : initialItem;
   const answered = item.status === "answered";
   const correctChoice =
     item.status === "answered" ? item.question.choices.find((choice) => choice.correct) : undefined;
@@ -140,6 +156,14 @@ export function QuizQuestionCard({
       });
     }
   }, [item]);
+
+  useEffect(() => {
+    if (answerState.status !== "success") return;
+    if (handledAnswer.current === answerState.item.question.id) return;
+
+    handledAnswer.current = answerState.item.question.id;
+    onAnswerSuccess?.(answerState.item);
+  }, [answerState, onAnswerSuccess]);
 
   useEffect(() => {
     if (!reviewTranslationMissing) return;
@@ -367,11 +391,7 @@ export function QuizQuestionCard({
           </section>
         </div>
       ) : (
-        <form
-          action={submitQuizAnswerAction}
-          className="quiz-form"
-          onSubmit={() => onAnswerSubmit?.(item.question.id)}
-        >
+        <form action={answerAction} className="quiz-form">
           <input type="hidden" name="quizDayId" value={quizDayId} />
           <input type="hidden" name="questionId" value={item.question.id} />
 
@@ -397,7 +417,15 @@ export function QuizQuestionCard({
             />
           </label>
 
-          <button type="submit">Submit answer</button>
+          {answerState.status === "error" ? (
+            <p className="form-error" role="alert">
+              {answerState.message}
+            </p>
+          ) : null}
+
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting…" : "Submit answer"}
+          </button>
         </form>
       )}
     </article>

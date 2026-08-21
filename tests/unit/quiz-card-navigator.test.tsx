@@ -1,8 +1,16 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuizCardNavigator } from "@/components/quiz/quiz-card-navigator";
 import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
+
+const actionMocks = vi.hoisted(() => ({
+  submitQuizAnswerAction: vi.fn(),
+}));
+
+vi.mock("@/app/actions/quiz", () => ({
+  submitQuizAnswerAction: actionMocks.submitQuizAnswerAction,
+}));
 
 vi.mock("@/components/assistant/today-assistant-widget", () => ({
   TodayAssistantWidget: () => null,
@@ -30,66 +38,58 @@ const questions: WebTodayQuizQuestion[] = [1, 2].map((slot) => ({
 afterEach(() => {
   vi.useRealTimers();
   cleanup();
-  window.sessionStorage.clear();
   vi.restoreAllMocks();
+  actionMocks.submitQuizAnswerAction.mockReset();
   vi.unstubAllGlobals();
 });
 
 describe("QuizCardNavigator", () => {
-  it("restores a submitted answer motion briefly in the visible card", async () => {
-    vi.useFakeTimers();
+  it("updates the active card and starts result motion from the client action result", async () => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
       value: vi.fn(),
     });
-    window.sessionStorage.setItem(
-      "skill-compass:pending-quiz-answer:quiz-day-1",
-      "question-1",
-    );
-
-    const answeredQuestions: WebTodayQuizQuestion[] = [
-      {
-        ...questions[0],
-        status: "answered",
-        answer: {
-          selectedChoiceId: "a",
-          correct: true,
-          confidence: null,
-          reasoning: null,
-          feedback: "Feedback",
-        },
-        question: {
-          ...questions[0].question,
-          choices: questions[0].question.choices.map((choice) => ({
-            ...choice,
-            correct: choice.id === "a",
-            explanation: "Explanation",
-            consequence: "Consequence",
-          })),
-          decisionKey: "Decision key",
-          decisionCriteria: ["Decision criterion"],
-          rationale: "Rationale",
-          practicalNotes: ["Practical note"],
-          checkQuestion: "Check?",
-        },
+    const unanswered = questions[0];
+    if (unanswered.status !== "unanswered") throw new Error("unanswered fixture required");
+    const answered = {
+      ...unanswered,
+      status: "answered" as const,
+      question: {
+        ...unanswered.question,
+        choices: unanswered.question.choices.map((choice) => ({
+          ...choice,
+          correct: choice.id === "a",
+          explanation: "Explanation",
+          consequence: "Consequence",
+        })),
+        decisionKey: "Decision key",
+        decisionCriteria: ["Decision criterion"],
+        rationale: "Rationale",
+        practicalNotes: ["Practical note"],
+        checkQuestion: "Check?",
       },
-      questions[1],
-    ];
+      answer: {
+        selectedChoiceId: "a",
+        correct: true,
+        confidence: null,
+        reasoning: null,
+        feedback: "Feedback",
+      },
+    };
+    actionMocks.submitQuizAnswerAction.mockResolvedValue({ status: "success", item: answered });
 
     render(
-      <QuizCardNavigator
-        quizDayId="quiz-day-1"
-        questions={answeredQuestions}
-        translations={{}}
-      />,
+      <QuizCardNavigator quizDayId="quiz-day-1" questions={questions} translations={{}} />,
     );
+    fireEvent.click(screen.getByRole("radio", { name: "A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit answer" }));
 
-    await act(async () => vi.advanceTimersByTimeAsync(20));
-    expect(screen.getByRole("status", { name: "Correct answer" })).toBeTruthy();
-
-    await act(async () => vi.advanceTimersByTimeAsync(1_600));
-    expect(screen.queryByRole("status", { name: "Correct answer" })).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByRole("status", { name: "Correct answer" })).toBeTruthy();
+      expect(screen.getByLabelText("Answer review")).toBeTruthy();
+      expect(screen.getByText("1 answered, 1 unanswered")).toBeTruthy();
+    });
   });
 
   it("scrolls the newly selected question card to its top", async () => {

@@ -6,12 +6,18 @@ const mocks = vi.hoisted(() => ({
     throw new Error(`redirect:${path}`);
   }),
   submitTodayAnswer: vi.fn(),
+  getTodayQuiz: vi.fn(),
+  toWebTodayQuizQuestions: vi.fn(),
   requireCurrentUser: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/quiz/submit-answer", () => ({ submitTodayAnswer: mocks.submitTodayAnswer }));
+vi.mock("@/lib/quiz/get-today-quiz", () => ({ getTodayQuiz: mocks.getTodayQuiz }));
+vi.mock("@/lib/quiz/web-today-quiz", () => ({
+  toWebTodayQuizQuestions: mocks.toWebTodayQuizQuestions,
+}));
 vi.mock("@/lib/access/current-user", () => ({ requireCurrentUser: mocks.requireCurrentUser }));
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
@@ -22,6 +28,16 @@ describe("submitQuizAnswerAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.submitTodayAnswer.mockResolvedValue(undefined);
+    mocks.getTodayQuiz.mockResolvedValue({ questions: [{}] });
+    mocks.toWebTodayQuizQuestions.mockReturnValue([
+      {
+        status: "answered",
+        slot: 1,
+        reason: "weakness",
+        question: { id: "question_typescript" },
+        answer: { selectedChoiceId: "choice_b", correct: true, feedback: "Good" },
+      },
+    ]);
     mocks.requireCurrentUser.mockResolvedValue({ id: "user_a" });
   });
 
@@ -33,7 +49,7 @@ describe("submitQuizAnswerAction", () => {
     formData.set("confidence", "4");
     formData.set("userId", "user_b");
 
-    await expect(submitQuizAnswerAction(formData)).rejects.toThrow("redirect:/today");
+    const result = await submitQuizAnswerAction({ status: "idle" }, formData);
 
     expect(mocks.submitTodayAnswer).toHaveBeenCalledWith({
       userId: "user_a",
@@ -45,26 +61,31 @@ describe("submitQuizAnswerAction", () => {
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/today");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/dashboard");
-    expect(mocks.redirect).toHaveBeenCalledWith("/today");
+    expect(result.status).toBe("success");
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
-  it("redirects to the Today error state when answer submission fails", async () => {
+  it("returns an inline error when answer submission fails", async () => {
     mocks.submitTodayAnswer.mockRejectedValue(new Error("evaluation unavailable"));
     const formData = new FormData();
     formData.set("quizDayId", "quiz_2026-07-12");
     formData.set("questionId", "question_typescript");
     formData.set("selectedChoiceId", "choice_b");
 
-    await expect(submitQuizAnswerAction(formData)).rejects.toThrow("redirect:/today?error=submit-failed");
+    const result = await submitQuizAnswerAction({ status: "idle" }, formData);
 
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
-    expect(mocks.redirect).toHaveBeenCalledWith("/today?error=submit-failed");
+    expect(result).toEqual({
+      status: "error",
+      message: "Your answer could not be saved. Please try again.",
+    });
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   it("redirects to the maintenance explanation without saving", async () => {
     vi.stubEnv("MAINTENANCE_MODE", "read_only");
 
-    await expect(submitQuizAnswerAction(new FormData())).rejects.toThrow(
+    await expect(submitQuizAnswerAction({ status: "idle" }, new FormData())).rejects.toThrow(
       "redirect:/maintenance",
     );
     expect(mocks.submitTodayAnswer).not.toHaveBeenCalled();
