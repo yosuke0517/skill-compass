@@ -114,7 +114,7 @@ describe("Cloudflare deploy-config renderer", () => {
     );
     expect(renderedSource).not.toContain("must-not-leak");
     expect(renderedSource).not.toContain("unrelated_secret");
-    expect(renderedSource).not.toContain("production");
+    expect(Object.keys(rendered.env)).toEqual(["staging"]);
   });
 
   test("renders production bindings without including staging configuration", () => {

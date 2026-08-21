@@ -43,7 +43,10 @@
         "MCP_RESOURCE_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp",
         "MCP_ARCHITECTURE_RESOURCE_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev/mcp/architecture",
         "MCP_ALLOWED_USER_ID": "user_staging",
-        "PODCAST_AUDIO_STORAGE": "r2"
+        "PODCAST_AUDIO_STORAGE": "r2",
+        "TRANSLATION_PROVIDER": "gemini",
+        "ASSISTANT_PROVIDER": "gemini",
+        "GEMINI_API_KEY_SOURCE": "env"
       },
       "assets": {
         "directory": ".open-next/assets",
@@ -73,7 +76,10 @@
         "MCP_ARCHITECTURE_RESOURCE_URL": "https://agent.finegate.xyz/mcp/architecture",
         "MCP_ALLOWED_USER_ID": "user_local",
         "X_OAUTH_REDIRECT_URI": "https://agent.finegate.xyz/api/integrations/x/callback",
-        "PODCAST_AUDIO_STORAGE": "r2"
+        "PODCAST_AUDIO_STORAGE": "r2",
+        "TRANSLATION_PROVIDER": "gemini",
+        "ASSISTANT_PROVIDER": "gemini",
+        "GEMINI_API_KEY_SOURCE": "env"
       },
       "assets": {
         "directory": ".open-next/assets",
