@@ -136,6 +136,26 @@ function readyTranslation(marker: string): TranslatedQuizCard {
 }
 
 describe("QuizQuestionCard", () => {
+  it.each([
+    ["correct", "Correct answer", "result-correct-motion"],
+    ["incorrect", "Incorrect answer", "result-incorrect-motion"],
+  ] as const)("renders the one-time %s result motion", (resultMotion, label, className) => {
+    const { container } = render(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={{
+          ...answeredItem,
+          answer: { ...answeredItem.answer, correct: resultMotion === "correct" },
+        }}
+        resultMotion={resultMotion}
+      />,
+    );
+
+    expect(container.querySelector(".quiz-card")?.classList.contains(className)).toBe(true);
+    expect(screen.getByRole("status", { name: label })).toBeTruthy();
+    expect(container.querySelectorAll(".result-motion-particle")).toHaveLength(8);
+  });
+
   it("shows the practical scenario and artifacts before the decision prompt without hidden teaching data", () => {
     const { container } = render(<QuizQuestionCard quizDayId="quiz_1" item={unansweredItem} />);
 

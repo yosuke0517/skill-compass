@@ -60,6 +60,9 @@ export function QuizCardNavigator({
   const previousActiveIndex = useRef(activeIndex);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const activeCardFocusRef = useRef<HTMLHeadingElement>(null);
+  const activeCardSlotRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToActiveCard = useRef(false);
+  const [resultMotionQuestionId, setResultMotionQuestionId] = useState<string | null>(null);
   const activeQuestion = questions[activeIndex];
   const answeredCount = questions.filter((question) => question.status === "answered").length;
   const unansweredCount = questions.length - answeredCount;
@@ -77,8 +80,17 @@ export function QuizCardNavigator({
     if (activeIndex !== previousActiveIndex.current && activeQuestion) {
       activeCardFocusRef.current?.focus();
     }
+    if (shouldScrollToActiveCard.current && activeQuestion) {
+      shouldScrollToActiveCard.current = false;
+      activeCardSlotRef.current?.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+          ? "auto"
+          : "smooth",
+      });
+    }
     previousActiveIndex.current = activeIndex;
-  }, [activeIndex, activeQuestion]);
+  }, [activeIndex, activeQuestion, resultMotionQuestionId]);
 
   useEffect(() => {
     if (error) {
@@ -96,7 +108,9 @@ export function QuizCardNavigator({
     if (submittedIndex < 0) return;
 
     const frame = requestAnimationFrame(() => {
+      shouldScrollToActiveCard.current = true;
       setSelectedIndex(submittedIndex);
+      setResultMotionQuestionId(pendingQuestionId);
     });
     return () => cancelAnimationFrame(frame);
   }, [error, quizDayId, questions]);
@@ -106,7 +120,12 @@ export function QuizCardNavigator({
   }
 
   function goTo(index: number) {
-    setSelectedIndex(getClampedQuestionIndex(index, questions.length));
+    const targetIndex = getClampedQuestionIndex(index, questions.length);
+    if (targetIndex === activeIndex) return;
+
+    shouldScrollToActiveCard.current = true;
+    setResultMotionQuestionId(null);
+    setSelectedIndex(targetIndex);
   }
 
   function goToNext() {
@@ -208,7 +227,7 @@ export function QuizCardNavigator({
         ))}
       </ol>
 
-      <div className="quiz-card-slot">
+      <div className="quiz-card-slot" ref={activeCardSlotRef}>
         <QuizQuestionCard
           quizDayId={quizDayId}
           item={activeQuestion}
@@ -216,6 +235,15 @@ export function QuizCardNavigator({
           isActive
           activeCardFocusRef={activeCardFocusRef}
           onAnswerSubmit={handleAnswerSubmit}
+          resultMotion={
+            resultMotionQuestionId === activeQuestion.question.id &&
+            activeQuestion.status === "answered" &&
+            activeQuestion.answer.correct !== null
+              ? activeQuestion.answer.correct
+                ? "correct"
+                : "incorrect"
+              : undefined
+          }
         />
       </div>
 
