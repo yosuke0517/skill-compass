@@ -125,7 +125,6 @@ export function QuizCardNavigator({
         item.question.id === answeredItem.question.id ? answeredItem : item,
       ),
     );
-    shouldScrollToActiveCard.current = true;
     setResultMotionQuestionId(answeredItem.question.id);
   }
 

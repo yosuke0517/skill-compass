@@ -45,10 +45,11 @@ afterEach(() => {
 
 describe("QuizCardNavigator", () => {
   it("updates the active card and starts result motion from the client action result", async () => {
+    const scrollIntoView = vi.fn();
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
-      value: vi.fn(),
+      value: scrollIntoView,
     });
     const unanswered = questions[0];
     if (unanswered.status !== "unanswered") throw new Error("unanswered fixture required");
@@ -90,6 +91,7 @@ describe("QuizCardNavigator", () => {
       expect(screen.getByLabelText("Answer review")).toBeTruthy();
       expect(screen.getByText("1 answered, 1 unanswered")).toBeTruthy();
     });
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("scrolls the newly selected question card to its top", async () => {

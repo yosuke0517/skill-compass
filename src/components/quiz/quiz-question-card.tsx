@@ -10,6 +10,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, CircleHelp, Languages, Sparkles, XCircle } from "lucide-react";
 
 import {
@@ -182,34 +183,37 @@ export function QuizQuestionCard({
       className={`quiz-card${answered ? " answered" : ""}${resultMotion ? ` result-${resultMotion}-motion` : ""}`}
       aria-current={isActive ? "step" : undefined}
     >
-      {resultMotion ? (
-        <div
-          className={`result-motion-overlay ${resultMotion}`}
-          role="status"
-          aria-label={resultMotion === "correct" ? "Correct answer" : "Incorrect answer"}
-        >
-          <div className="result-motion-halo" aria-hidden="true" />
-          <div className="result-motion-particles" aria-hidden="true">
-            {Array.from({ length: 8 }, (_, index) => (
-              <span className="result-motion-particle" key={index} />
-            ))}
-          </div>
-          <div className="result-motion-badge">
-            {resultMotion === "correct" ? (
-              <>
-                <Sparkles size={17} aria-hidden="true" />
-                <CheckCircle2 size={28} aria-hidden="true" />
-                <strong>Correct</strong>
-              </>
-            ) : (
-              <>
-                <XCircle size={28} aria-hidden="true" />
-                <strong>Not quite</strong>
-              </>
-            )}
-          </div>
-        </div>
-      ) : null}
+      {resultMotion
+        ? createPortal(
+            <div
+              className={`result-motion-overlay ${resultMotion}`}
+              role="status"
+              aria-label={resultMotion === "correct" ? "Correct answer" : "Incorrect answer"}
+            >
+              <div className="result-motion-halo" aria-hidden="true" />
+              <div className="result-motion-particles" aria-hidden="true">
+                {Array.from({ length: 8 }, (_, index) => (
+                  <span className="result-motion-particle" key={index} />
+                ))}
+              </div>
+              <div className="result-motion-badge">
+                {resultMotion === "correct" ? (
+                  <>
+                    <Sparkles size={17} aria-hidden="true" />
+                    <CheckCircle2 size={28} aria-hidden="true" />
+                    <strong>Correct</strong>
+                  </>
+                ) : (
+                  <>
+                    <XCircle size={28} aria-hidden="true" />
+                    <strong>Not quite</strong>
+                  </>
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       <div className="quiz-card-header">
         <div className="quiz-card-meta">
           <span>#{item.slot}</span>
