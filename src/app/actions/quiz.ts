@@ -5,10 +5,20 @@ import { redirect } from "next/navigation";
 
 import { requireCurrentUser } from "@/lib/access/current-user";
 import { appendAdditionalQuizQuestions } from "@/lib/quiz/extend-daily-quiz";
+import { getTodayQuiz } from "@/lib/quiz/get-today-quiz";
 import { submitTodayAnswer } from "@/lib/quiz/submit-answer";
+import { toWebTodayQuizQuestions, type WebAnsweredQuizQuestion } from "@/lib/quiz/web-today-quiz";
 import { getMaintenanceMode } from "@/lib/runtime/maintenance";
 
-export async function submitQuizAnswerAction(formData: FormData) {
+export type QuizAnswerActionState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "success"; item: WebAnsweredQuizQuestion };
+
+export async function submitQuizAnswerAction(
+  _previousState: QuizAnswerActionState,
+  formData: FormData,
+): Promise<QuizAnswerActionState> {
   const user = await requireCurrentUser();
   if (getMaintenanceMode() === "read_only") redirect("/maintenance");
   const quizDayId = String(formData.get("quizDayId") ?? "");
@@ -25,7 +35,7 @@ export async function submitQuizAnswerAction(formData: FormData) {
     (confidence !== undefined &&
       (!Number.isInteger(confidence) || confidence < 1 || confidence > 5))
   ) {
-    redirect("/today?error=missing-answer");
+    return { status: "error", message: "Choose an answer before submitting." };
   }
 
   try {
@@ -38,12 +48,25 @@ export async function submitQuizAnswerAction(formData: FormData) {
       ...(confidence === undefined ? {} : { confidence }),
     });
   } catch {
-    redirect("/today?error=submit-failed");
+    return { status: "error", message: "Your answer could not be saved. Please try again." };
   }
 
   revalidatePath("/today");
   revalidatePath("/dashboard");
-  redirect("/today");
+
+  try {
+    const today = await getTodayQuiz(user.id);
+    const item = toWebTodayQuizQuestions(today.questions).find(
+      (candidate) => candidate.question.id === questionId && candidate.status === "answered",
+    );
+    if (!item || item.status !== "answered") throw new Error("answered question unavailable");
+    return { status: "success", item };
+  } catch {
+    return {
+      status: "error",
+      message: "Your answer was saved, but the review could not be loaded. Refresh Today to retry.",
+    };
+  }
 }
 
 export async function addMoreQuizQuestionsAction(formData: FormData) {

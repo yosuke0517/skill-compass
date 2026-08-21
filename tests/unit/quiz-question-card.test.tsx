@@ -4,12 +4,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QuizQuestionCard } from "@/components/quiz/quiz-question-card";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
-vi.mock("@/app/actions/quiz", () => ({
+const actionMocks = vi.hoisted(() => ({
   submitQuizAnswerAction: vi.fn(),
+}));
+
+vi.mock("@/app/actions/quiz", () => ({
+  submitQuizAnswerAction: actionMocks.submitQuizAnswerAction,
 }));
 
 afterEach(() => {
   cleanup();
+  actionMocks.submitQuizAnswerAction.mockReset();
   vi.unstubAllGlobals();
 });
 
@@ -136,6 +141,30 @@ function readyTranslation(marker: string): TranslatedQuizCard {
 }
 
 describe("QuizQuestionCard", () => {
+  it("renders the returned answer review without navigating and reports the result", async () => {
+    actionMocks.submitQuizAnswerAction.mockResolvedValue({
+      status: "success",
+      item: answeredItem,
+    });
+    const onAnswerSuccess = vi.fn();
+    render(
+      <QuizQuestionCard
+        quizDayId="quiz_1"
+        item={unansweredItem}
+        onAnswerSuccess={onAnswerSuccess}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: question.choices[1].label }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Answer review")).toBeTruthy();
+      expect(onAnswerSuccess).toHaveBeenCalledWith(answeredItem);
+    });
+    expect(actionMocks.submitQuizAnswerAction).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["correct", "Correct answer", "result-correct-motion"],
     ["incorrect", "Incorrect answer", "result-incorrect-motion"],

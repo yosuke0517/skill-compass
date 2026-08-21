@@ -10,7 +10,7 @@ import {
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
+import type { WebAnsweredQuizQuestion, WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
 import { TodayAssistantWidget } from "@/components/assistant/today-assistant-widget";
@@ -44,29 +44,25 @@ const interactiveDescendantSelector = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(", ");
 
-function getPendingAnswerStorageKey(quizDayId: string) {
-  return `skill-compass:pending-quiz-answer:${quizDayId}`;
-}
-
 export function QuizCardNavigator({
   quizDayId,
   questions,
   translations,
   navigatorAction,
-  error,
 }: QuizCardNavigatorProps) {
+  const [currentQuestions, setCurrentQuestions] = useState(questions);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const activeIndex = getClampedQuestionIndex(selectedIndex, questions.length);
+  const activeIndex = getClampedQuestionIndex(selectedIndex, currentQuestions.length);
   const previousActiveIndex = useRef(activeIndex);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const activeCardFocusRef = useRef<HTMLHeadingElement>(null);
   const activeCardSlotRef = useRef<HTMLDivElement>(null);
   const shouldScrollToActiveCard = useRef(false);
   const [resultMotionQuestionId, setResultMotionQuestionId] = useState<string | null>(null);
-  const activeQuestion = questions[activeIndex];
-  const answeredCount = questions.filter((question) => question.status === "answered").length;
-  const unansweredCount = questions.length - answeredCount;
-  const nextIndex = getNextQuestionIndex(activeIndex, questions);
+  const activeQuestion = currentQuestions[activeIndex];
+  const answeredCount = currentQuestions.filter((question) => question.status === "answered").length;
+  const unansweredCount = currentQuestions.length - answeredCount;
+  const nextIndex = getNextQuestionIndex(activeIndex, currentQuestions);
   const hasNextTarget = nextIndex !== activeIndex;
 
   useEffect(() => {
@@ -93,29 +89,6 @@ export function QuizCardNavigator({
   }, [activeIndex, activeQuestion, resultMotionQuestionId]);
 
   useEffect(() => {
-    if (error) {
-      window.sessionStorage.removeItem(getPendingAnswerStorageKey(quizDayId));
-      return;
-    }
-
-    const pendingQuestionId = window.sessionStorage.getItem(getPendingAnswerStorageKey(quizDayId));
-    if (!pendingQuestionId) return;
-
-    window.sessionStorage.removeItem(getPendingAnswerStorageKey(quizDayId));
-    const submittedIndex = questions.findIndex(
-      (question) => question.question.id === pendingQuestionId,
-    );
-    if (submittedIndex < 0) return;
-
-    const frame = requestAnimationFrame(() => {
-      shouldScrollToActiveCard.current = true;
-      setSelectedIndex(submittedIndex);
-      setResultMotionQuestionId(pendingQuestionId);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [error, quizDayId, questions]);
-
-  useEffect(() => {
     if (!resultMotionQuestionId) return;
 
     const timeout = window.setTimeout(() => setResultMotionQuestionId(null), 1_550);
@@ -127,7 +100,7 @@ export function QuizCardNavigator({
   }
 
   function goTo(index: number) {
-    const targetIndex = getClampedQuestionIndex(index, questions.length);
+    const targetIndex = getClampedQuestionIndex(index, currentQuestions.length);
     if (targetIndex === activeIndex) return;
 
     shouldScrollToActiveCard.current = true;
@@ -139,8 +112,14 @@ export function QuizCardNavigator({
     goTo(nextIndex);
   }
 
-  function handleAnswerSubmit(questionId: string) {
-    window.sessionStorage.setItem(getPendingAnswerStorageKey(quizDayId), questionId);
+  function handleAnswerSuccess(answeredItem: WebAnsweredQuizQuestion) {
+    setCurrentQuestions((items) =>
+      items.map((item) =>
+        item.question.id === answeredItem.question.id ? answeredItem : item,
+      ),
+    );
+    shouldScrollToActiveCard.current = true;
+    setResultMotionQuestionId(answeredItem.question.id);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -207,10 +186,10 @@ export function QuizCardNavigator({
     >
       <div className="quiz-card-navigation-status" aria-live="polite">
         <strong>
-          {activeIndex + 1} / {questions.length}
+          {activeIndex + 1} / {currentQuestions.length}
         </strong>
         <span>
-          Question {activeIndex + 1} of {questions.length}
+          Question {activeIndex + 1} of {currentQuestions.length}
         </span>
         <span>
           {answeredCount} answered, {unansweredCount} unanswered
@@ -218,7 +197,7 @@ export function QuizCardNavigator({
       </div>
 
       <ol className="quiz-card-indicators" aria-label="Question status">
-        {questions.map((question, index) => (
+        {currentQuestions.map((question, index) => (
           <li key={question.question.id} aria-current={index === activeIndex ? "step" : undefined}>
             <button
               type="button"
@@ -236,12 +215,13 @@ export function QuizCardNavigator({
 
       <div className="quiz-card-slot" ref={activeCardSlotRef}>
         <QuizQuestionCard
+          key={activeQuestion.question.id}
           quizDayId={quizDayId}
           item={activeQuestion}
           translation={translations[activeQuestion.question.id]}
           isActive
           activeCardFocusRef={activeCardFocusRef}
-          onAnswerSubmit={handleAnswerSubmit}
+          onAnswerSuccess={handleAnswerSuccess}
           resultMotion={
             resultMotionQuestionId === activeQuestion.question.id &&
             activeQuestion.status === "answered" &&
