@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuizCardNavigator } from "@/components/quiz/quiz-card-navigator";
@@ -28,6 +28,7 @@ const questions: WebTodayQuizQuestion[] = [1, 2].map((slot) => ({
 }));
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   window.sessionStorage.clear();
   vi.restoreAllMocks();
@@ -35,6 +36,62 @@ afterEach(() => {
 });
 
 describe("QuizCardNavigator", () => {
+  it("restores a submitted answer motion briefly in the visible card", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    window.sessionStorage.setItem(
+      "skill-compass:pending-quiz-answer:quiz-day-1",
+      "question-1",
+    );
+
+    const answeredQuestions: WebTodayQuizQuestion[] = [
+      {
+        ...questions[0],
+        status: "answered",
+        answer: {
+          selectedChoiceId: "a",
+          correct: true,
+          confidence: null,
+          reasoning: null,
+          feedback: "Feedback",
+        },
+        question: {
+          ...questions[0].question,
+          choices: questions[0].question.choices.map((choice) => ({
+            ...choice,
+            correct: choice.id === "a",
+            explanation: "Explanation",
+            consequence: "Consequence",
+          })),
+          decisionKey: "Decision key",
+          decisionCriteria: ["Decision criterion"],
+          rationale: "Rationale",
+          practicalNotes: ["Practical note"],
+          checkQuestion: "Check?",
+        },
+      },
+      questions[1],
+    ];
+
+    render(
+      <QuizCardNavigator
+        quizDayId="quiz-day-1"
+        questions={answeredQuestions}
+        translations={{}}
+      />,
+    );
+
+    await act(async () => vi.advanceTimersByTimeAsync(20));
+    expect(screen.getByRole("status", { name: "Correct answer" })).toBeTruthy();
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_600));
+    expect(screen.queryByRole("status", { name: "Correct answer" })).toBeNull();
+  });
+
   it("scrolls the newly selected question card to its top", async () => {
     const scrollIntoView = vi.fn();
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
