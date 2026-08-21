@@ -12,6 +12,11 @@ on:
         required: true
         default: false
         type: boolean
+      break_glass_skip_staging_success:
+        description: Manually approved production promotion when staging deployed but post-deploy verification failed
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: skill-compass-production
@@ -23,6 +28,7 @@ permissions:
 
 jobs:
   verify-staging:
+    if: ${{ !inputs.break_glass_skip_staging_success }}
     runs-on: ubuntu-latest
     env:
       REQUESTED_SHA: ${{ inputs.commit_sha }}
@@ -77,6 +83,7 @@ jobs:
 
   deploy-production:
     needs: verify-staging
+    if: ${{ always() && (needs.verify-staging.result == 'success' || inputs.break_glass_skip_staging_success) }}
     runs-on: ubuntu-latest
     environment: production
     env:
