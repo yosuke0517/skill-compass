@@ -1152,15 +1152,13 @@ p {
 .result-motion-overlay {
   align-items: center;
   display: grid;
-  height: min(46svh, 320px);
-  inset: 0 0 auto;
+  inset: 0;
   justify-items: center;
-  min-height: 220px;
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  position: absolute;
-  z-index: 4;
+  position: fixed;
+  z-index: 70;
 }
 
 .result-motion-halo {
