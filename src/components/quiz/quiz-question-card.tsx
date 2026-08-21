@@ -9,7 +9,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { CheckCircle2, CircleHelp, Languages } from "lucide-react";
+import { CheckCircle2, CircleHelp, Languages, Sparkles, XCircle } from "lucide-react";
 
 import { submitQuizAnswerAction } from "@/app/actions/quiz";
 import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
@@ -26,6 +26,7 @@ type QuizQuestionCardProps = {
   isActive?: boolean;
   activeCardFocusRef?: RefObject<HTMLHeadingElement | null>;
   onAnswerSubmit?: (questionId: string) => void;
+  resultMotion?: "correct" | "incorrect";
 };
 
 const reasonLabels: Record<string, string> = {
@@ -63,6 +64,7 @@ export function QuizQuestionCard({
   isActive = false,
   activeCardFocusRef,
   onAnswerSubmit,
+  resultMotion,
 }: QuizQuestionCardProps) {
   const answered = item.status === "answered";
   const correctChoice =
@@ -153,9 +155,37 @@ export function QuizQuestionCard({
 
   return (
     <article
-      className={`quiz-card${answered ? " answered" : ""}`}
+      className={`quiz-card${answered ? " answered" : ""}${resultMotion ? ` result-${resultMotion}-motion` : ""}`}
       aria-current={isActive ? "step" : undefined}
     >
+      {resultMotion ? (
+        <div
+          className={`result-motion-overlay ${resultMotion}`}
+          role="status"
+          aria-label={resultMotion === "correct" ? "Correct answer" : "Incorrect answer"}
+        >
+          <div className="result-motion-halo" aria-hidden="true" />
+          <div className="result-motion-particles" aria-hidden="true">
+            {Array.from({ length: 8 }, (_, index) => (
+              <span className="result-motion-particle" key={index} />
+            ))}
+          </div>
+          <div className="result-motion-badge">
+            {resultMotion === "correct" ? (
+              <>
+                <Sparkles size={17} aria-hidden="true" />
+                <CheckCircle2 size={28} aria-hidden="true" />
+                <strong>Correct</strong>
+              </>
+            ) : (
+              <>
+                <XCircle size={28} aria-hidden="true" />
+                <strong>Not quite</strong>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
       <div className="quiz-card-header">
         <div className="quiz-card-meta">
           <span>#{item.slot}</span>
