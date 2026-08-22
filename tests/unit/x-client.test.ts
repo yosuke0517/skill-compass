@@ -22,6 +22,8 @@ const apiResponse = {
         retweet_count: 3,
         reply_count: 2,
         quote_count: 1,
+        bookmark_count: 5,
+        impression_count: 9000,
       },
       referenced_tweets: [
         { type: "quoted", id: "100" },
@@ -64,7 +66,14 @@ describe("createXApiClient", () => {
       quotedPostId: "100",
       parentPostId: "120",
       canonicalLinks: ["https://example.com/advisory"],
-      metrics: { likes: 8, reposts: 3, replies: 2, quotes: 1 },
+      metrics: {
+        likes: 8,
+        reposts: 3,
+        replies: 2,
+        quotes: 1,
+        bookmarks: 5,
+        views: 9000,
+      },
       media: [
         {
           type: "photo",
@@ -83,23 +92,23 @@ describe("createXApiClient", () => {
     expect(String(url)).toMatch(/^https:\/\/api\.x\.com\/2\/tweets\/123\?/);
     expect(String(url)).toContain("tweet.fields=");
     expect(new URL(String(url)).searchParams.get("tweet.fields")?.split(",")).toContain("article");
-    expect(new URL(String(url)).searchParams.get("expansions")?.split(",")).toContain("article.media_entities");
+    expect(new URL(String(url)).searchParams.get("expansions")?.split(",")).toContain(
+      "article.media_entities",
+    );
     expect(init.headers.authorization).toBe("Bearer secret-bearer");
   });
 
   it("batches numeric post IDs only", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(apiResponse), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(apiResponse), { status: 200 }));
     const client = createXApiClient("token", fetchMock);
 
     await client.getPosts(["123", "456"]);
     expect(String(fetchMock.mock.calls[0][0])).toContain(
       "https://api.x.com/2/tweets?ids=123%2C456",
     );
-    await expect(client.getPosts(["123", "bad"])).rejects.toThrow(
-      "x_post_unavailable",
-    );
+    await expect(client.getPosts(["123", "bad"])).rejects.toThrow("x_post_unavailable");
   });
 
   it("retrieves normalized personalized trends from the fixed X API endpoint", async () => {
@@ -135,9 +144,9 @@ describe("createXApiClient", () => {
   });
 
   it("requests recent search results in relevancy order when selected", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(apiResponse), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(apiResponse), { status: 200 }));
     const client = createXApiClient("token", fetchMock);
 
     await client.searchRecent({
@@ -152,9 +161,9 @@ describe("createXApiClient", () => {
   });
 
   it("classifies a Personalized Trends 401 as endpoint unavailability", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('{"detail":"not entitled"}', { status: 401 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('{"detail":"not entitled"}', { status: 401 }));
     const client = createXApiClient("valid-user-token", fetchMock);
 
     await expect(client.getPersonalizedTrends()).rejects.toMatchObject({
@@ -167,9 +176,9 @@ describe("createXApiClient", () => {
     [404, "x_post_unavailable"],
     [429, "x_rate_limited"],
   ])("maps HTTP %s to %s without leaking provider data", async (status, code) => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('{"detail":"provider-secret"}', { status }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('{"detail":"provider-secret"}', { status }));
     const client = createXApiClient("secret-bearer", fetchMock);
 
     let caught: unknown;
@@ -185,9 +194,9 @@ describe("createXApiClient", () => {
   });
 
   it("maps X billing failures to a safe error", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response('{"title":"CreditsDepleted"}', { status: 402 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('{"title":"CreditsDepleted"}', { status: 402 }));
     const client = createXApiClient("token", fetchMock);
 
     await expect(client.getPost("123")).rejects.toMatchObject({

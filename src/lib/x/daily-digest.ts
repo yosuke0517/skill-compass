@@ -1,29 +1,15 @@
 import { getEnv } from "@/lib/env";
 import { detectResponseLanguage } from "@/lib/language/detect-response-language";
-import {
-  createXApiClient,
-  XApiError,
-  type XApiClient,
-} from "@/lib/x/client";
-import {
-  getCachedDailyDigest,
-  saveCachedDailyDigest,
-} from "@/lib/x/daily-cache";
-import {
-  rankTechPosts,
-  type TechPostCandidate,
-} from "@/lib/x/ranking";
+import { createXApiClient, type XApiClient } from "@/lib/x/client";
+import { getCachedDailyDigest, saveCachedDailyDigest } from "@/lib/x/daily-cache";
+import { rankTechPosts, type TechPostCandidate } from "@/lib/x/ranking";
 import { getValidXAccessToken } from "@/lib/x/token-provider";
 import { xTechTopics } from "@/lib/x/topics";
-import {
-  buildTrendSearchQuery,
-  selectTechnicalTrends,
-  xFixedTopicFallbackQuery,
-} from "@/lib/x/trend-queries";
+import { xDailyUpdateQueries } from "@/lib/x/trend-queries";
 import type { RankedTechPost } from "@/lib/x/types";
 
 export type DailyTechDigest = {
-  digestVersion: 2;
+  digestVersion: 3;
   generatedAt: string;
   window: { start: string; end: string };
   topics: string[];
@@ -48,14 +34,10 @@ export type DailyDigestDependencies = {
     digest: DailyTechDigest,
     expiresAt: Date,
   ) => Promise<void>;
-  createClient: (userId: string) => Promise<
-    Pick<
-      XApiClient,
-      | "getPersonalizedTrends"
-      | "getMe"
-      | "searchRecent"
-      | "getFollowingTimeline"
-    >
+  createClient: (
+    userId: string,
+  ) => Promise<
+    Pick<XApiClient, "getPersonalizedTrends" | "getMe" | "searchRecent" | "getFollowingTimeline">
   >;
 };
 
@@ -78,8 +60,7 @@ function defaultDependencies(): DailyDigestDependencies {
     readBudget: env.X_DAILY_POST_READ_BUDGET,
     getCachedDigest: getCachedDailyDigest,
     saveCachedDigest: saveCachedDailyDigest,
-    createClient: async (userId) =>
-      createXApiClient(await getValidXAccessToken(userId)),
+    createClient: async (userId) => createXApiClient(await getValidXAccessToken(userId)),
   };
 }
 
@@ -91,11 +72,7 @@ export async function getDailyTechPosts(
   const now = dependencies.now();
   const localDate = tokyoDateKey(now);
   const cached = await dependencies.getCachedDigest(userId, localDate);
-  if (
-    cached &&
-    cached.expiresAt.getTime() > now.getTime() &&
-    cached.digest.digestVersion === 2
-  ) {
+  if (cached && cached.expiresAt.getTime() > now.getTime() && cached.digest.digestVersion === 3) {
     return cached.digest;
   }
 
@@ -104,38 +81,13 @@ export async function getDailyTechPosts(
   const client = await dependencies.createClient(userId);
   const candidates: TechPostCandidate[] = [];
   const partialFailures: string[] = [];
-  let personalizedTrends: string[] = [];
+  const personalizedTrends: string[] = [];
 
-  try {
-    personalizedTrends = selectTechnicalTrends(
-      await client.getPersonalizedTrends(),
-      Math.max(0, Math.min(2, Math.floor(budget / 10) - 1)),
-    );
-  } catch (error) {
-    if (
-      error instanceof XApiError &&
-      error.code === "x_reconnect_required"
-    ) {
-      throw error;
-    }
-    partialFailures.push("personalized_trends_unavailable");
-  }
-
-  const queries = [
-    ...personalizedTrends.map(buildTrendSearchQuery),
-    xFixedTopicFallbackQuery,
-  ];
+  const queries = [...xDailyUpdateQueries];
   let remainingBudget = budget;
-  for (
-    let index = 0;
-    index < queries.length && remainingBudget >= 10;
-    index += 1
-  ) {
+  for (let index = 0; index < queries.length && remainingBudget >= 10; index += 1) {
     const remainingQueries = queries.length - index;
-    const queryBudget = Math.max(
-      10,
-      Math.floor(remainingBudget / remainingQueries),
-    );
+    const queryBudget = Math.max(10, Math.floor(remainingBudget / remainingQueries));
     try {
       const posts = await client.searchRecent({
         query: queries[index],
@@ -165,20 +117,16 @@ export async function getDailyTechPosts(
     now,
   });
   const digest: DailyTechDigest = {
-    digestVersion: 2,
+    digestVersion: 3,
     generatedAt: now.toISOString(),
     window: { start: start.toISOString(), end: now.toISOString() },
     topics: [...xTechTopics],
     posts: ranked.map((item) => item.post),
     sourceMix: {
-      publicSearch: ranked.filter((item) => item.source === "public_search")
-        .length,
-      followingTimeline: ranked.filter(
-        (item) => item.source === "following_timeline",
-      ).length,
+      publicSearch: ranked.filter((item) => item.source === "public_search").length,
+      followingTimeline: ranked.filter((item) => item.source === "following_timeline").length,
     },
-    trendSource:
-      personalizedTrends.length > 0 ? "personalized" : "fixed_topics",
+    trendSource: "fixed_topics",
     personalizedTrends,
     responseLanguage: detectResponseLanguage(input.latestUserMessage ?? ""),
     partialFailures,

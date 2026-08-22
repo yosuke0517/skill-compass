@@ -1,9 +1,4 @@
-import type {
-  PersonalizedTrend,
-  PublicXPost,
-  XMedia,
-  XServiceErrorCode,
-} from "@/lib/x/types";
+import type { PersonalizedTrend, PublicXPost, XMedia, XServiceErrorCode } from "@/lib/x/types";
 
 type XUser = { id?: string; username?: string; name?: string };
 type XMediaResponse = {
@@ -30,6 +25,8 @@ type XTweet = {
     retweet_count?: number;
     reply_count?: number;
     quote_count?: number;
+    bookmark_count?: number;
+    impression_count?: number;
   };
 };
 type XPersonalizedTrend = {
@@ -92,13 +89,7 @@ const expansions = [
   "article.media_entities",
 ].join(",");
 const userFields = ["id", "name", "username"].join(",");
-const mediaFields = [
-  "media_key",
-  "type",
-  "url",
-  "preview_image_url",
-  "alt_text",
-].join(",");
+const mediaFields = ["media_key", "type", "url", "preview_image_url", "alt_text"].join(",");
 
 function assertPostId(id: string) {
   if (!/^\d+$/.test(id)) throw new XApiError("x_post_unavailable");
@@ -116,10 +107,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isTweet(value: unknown): value is XTweet {
-  return (
-    isRecord(value) &&
-    ("text" in value || "author_id" in value || "created_at" in value)
-  );
+  return isRecord(value) && ("text" in value || "author_id" in value || "created_at" in value);
 }
 
 function isPersonalizedTrend(value: unknown): value is XPersonalizedTrend {
@@ -133,9 +121,7 @@ function normalizePosts(envelope: XApiEnvelope): PublicXPost[] {
       ? [envelope.data]
       : [];
   const users = new Map(
-    (envelope.includes?.users ?? [])
-      .filter((user) => user.id)
-      .map((user) => [user.id!, user]),
+    (envelope.includes?.users ?? []).filter((user) => user.id).map((user) => [user.id!, user]),
   );
   const media = new Map(
     (envelope.includes?.media ?? [])
@@ -149,25 +135,20 @@ function normalizePosts(envelope: XApiEnvelope): PublicXPost[] {
     if (!author?.username || !author.name) return [];
     const reference = (type: string) =>
       row.referenced_tweets?.find((item) => item.type === type)?.id;
-    const normalizedMedia = (row.attachments?.media_keys ?? []).flatMap(
-      (key): XMedia[] => {
-        const item = media.get(key);
-        if (
-          !item ||
-          !["photo", "video", "animated_gif"].includes(item.type ?? "")
-        ) {
-          return [];
-        }
-        return [
-          {
-            type: item.type as XMedia["type"],
-            url: item.url,
-            previewImageUrl: item.preview_image_url,
-            altText: item.alt_text,
-          },
-        ];
-      },
-    );
+    const normalizedMedia = (row.attachments?.media_keys ?? []).flatMap((key): XMedia[] => {
+      const item = media.get(key);
+      if (!item || !["photo", "video", "animated_gif"].includes(item.type ?? "")) {
+        return [];
+      }
+      return [
+        {
+          type: item.type as XMedia["type"],
+          url: item.url,
+          previewImageUrl: item.preview_image_url,
+          altText: item.alt_text,
+        },
+      ];
+    });
     return [
       {
         id: row.id,
@@ -195,6 +176,8 @@ function normalizePosts(envelope: XApiEnvelope): PublicXPost[] {
           reposts: row.public_metrics?.retweet_count ?? 0,
           replies: row.public_metrics?.reply_count ?? 0,
           quotes: row.public_metrics?.quote_count ?? 0,
+          bookmarks: row.public_metrics?.bookmark_count,
+          views: row.public_metrics?.impression_count,
         },
         media: normalizedMedia,
         article:
@@ -219,18 +202,12 @@ function safeApiError(response: Response) {
   }
   if (response.status === 429) {
     const retryAfter = Number(response.headers.get("retry-after"));
-    return new XApiError(
-      "x_rate_limited",
-      Number.isFinite(retryAfter) ? retryAfter : undefined,
-    );
+    return new XApiError("x_rate_limited", Number.isFinite(retryAfter) ? retryAfter : undefined);
   }
   return new XApiError("x_post_unavailable");
 }
 
-export function createXApiClient(
-  accessToken: string,
-  fetchImpl: typeof fetch = fetch,
-): XApiClient {
+export function createXApiClient(accessToken: string, fetchImpl: typeof fetch = fetch): XApiClient {
   async function request(url: URL) {
     const response = await fetchImpl(url, {
       headers: { authorization: `Bearer ${accessToken}` },
@@ -271,10 +248,7 @@ export function createXApiClient(
       const url = new URL("https://api.x.com/2/tweets/search/recent");
       url.searchParams.set("query", input.query);
       url.searchParams.set("start_time", input.startTime.toISOString());
-      url.searchParams.set(
-        "max_results",
-        String(Math.min(100, Math.max(10, input.maxResults))),
-      );
+      url.searchParams.set("max_results", String(Math.min(100, Math.max(10, input.maxResults))));
       if (input.sortOrder) {
         url.searchParams.set("sort_order", input.sortOrder);
       }
@@ -292,27 +266,23 @@ export function createXApiClient(
       try {
         envelope = await request(url);
       } catch (error) {
-        if (
-          error instanceof XApiError &&
-          error.code === "x_reconnect_required"
-        ) {
+        if (error instanceof XApiError && error.code === "x_reconnect_required") {
           throw new XApiError("x_personalized_trends_unavailable");
         }
         throw error;
       }
       if (!Array.isArray(envelope.data)) return [];
-      return envelope.data.filter(isPersonalizedTrend).flatMap(
-        (trend): PersonalizedTrend[] =>
-          trend.trend_name
-            ? [
-                {
-                  name: trend.trend_name,
-                  category: trend.category,
-                  postCount: trend.post_count,
-                  trendingSince: trend.trending_since,
-                },
-              ]
-            : [],
+      return envelope.data.filter(isPersonalizedTrend).flatMap((trend): PersonalizedTrend[] =>
+        trend.trend_name
+          ? [
+              {
+                name: trend.trend_name,
+                category: trend.category,
+                postCount: trend.post_count,
+                trendingSince: trend.trending_since,
+              },
+            ]
+          : [],
       );
     },
 
@@ -320,10 +290,7 @@ export function createXApiClient(
       const url = new URL("https://api.x.com/2/users/me");
       url.searchParams.set("user.fields", "id");
       const envelope = await request(url);
-      if (
-        !isRecord(envelope.data) ||
-        typeof envelope.data.id !== "string"
-      ) {
+      if (!isRecord(envelope.data) || typeof envelope.data.id !== "string") {
         throw new XApiError("x_reconnect_required");
       }
       return { id: envelope.data.id };
@@ -335,10 +302,7 @@ export function createXApiClient(
         `https://api.x.com/2/users/${input.userId}/timelines/reverse_chronological`,
       );
       url.searchParams.set("start_time", input.startTime.toISOString());
-      url.searchParams.set(
-        "max_results",
-        String(Math.min(100, Math.max(1, input.maxResults))),
-      );
+      url.searchParams.set("max_results", String(Math.min(100, Math.max(1, input.maxResults))));
       url.searchParams.set("exclude", "replies");
       addPostFields(url.searchParams);
       return requestPosts(url);
