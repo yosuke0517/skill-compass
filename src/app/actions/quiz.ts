@@ -47,7 +47,8 @@ export async function submitQuizAnswerAction(
       reasoning,
       ...(confidence === undefined ? {} : { confidence }),
     });
-  } catch {
+  } catch (error) {
+    console.error("quiz answer submission failed", error);
     return { status: "error", message: "Your answer could not be saved. Please try again." };
   }
 
