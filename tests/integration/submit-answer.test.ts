@@ -421,6 +421,38 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
         sql: expect.stringContaining('"correct" is null'),
       });
     }
+    const answeredAtSql = renderSqlValue(answerInsert?.upsertSet?.answeredAt);
+    expect(answeredAtSql.sql).toContain("excluded");
+    expect(answeredAtSql.params.some((parameter) => parameter instanceof Date)).toBe(false);
+  });
+
+  it("finalizes answers without SQL transactions that D1 rejects", async () => {
+    const { db, transactions } = createRepositoryDb({
+      answerId: "answer_existing",
+      score: null,
+      finalizationAffectedRows: 1,
+    });
+    dbModule.current = db;
+
+    await createDrizzleSubmitAnswerRepository().finalizeAnswer({
+      userId: "user_a",
+      answerId: "answer_existing",
+      expectedRaw: {
+        selectedChoiceId: "b",
+        confidence: 4,
+        reasoning: "Owned raw answer.",
+      },
+      evaluation: {
+        correct: true,
+        reasoningQuality: "good",
+        feedback: "Correct.",
+        scoreDelta: 0.1,
+        nextReviewOn: "2026-07-16",
+      },
+      conceptId: "concept_a",
+    });
+
+    expect(transactions).toEqual({ committed: 0, rolledBack: 0 });
   });
 
   it("finalizes only the matching raw answer and skips scoring when the conditional update loses", async () => {
@@ -467,7 +499,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
     expect(captures.some((capture) => capture.table === "scores")).toBe(false);
   });
 
-  it("uses an atomic current-value score delta inside the finalization transaction", async () => {
+  it("uses a current-value score delta without unsupported SQL transactions", async () => {
     const { db, captures, transactions } = createRepositoryDb({
       answerId: "answer_existing",
       score: { id: "score_existing", value: 0.8 },
@@ -496,7 +528,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(transactions).toEqual({ committed: 1, rolledBack: 0 });
+    expect(transactions).toEqual({ committed: 0, rolledBack: 0 });
     expect(
       captures.filter(
         (capture) =>
@@ -515,7 +547,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
         value: 0.55,
       },
       upsert: true,
-      inTransaction: true,
+      inTransaction: false,
     });
     expect(renderSqlValue(scoreInsert?.upsertSet?.value)).toMatchObject({
       sql: expect.stringMatching(/"value"\s*\+\s*\?/),
@@ -528,11 +560,11 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
             (capture.operation === "update" && capture.table === "answers") ||
             (capture.operation === "insert" && capture.table === "scores"),
         )
-        .every((capture) => capture.inTransaction),
+        .every((capture) => !capture.inTransaction),
     ).toBe(true);
   });
 
-  it("rolls back finalization when an atomic score write fails", async () => {
+  it("propagates score write failures without attempting an unsupported rollback", async () => {
     const { db, transactions } = createRepositoryDb({
       answerId: "answer_existing",
       score: null,
@@ -562,7 +594,7 @@ describe("createDrizzleSubmitAnswerRepository user isolation", () => {
       }),
     ).rejects.toThrow("score_write_failed");
 
-    expect(transactions).toEqual({ committed: 0, rolledBack: 1 });
+    expect(transactions).toEqual({ committed: 0, rolledBack: 0 });
   });
 });
 
