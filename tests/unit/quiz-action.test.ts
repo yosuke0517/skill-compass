@@ -66,7 +66,9 @@ describe("submitQuizAnswerAction", () => {
   });
 
   it("returns an inline error when answer submission fails", async () => {
-    mocks.submitTodayAnswer.mockRejectedValue(new Error("evaluation unavailable"));
+    const error = new Error("evaluation unavailable");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.submitTodayAnswer.mockRejectedValue(error);
     const formData = new FormData();
     formData.set("quizDayId", "quiz_2026-07-12");
     formData.set("questionId", "question_typescript");
@@ -80,6 +82,7 @@ describe("submitQuizAnswerAction", () => {
       message: "Your answer could not be saved. Please try again.",
     });
     expect(mocks.redirect).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith("quiz answer submission failed", error);
   });
 
   it("redirects to the maintenance explanation without saving", async () => {
