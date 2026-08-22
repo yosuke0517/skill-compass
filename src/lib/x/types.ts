@@ -3,6 +3,8 @@ export type XPostMetrics = {
   reposts: number;
   replies: number;
   quotes: number;
+  bookmarks?: number;
+  views?: number;
 };
 
 export type PersonalizedTrend = {

@@ -12,15 +12,32 @@ export const xFixedTopicFallbackQuery = [
   ") -is:retweet -is:reply",
 ].join(" ");
 
+const excludeNoise = "-is:retweet -is:reply";
+
+export const xDailyUpdateQueries = [
+  [
+    '(Claude OR "Claude Code" OR Anthropic OR OpenAI OR ChatGPT OR Codex OR Gemini OR "Google AI" OR Grok OR xAI OR MCP)',
+    '("new feature" OR released OR launches OR "now available" OR API OR SDK OR model OR pricing OR limits)',
+    excludeNoise,
+  ].join(" "),
+  [
+    '(GitHub OR Copilot OR "Next.js" OR React OR TypeScript OR Rails OR AWS OR Cloudflare)',
+    '("new feature" OR released OR launches OR API OR SDK OR breaking OR deprecated OR migration OR pricing)',
+    excludeNoise,
+  ].join(" "),
+  [
+    '(Claude OR Anthropic OR OpenAI OR ChatGPT OR Codex OR Gemini OR Grok OR xAI OR "Next.js" OR React OR TypeScript OR Rails OR npm OR GitHub OR AWS OR Cloudflare OR MCP)',
+    '(CVE OR "security advisory" OR vulnerability OR patch OR "supply chain" OR preinstall OR postinstall OR "authentication bypass" OR RCE)',
+    excludeNoise,
+  ].join(" "),
+] as const;
+
 function isTechnicalTrend(trend: PersonalizedTrend) {
   const searchable = `${trend.name} ${trend.category ?? ""}`.toLowerCase();
   return technicalTerms.some((term) => searchable.includes(term));
 }
 
-export function selectTechnicalTrends(
-  trends: PersonalizedTrend[],
-  limit: number,
-) {
+export function selectTechnicalTrends(trends: PersonalizedTrend[], limit: number) {
   const boundedLimit = Math.max(0, limit);
   if (boundedLimit === 0) return [];
   const seen = new Set<string>();
@@ -46,11 +63,7 @@ export function selectTechnicalTrends(
 
 export function buildTrendSearchQuery(trend: string) {
   const normalized = trend.trim().replace(/\s+/g, " ");
-  if (
-    !normalized ||
-    normalized.length > 80 ||
-    !safeTrendPattern.test(normalized)
-  ) {
+  if (!normalized || normalized.length > 80 || !safeTrendPattern.test(normalized)) {
     throw new Error("unsafe_x_trend");
   }
   return `"${normalized}" -is:retweet -is:reply`;
