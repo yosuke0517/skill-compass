@@ -228,78 +228,76 @@ export function createDrizzleSubmitAnswerRepository(): SubmitAnswerRepository {
         .onConflictDoUpdate({
           target: answers.id,
           set: {
-            selectedChoiceId: sql`case when ${answers.correct} is null then ${answer.selectedChoiceId} else ${answers.selectedChoiceId} end`,
-            confidence: sql`case when ${answers.correct} is null then ${answer.confidence} else ${answers.confidence} end`,
-            reasoning: sql`case when ${answers.correct} is null then ${answer.reasoning} else ${answers.reasoning} end`,
-            answeredAt: sql`case when ${answers.correct} is null then ${answer.answeredAt} else ${answers.answeredAt} end`,
+            selectedChoiceId: sql`case when ${answers.correct} is null then excluded."selected_choice_id" else ${answers.selectedChoiceId} end`,
+            confidence: sql`case when ${answers.correct} is null then excluded."confidence" else ${answers.confidence} end`,
+            reasoning: sql`case when ${answers.correct} is null then excluded."reasoning" else ${answers.reasoning} end`,
+            answeredAt: sql`case when ${answers.correct} is null then excluded."answered_at" else ${answers.answeredAt} end`,
           },
         });
     },
     async finalizeAnswer(input) {
       const db = await getDbClient();
-      return db.transaction(async (tx) => {
-        const confidenceMatches =
-          input.expectedRaw.confidence === null
-            ? isNull(answers.confidence)
-            : eq(answers.confidence, input.expectedRaw.confidence);
-        const updated = await tx
-          .update(answers)
-          .set({
-            correct: input.evaluation.correct,
-            reasoningQuality: input.evaluation.reasoningQuality,
-            feedback: input.evaluation.feedback,
-            scoreDelta: input.evaluation.scoreDelta,
-            nextReviewOn: new Date(`${input.evaluation.nextReviewOn}T00:00:00.000Z`),
-          })
-          .where(
-            and(
-              eq(answers.id, input.answerId),
-              eq(answers.userId, input.userId),
-              isNull(answers.correct),
-              eq(answers.selectedChoiceId, input.expectedRaw.selectedChoiceId),
-              confidenceMatches,
-              eq(answers.reasoning, input.expectedRaw.reasoning),
-            ),
-          )
-          .returning({ id: answers.id });
-        if (updated.length !== 1) return false;
+      const confidenceMatches =
+        input.expectedRaw.confidence === null
+          ? isNull(answers.confidence)
+          : eq(answers.confidence, input.expectedRaw.confidence);
+      const updated = await db
+        .update(answers)
+        .set({
+          correct: input.evaluation.correct,
+          reasoningQuality: input.evaluation.reasoningQuality,
+          feedback: input.evaluation.feedback,
+          scoreDelta: input.evaluation.scoreDelta,
+          nextReviewOn: new Date(`${input.evaluation.nextReviewOn}T00:00:00.000Z`),
+        })
+        .where(
+          and(
+            eq(answers.id, input.answerId),
+            eq(answers.userId, input.userId),
+            isNull(answers.correct),
+            eq(answers.selectedChoiceId, input.expectedRaw.selectedChoiceId),
+            confidenceMatches,
+            eq(answers.reasoning, input.expectedRaw.reasoning),
+          ),
+        )
+        .returning({ id: answers.id });
+      if (updated.length !== 1) return false;
 
-        await bumpScore(
-          tx,
-          input.userId,
-          "concept",
-          input.conceptId,
-          input.evaluation.scoreDelta,
-        );
-        const linkedTags = await tx
+      await bumpScore(
+        db,
+        input.userId,
+        "concept",
+        input.conceptId,
+        input.evaluation.scoreDelta,
+      );
+      const linkedTags = await db
           .select()
           .from(conceptTags)
           .where(eq(conceptTags.conceptId, input.conceptId));
-        for (const linkedTag of linkedTags) {
+      for (const linkedTag of linkedTags) {
+        await bumpScore(
+          db,
+          input.userId,
+          "tag",
+          linkedTag.tagId,
+          input.evaluation.scoreDelta * 0.5,
+        );
+        const [tag] = await db
+          .select()
+          .from(tags)
+          .where(eq(tags.id, linkedTag.tagId))
+          .limit(1);
+        if (tag) {
           await bumpScore(
-            tx,
+            db,
             input.userId,
-            "tag",
-            linkedTag.tagId,
-            input.evaluation.scoreDelta * 0.5,
+            "category",
+            tag.categoryId,
+            input.evaluation.scoreDelta * 0.25,
           );
-          const [tag] = await tx
-            .select()
-            .from(tags)
-            .where(eq(tags.id, linkedTag.tagId))
-            .limit(1);
-          if (tag) {
-            await bumpScore(
-              tx,
-              input.userId,
-              "category",
-              tag.categoryId,
-              input.evaluation.scoreDelta * 0.25,
-            );
-          }
         }
-        return true;
-      });
+      }
+      return true;
     },
   };
 }
