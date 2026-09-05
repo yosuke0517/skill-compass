@@ -3116,3 +3116,12 @@ p {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.quiz-read-aloud { margin: 16px 0; }
+.quiz-read-aloud-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.quiz-read-aloud-controls button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; }
+.quiz-read-aloud-controls label { display: inline-flex; align-items: center; gap: 6px; }
+.quiz-read-aloud-controls select { min-height: 44px; padding: 6px; font: inherit; }
+.quiz-read-aloud > p { margin: 8px 0 0; font-size: 0.8rem; line-height: 1.5; }
+.quiz-read-aloud-controls button:disabled { cursor: not-allowed; opacity: 0.5; }
+.quiz-read-aloud-controls button[aria-pressed="true"] { background: var(--accent-dark); }

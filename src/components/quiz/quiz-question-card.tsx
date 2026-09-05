@@ -20,6 +20,7 @@ import {
 import type { WebTodayQuizQuestion } from "@/lib/quiz/web-today-quiz";
 import type { TranslatedQuizCard } from "@/lib/translation/translate-quiz-card";
 
+import { QuizReadAloud } from "./quiz-read-aloud";
 import { ConfidenceInput } from "./confidence-input";
 import { QuestionArtifacts } from "./question-artifacts";
 import { QuizTranslationPanel } from "./quiz-translation-panel";
@@ -251,6 +252,29 @@ export function QuizQuestionCard({
         </div>
       ) : null}
       {currentTranslation ? <QuizTranslationPanel translation={currentTranslation} /> : null}
+
+      <QuizReadAloud
+        key={`${item.question.id}:${item.status}:${JSON.stringify(currentTranslation)}`}
+        question={[
+          currentTranslation?.scenario || item.question.scenario,
+          ...(item.question.artifacts.length ? ["コードや表は画面を参照してください。"] : []),
+          currentTranslation?.prompt || item.question.prompt,
+          ...item.question.choices.map((choice, index) =>
+            `選択肢 ${index + 1}。${currentTranslation?.choices.find((value) => value.id === choice.id)?.label || choice.label}`),
+        ]}
+        review={item.status === "answered" ? [
+          `正解。${currentTranslation?.choices.find((value) => value.id === correctChoice?.id)?.label || correctChoice?.label || ""}`,
+          ...(translatedReview?.decisionCriteria ?? item.question.decisionCriteria),
+          translatedReview?.rationale || item.question.rationale,
+          translatedReview?.feedback || item.answer?.feedback || "",
+          ...item.question.choices.flatMap((choice, index) => {
+            const translated = translatedReview?.choices.find((value) => value.id === choice.id);
+            return [`選択肢 ${index + 1}。`, translated?.explanation || choice.explanation, translated?.consequence || choice.consequence];
+          }),
+          ...(translatedReview?.practicalNotes ?? item.question.practicalNotes),
+          translatedReview?.checkQuestion || item.question.checkQuestion,
+        ] : undefined}
+      />
 
       {answered ? (
         <div className="practical-answer-review" aria-label="Answer review">
