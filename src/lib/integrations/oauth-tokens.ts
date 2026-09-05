@@ -27,6 +27,7 @@ export async function saveOAuthToken(userId: string, provider: "google-calendar"
     tokenType: token.tokenType ?? "Bearer",
     scope: token.scope ?? null,
     expiresAt: token.expiresInSeconds ? new Date(now.getTime() + token.expiresInSeconds * 1000) : null,
+    updatedAt: now,
   }).onConflictDoUpdate({
     target: [oauthConnections.userId, oauthConnections.provider],
     set: {
@@ -35,6 +36,7 @@ export async function saveOAuthToken(userId: string, provider: "google-calendar"
       tokenType: token.tokenType ?? "Bearer",
       scope: token.scope ?? null,
       expiresAt: token.expiresInSeconds ? new Date(now.getTime() + token.expiresInSeconds * 1000) : null,
+      updatedAt: now,
     },
   });
 }
