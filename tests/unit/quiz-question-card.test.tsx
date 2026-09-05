@@ -454,3 +454,32 @@ describe("QuizQuestionCard", () => {
     });
   });
 });
+
+
+it("reads the Japanese question without review, then exposes review only after answering", () => {
+  const speak = vi.fn();
+  const cancel = vi.fn();
+  vi.stubGlobal("speechSynthesis", { speak, cancel });
+  vi.stubGlobal("SpeechSynthesisUtterance", class {
+    text: string;
+    constructor(text: string) { this.text = text; }
+  });
+  const { rerender } = render(<QuizQuestionCard quizDayId="quiz_1" item={unansweredItem} translation={readyTranslation("訳")} />);
+  expect(screen.queryByRole("button", { name: "解説を聞く" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "問題を聞く" }));
+  // Finish each utterance to inspect the entire public reading sequence.
+  for (let i = 0; i < speak.mock.calls.length && i < 100; i++) {
+    act(() => speak.mock.calls[i][0].onend());
+  }
+  const spoken = speak.mock.calls.map(([utterance]) => utterance.text).join(" ");
+  expect(spoken).toContain("並行開発するシナリオ");
+  expect(spoken).not.toContain(question.scenario);
+  expect(spoken).not.toContain(question.artifacts[0].content);
+  expect(spoken).not.toContain("API契約が必要です");
+  fireEvent.click(screen.getByRole("button", { name: "問題を聞く" }));
+  const cancelsBefore = cancel.mock.calls.length;
+  rerender(<QuizQuestionCard quizDayId="quiz_1" item={answeredItem} translation={readyTranslation("訳")} />);
+  expect(cancel.mock.calls.length).toBeGreaterThan(cancelsBefore);
+  fireEvent.click(screen.getByRole("button", { name: "解説を聞く" }));
+  expect(speak.mock.calls.at(-1)?.[0].text).toContain("正解");
+});
