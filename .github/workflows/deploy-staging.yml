@@ -1,78 +1,58 @@
-name: Deploy staging
-
+name: Diagnose staging Cloudflare auth
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
-
-concurrency:
-  group: skill-compass-staging
-  cancel-in-progress: false
-
 permissions:
   contents: read
-
 jobs:
-  verify-and-deploy:
+  diagnose:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     environment: staging
-    env:
-      TF_WORKSPACE: skill-compass-staging
-      TF_TOKEN_app_terraform_io: ${{ secrets.HCP_TERRAFORM_TOKEN }}
-      TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      TF_VAR_cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      SESSION_SECRET: ${{ secrets.STAGING_SESSION_SECRET }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
-      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
-      PUBLIC_APP_URL: ${{ vars.STAGING_BASE_URL }}
-      MCP_ISSUER_URL: ${{ vars.STAGING_BASE_URL }}
-      MCP_RESOURCE_URL: ${{ vars.STAGING_BASE_URL }}/mcp
-      MCP_ARCHITECTURE_RESOURCE_URL: ${{ vars.STAGING_BASE_URL }}/mcp/architecture
-      MCP_ALLOWED_USER_ID: user_staging
-      STAGING_LOGIN_EMAIL: ${{ secrets.STAGING_LOGIN_EMAIL }}
-      STAGING_LOGIN_PASSWORD: ${{ secrets.STAGING_LOGIN_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.7.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.13.5
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: terraform -chdir=infra/cloudflare init -input=false
-      - run: terraform -chdir=infra/cloudflare plan -input=false -var-file=environments/staging.tfvars -out=/tmp/staging.tfplan
-      - run: terraform -chdir=infra/cloudflare show -json /tmp/staging.tfplan > /tmp/staging-plan.json
-      - run: pnpm exec tsx scripts/cloudflare/assert-staging-plan.ts /tmp/staging-plan.json
-      - run: terraform -chdir=infra/cloudflare apply -input=false -auto-approve /tmp/staging.tfplan
-      - run: terraform -chdir=infra/cloudflare output -json | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts
-      - run: pnpm build:cloudflare
-      - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env staging
-      - name: Update staging Worker secret
-        run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env staging
-      - run: printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env staging
-      - run: pnpm exec playwright install chromium
-      - run: pnpm exec playwright test tests/e2e/cloudflare-staging.spec.ts
-      - run: pnpm exec tsx scripts/cloudflare/mcp-smoke.ts > staging-mcp-smoke.json
-      - name: Write verification evidence
+      - name: Verify Cloudflare credential without exposing secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: python
         run: |
-          mkdir -p staging-verification
-          cp staging-mcp-smoke.json staging-verification/mcp-smoke.json
-          git rev-parse HEAD > staging-verification/commit-sha.txt
-          sha256sum drizzle-d1/*.sql > staging-verification/d1-migrations.sha256
-          sha256sum /tmp/staging-plan.json > staging-verification/terraform-plan.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: staging-verification-${{ github.sha }}
-          path: staging-verification
-          retention-days: 30
+          import os, json, re, urllib.request, urllib.error
+          token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+          account = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+          print(json.dumps({"token_present": bool(token), "token_has_outer_whitespace": token != token.strip(), "account_id_valid": bool(re.fullmatch(r"[0-9a-f]{32}", account))}))
+          if not token or not re.fullmatch(r"[0-9a-f]{32}", account):
+              raise SystemExit(1)
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  return None
+          opener = urllib.request.build_opener(NoRedirect)
+          endpoints = [
+              ("account_token_verify", f"/accounts/{account}/tokens/verify", True),
+              ("user_token_verify", "/user/tokens/verify", True),
+              ("staging_d1_read", f"/accounts/{account}/d1/database/67368e49-a902-487d-a904-1138392d05a7", False),
+          ]
+          for label, path, verify in endpoints:
+              request = urllib.request.Request("https://api.cloudflare.com/client/v4" + path, headers={"Authorization": "Bearer " + token}, method="GET")
+              try:
+                  response = opener.open(request, timeout=20)
+              except urllib.error.HTTPError as error:
+                  response = error
+              except Exception:
+                  print(json.dumps({"check": label, "transport_error": True}))
+                  continue
+              with response:
+                  code = response.code
+                  raw = response.read()
+              try:
+                  body = json.loads(raw)
+              except Exception:
+                  print(json.dumps({"check": label, "http_status": code, "invalid_json": True}))
+                  continue
+              result = body.get("result") or {}
+              safe = {"check": label, "http_status": code, "success": body.get("success") is True,
+                      "error_codes": [e.get("code") for e in body.get("errors", []) if isinstance(e, dict) and isinstance(e.get("code"), int)]}
+              if verify and isinstance(result, dict):
+                  for key in ("id", "status", "not_before", "expires_on"):
+                      value = result.get(key)
+                      if value is None or (isinstance(value, str) and re.fullmatch(r"[a-zA-Z0-9:.+_-]{1,80}", value)):
+                          safe[key] = value
+              print(json.dumps(safe))
