@@ -50,6 +50,12 @@ test.describe("Cloudflare staging", () => {
     }
     await context.grantPermissions(["notifications"], { origin: stagingBaseUrl! });
     await page.reload();
+    const diagnostics = await page.request.get("/api/notifications");
+    const diagnosticConfig = await diagnostics.json();
+    const capabilities = await page.evaluate(() => ({ permission: Notification.permission, push: "PushManager" in window, worker: "serviceWorker" in navigator }));
+    console.info("Notification setup diagnostics", { status: diagnostics.status(), configured: diagnosticConfig.configured, publicKeyLength: diagnosticConfig.publicKey?.length, error: diagnosticConfig.error, capabilities, guidance: await settings.innerText() });
+    expect(diagnostics.status()).toBe(200);
+    expect(diagnosticConfig.configured).toBe(true);
     await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeEnabled();
     await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration("/"))?.active))).toBe(true);
     // Granting browser permission alone must not create a reminder subscription.
