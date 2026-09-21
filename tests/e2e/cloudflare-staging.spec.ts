@@ -4,10 +4,11 @@ const stagingBaseUrl = process.env.STAGING_BASE_URL;
 const stagingEmail = process.env.STAGING_LOGIN_EMAIL;
 const stagingPassword = process.env.STAGING_LOGIN_PASSWORD;
 
+// The legacy headless shell always reports Notification.permission as denied.
+// Use the full Chromium headless mode for native notification API checks.
+test.use({ channel: "chromium" });
+
 test.describe("Cloudflare staging", () => {
-  // The legacy headless shell always reports Notification.permission as denied.
-  // Use the full Chromium headless mode for native notification API checks.
-  test.use({ channel: "chromium" });
   test.skip(!stagingBaseUrl || !stagingEmail || !stagingPassword, "staging credentials are required");
 
   test("redirects safely, logs in, and prepares five Today questions without answering", async ({ page }) => {
