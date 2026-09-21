@@ -24,6 +24,38 @@ test.describe("Cloudflare staging", () => {
     await expect(page.getByRole("button", { name: "Submit answer" })).toBeVisible();
   });
 
+  test("serves an installable PWA and opt-in notification settings", async ({ page, request }) => {
+    const manifest = await request.get("/manifest.webmanifest");
+    expect(manifest.status()).toBe(200);
+    await expect(manifest.json()).resolves.toMatchObject({ start_url: "/today", display: "standalone" });
+    const sw = await request.get("/sw.js");
+    expect(sw.status()).toBe(200);
+    expect(sw.headers()["content-type"]).toMatch(/javascript/);
+    expect((await request.get("/api/notifications")).status()).toBe(401);
+
+    await page.goto("/login?next=%2Fsettings");
+    await page.getByLabel("Email").fill(stagingEmail!);
+    await page.getByLabel("Password").fill(stagingPassword!);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    const settings = page.getByRole("region", { name: "Today reminder" });
+    await expect(settings.getByText("Off", { exact: true })).toBeVisible();
+    await expect(settings.getByLabel("Reminder time")).toHaveValue("09:00");
+    await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeEnabled();
+    await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration("/"))?.active))).toBe(true);
+    // Viewing settings must not request notification permission or create a subscription.
+    expect(await page.evaluate(() => Notification.permission)).toBe("default");
+    expect(await page.evaluate(async () => (await navigator.serviceWorker.ready).pushManager.getSubscription())).toBeNull();
+    const config = await page.request.get("/api/notifications");
+    expect(config.status()).toBe(200);
+    expect(await config.json()).toMatchObject({ configured: true, publicKey: expect.stringMatching(/^[A-Za-z0-9_-]{87}$/) });
+    const crossSite = await page.request.post("/api/notifications", {
+      headers: { origin: "https://untrusted.example" },
+      data: { action: "disable", endpoint: "https://web.push.apple.com/test" },
+    });
+    expect(crossSite.status()).toBe(403);
+  });
+
   test("renders Podcast safely when staging has no copied personal episodes", async ({ page }) => {
     await page.goto("/login?next=%2Fpodcast");
     await page.getByLabel("Email").fill(stagingEmail!);
