@@ -24,7 +24,7 @@ test.describe("Cloudflare staging", () => {
     await expect(page.getByRole("button", { name: "Submit answer" })).toBeVisible();
   });
 
-  test("serves an installable PWA and opt-in notification settings", async ({ page, request }) => {
+  test("serves an installable PWA and opt-in notification settings", async ({ page, request, context }) => {
     const manifest = await request.get("/manifest.webmanifest");
     expect(manifest.status()).toBe(200);
     await expect(manifest.json()).resolves.toMatchObject({ start_url: "/today", display: "standalone" });
@@ -41,10 +41,19 @@ test.describe("Cloudflare staging", () => {
     const settings = page.getByRole("region", { name: "Today reminder" });
     await expect(settings.getByText("Off", { exact: true })).toBeVisible();
     await expect(settings.getByLabel("Reminder time")).toHaveValue("09:00");
+    // Headless Chromium starts with notification permission denied. Verify that state,
+    // then grant permission only inside this disposable test context.
+    const permission = await page.evaluate(() => Notification.permission);
+    if (permission === "denied") {
+      await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeDisabled();
+      await expect(settings.getByText(/Notifications are blocked/)).toBeVisible();
+    }
+    await context.grantPermissions(["notifications"], { origin: stagingBaseUrl! });
+    await page.reload();
     await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeEnabled();
     await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration("/"))?.active))).toBe(true);
-    // Viewing settings must not request notification permission or create a subscription.
-    expect(await page.evaluate(() => Notification.permission)).toBe("default");
+    // Granting browser permission alone must not create a reminder subscription.
+    expect(await page.evaluate(() => Notification.permission)).toBe("granted");
     expect(await page.evaluate(async () => (await navigator.serviceWorker.ready).pushManager.getSubscription())).toBeNull();
     const config = await page.request.get("/api/notifications");
     expect(config.status()).toBe(200);
