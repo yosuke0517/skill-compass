@@ -36,6 +36,10 @@ jobs:
       STAGING_LOGIN_PASSWORD: ${{ secrets.STAGING_LOGIN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+      - name: Test Cloudflare authentication preflight
+        run: python3 tests/cloudflare/test_verify_auth.py
+      - name: Verify Cloudflare API token
+        run: python3 scripts/cloudflare/verify-auth.py
       - uses: pnpm/action-setup@v4
         with:
           version: 11.7.0
