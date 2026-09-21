@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "skill-compass-cloudflare",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
   "compatibility_date": "2026-04-26",
   "compatibility_flags": [
     "nodejs_compat",
@@ -37,6 +37,7 @@
     },
     "staging": {
       "name": "skill-compass-cloudflare-staging",
+      "triggers": { "crons": ["* * * * *"] },
       "vars": {
         "PUBLIC_APP_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
         "MCP_ISSUER_URL": "https://skill-compass-cloudflare-staging.yosuke-takeuchi-dev.workers.dev",
@@ -69,6 +70,7 @@
     },
     "production": {
       "name": "skill-compass-cloudflare-production",
+      "triggers": { "crons": ["* * * * *"] },
       "vars": {
         "PUBLIC_APP_URL": "https://agent.finegate.xyz",
         "MCP_ISSUER_URL": "https://agent.finegate.xyz",

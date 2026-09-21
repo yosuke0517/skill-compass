@@ -1,0 +1,11 @@
+# Today notifications
+
+Approved in conversation: opt-in PWA Today reminders, daily at a chosen Japan time, on this browser/device. Click opens /today; existing login redirect preserves that destination. Completed Today is skipped. Initial setting off. A test notification verifies setup. iOS home-screen installation guidance, permission denial and unsupported states must be visible.
+
+Use the existing Cloudflare Worker with a scheduled handler every minute and D1 subscription storage. Standard Web Push with separate persistent VAPID keys per environment, no LLM or paid notification provider. Store one unique endpoint with its authenticated owner, encryption keys, enabled flag, time, next run, and per-day delivery claim. Never take an arbitrary outbound destination: allow only known browser push service HTTPS hosts and reject redirects. No endpoint/key/secret logging.
+
+Use an atomic per-device per-JST-date claim before send (at most one attempt/day; ambiguous delivery is not retried to avoid duplicates). A transient failure records a safe error code, keeps the subscription active for tomorrow, and is visible in settings. Gone (404/410) endpoints are disabled. Test requests are limited to one/minute/device. Account disabled means no send. Scheduling uses current JST day and allows bounded delayed invocation; no previous-day backlog. A settings change schedules the next future time.
+
+PWA has manifest, install icons, and push/click service worker only: no offline/authenticated page caching. Settings mutating requests must be authenticated and same-origin. Public VAPID key alone is returned to clients. Ownership is enforced for reads, updates, disable, and test. A browser subscription owned by another account returns conflict and requires unsubscribe/resubscribe rather than silently transferring it.
+
+Validation: due time/JST boundaries, repeat/concurrent claims, completed/unfinished quiz (correct=false still answered; correct=null pending), ownership/CSRF/SSRF, stale endpoints, denied permission, subscription failure, button flows, and notification click. Build both Next and custom Worker. Real phone permission and delivery require user device testing; do not claim those from mocked tests.

@@ -92,6 +92,30 @@ export const users = sqliteTable(
   (table) => [uniqueIndex("users_email_idx").on(table.email)],
 );
 
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: stringColumn("id").primaryKey(),
+    userId: stringColumn("user_id").notNull().references(() => users.id),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    enabled: booleanColumn("enabled").default(true).notNull(),
+    time: text("time").default("09:00").notNull(),
+    nextRunAt: timestampColumn("next_run_at").notNull(),
+    lastError: text("last_error"),
+    lastSentDate: text("last_sent_date"),
+    lastTestAt: timestampColumn("last_test_at"),
+    createdAt: timestampColumn("created_at").default(sql`(unixepoch())`).notNull(),
+    updatedAt: timestampColumn("updated_at").default(sql`(unixepoch())`).notNull(),
+  },
+  (table) => [
+    uniqueIndex("push_subscriptions_endpoint_idx").on(table.endpoint),
+    index("push_subscriptions_due_idx").on(table.enabled, table.nextRunAt),
+    index("push_subscriptions_user_idx").on(table.userId),
+  ],
+);
+
 export const invites = sqliteTable(
   "invites",
   {

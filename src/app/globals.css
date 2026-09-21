@@ -1856,6 +1856,15 @@ p {
   gap: 18px;
 }
 
+.notification-settings { gap: 16px; }
+.notification-time { align-items: center; display: grid; gap: 5px; grid-template-columns: minmax(110px, 1fr) auto auto; font-size: 0.86rem; font-weight: 700; }
+.notification-time input { background: #ffffff; border: 1px solid var(--border); border-radius: 9px; min-height: 40px; padding: 0 9px; }
+.notification-time span, .notification-guidance, .notification-success, .notification-error { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin: 0; }
+.notification-guidance { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.notification-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.notification-error { color: #9f2f2f; }
+.notification-success { color: var(--accent-dark); }
+
 .management-card {
   background: rgb(255 255 255 / 76%);
   border: 1px solid var(--border);

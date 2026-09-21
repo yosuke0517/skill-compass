@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, Brain, Compass, ShieldCheck } from "lucide-react"
 import { logoutAction } from "@/app/actions/auth";
 import { getSettingsData } from "@/lib/settings/get-settings";
 import { requireCurrentUser } from "@/lib/access/current-user";
+import { NotificationSettings } from "@/components/notifications/notification-settings";
 
 export default async function SettingsPage() {
   const [data, currentUser] = await Promise.all([getSettingsData(), requireCurrentUser()]);
@@ -15,6 +16,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="management-stack settings-stack">
+        <NotificationSettings />
         <section className="management-card">
           <div className="management-card-heading">
             <div>

@@ -104,7 +104,7 @@ describe("Cloudflare deploy-config renderer", () => {
       PODCAST_AUDIO_STORAGE: "r2",
     });
     expect(path.resolve(path.dirname(outputPath), rendered.main)).toBe(
-      path.join(repositoryRoot, ".open-next/worker.js"),
+      path.join(repositoryRoot, "custom-worker.ts"),
     );
     expect(path.resolve(path.dirname(outputPath), rendered.env.staging.assets.directory)).toBe(
       path.join(repositoryRoot, ".open-next/assets"),
@@ -115,6 +115,7 @@ describe("Cloudflare deploy-config renderer", () => {
     expect(renderedSource).not.toContain("must-not-leak");
     expect(renderedSource).not.toContain("unrelated_secret");
     expect(Object.keys(rendered.env)).toEqual(["staging"]);
+    expect(rendered.env.staging.triggers.crons).toEqual(["* * * * *"]);
   });
 
   test("renders production bindings without including staging configuration", () => {

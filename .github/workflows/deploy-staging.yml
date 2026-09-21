@@ -25,6 +25,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       SESSION_SECRET: ${{ secrets.STAGING_SESSION_SECRET }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      VAPID_CONFIG: ${{ secrets.VAPID_CONFIG }}
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
       STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
       PUBLIC_APP_URL: ${{ vars.STAGING_BASE_URL }}
@@ -61,6 +62,12 @@ jobs:
       - run: terraform -chdir=infra/cloudflare apply -input=false -auto-approve /tmp/staging.tfplan
       - run: terraform -chdir=infra/cloudflare output -json | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts
       - run: pnpm build:cloudflare
+      - name: Apply additive notification schema
+        run: pnpm exec wrangler d1 execute DB --remote --config .cloudflare/deploy-values.json --env staging --file drizzle-d1/0001_today_notifications.sql
+      - name: Update notification signing keys when configured
+        if: ${{ env.VAPID_CONFIG != '' }}
+        run: |
+          printf %s "$VAPID_CONFIG" | pnpm exec wrangler secret bulk --config .cloudflare/deploy-values.json --env staging
       - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env staging
       - name: Update staging Worker secret
         run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env staging
