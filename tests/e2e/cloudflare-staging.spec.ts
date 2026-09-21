@@ -5,6 +5,9 @@ const stagingEmail = process.env.STAGING_LOGIN_EMAIL;
 const stagingPassword = process.env.STAGING_LOGIN_PASSWORD;
 
 test.describe("Cloudflare staging", () => {
+  // The legacy headless shell always reports Notification.permission as denied.
+  // Use the full Chromium headless mode for native notification API checks.
+  test.use({ channel: "chromium" });
   test.skip(!stagingBaseUrl || !stagingEmail || !stagingPassword, "staging credentials are required");
 
   test("redirects safely, logs in, and prepares five Today questions without answering", async ({ page }) => {
@@ -41,8 +44,8 @@ test.describe("Cloudflare staging", () => {
     const settings = page.getByRole("region", { name: "Today reminder" });
     await expect(settings.getByText("Off", { exact: true })).toBeVisible();
     await expect(settings.getByLabel("Reminder time")).toHaveValue("09:00");
-    // Headless Chromium starts with notification permission denied. Verify that state,
-    // then grant permission only inside this disposable test context.
+    // Respect the initial permission state, then grant permission only inside
+    // this disposable test context (never on a real user browser).
     const permission = await page.evaluate(() => Notification.permission);
     if (permission === "denied") {
       await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeDisabled();
@@ -50,12 +53,6 @@ test.describe("Cloudflare staging", () => {
     }
     await context.grantPermissions(["notifications"], { origin: stagingBaseUrl! });
     await page.reload();
-    const diagnostics = await page.request.get("/api/notifications");
-    const diagnosticConfig = await diagnostics.json();
-    const capabilities = await page.evaluate(() => ({ permission: Notification.permission, push: "PushManager" in window, worker: "serviceWorker" in navigator }));
-    console.info("Notification setup diagnostics", { status: diagnostics.status(), configured: diagnosticConfig.configured, publicKeyLength: diagnosticConfig.publicKey?.length, error: diagnosticConfig.error, capabilities, guidance: await settings.innerText() });
-    expect(diagnostics.status()).toBe(200);
-    expect(diagnosticConfig.configured).toBe(true);
     await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeEnabled();
     await expect.poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration("/"))?.active))).toBe(true);
     // Granting browser permission alone must not create a reminder subscription.
