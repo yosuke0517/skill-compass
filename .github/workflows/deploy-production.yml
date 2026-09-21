@@ -98,6 +98,7 @@ jobs:
       X_OAUTH_CLIENT_ID: ${{ secrets.X_OAUTH_CLIENT_ID }}
       X_OAUTH_CLIENT_SECRET: ${{ secrets.X_OAUTH_CLIENT_SECRET }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      VAPID_CONFIG: ${{ secrets.VAPID_CONFIG }}
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
     steps:
       - uses: actions/checkout@v4
@@ -137,6 +138,12 @@ jobs:
       - run: terraform -chdir=infra/cloudflare apply -input=false -auto-approve /tmp/production.tfplan
       - run: terraform -chdir=infra/cloudflare output -json | pnpm exec tsx scripts/cloudflare/render-deploy-config.ts --environment production
       - run: pnpm build:cloudflare
+      - name: Apply additive notification schema
+        run: pnpm exec wrangler d1 execute DB --remote --config .cloudflare/deploy-values.json --env production --file drizzle-d1/0001_today_notifications.sql
+      - name: Update notification signing keys when configured
+        if: ${{ env.VAPID_CONFIG != '' }}
+        run: |
+          printf %s "$VAPID_CONFIG" | pnpm exec wrangler secret bulk --config .cloudflare/deploy-values.json --env production
       - name: Update required production Worker secrets
         run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
       - run: printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
