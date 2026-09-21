@@ -102,6 +102,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - name: Test Cloudflare authentication preflight
+        run: python3 tests/cloudflare/test_verify_auth.py
+      - name: Verify Cloudflare API token
+        run: python3 scripts/cloudflare/verify-auth.py
+      - name: Checkout deployment target
+        uses: actions/checkout@v4
+        with:
           ref: ${{ inputs.commit_sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@v4
