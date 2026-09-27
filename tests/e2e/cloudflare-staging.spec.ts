@@ -12,14 +12,20 @@ test.describe("Cloudflare staging", () => {
   test.skip(!stagingBaseUrl || !stagingEmail || !stagingPassword, "staging credentials are required");
 
   test("redirects safely, logs in, and prepares five Today questions without answering", async ({ page }) => {
-    await page.goto("/docs/cloud-migration?source=e2e");
-    await expect(page).toHaveURL((url) => url.pathname === "/login" && url.searchParams.get("next") === "/docs/cloud-migration?source=e2e");
+    const retired = await page.request.get("/docs/cloud-migration?source=e2e");
+    expect(retired.status()).toBe(410);
+    expect(await retired.text()).toBe("This page is no longer available.");
+    await page.goto("/today?source=e2e");
+    await expect(page).toHaveURL((url) => url.pathname === "/login" && url.searchParams.get("next") === "/today?source=e2e");
 
     await page.getByLabel("Email").fill(stagingEmail!);
     await page.getByLabel("Password").fill(stagingPassword!);
     await page.getByRole("button", { name: "Log in" }).click();
-    await expect(page).toHaveURL(/\/docs\/cloud-migration\?source=e2e$/);
-    await expect(page.getByRole("heading", { name: "Cloud migration" })).toBeVisible();
+    await expect(page).toHaveURL(/\/today\?source=e2e$/);
+    await expect(page.getByRole("link", { name: "Guide", exact: true })).toHaveCount(0);
+    const authenticatedRetired = await page.request.get("/docs/cloud-migration");
+    expect(authenticatedRetired.status()).toBe(410);
+    expect(await authenticatedRetired.text()).toBe("This page is no longer available.");
 
     await page.goto("/today");
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
