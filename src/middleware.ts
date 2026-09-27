@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { retiredGuideResponse } from "@/lib/docs/retired-guide";
+
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/session";
 
 function loginRedirect(request: NextRequest) {
@@ -10,6 +12,11 @@ function loginRedirect(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  // Retired documentation must never become a login return destination.
+  if (request.nextUrl.pathname.replace(/\/$/, "") === "/docs/cloud-migration") {
+    return retiredGuideResponse();
+  }
+
   const secret = process.env.SESSION_SECRET;
   if (!secret) return loginRedirect(request);
 
