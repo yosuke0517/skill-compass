@@ -38,6 +38,10 @@ same protocol; a test checks that the small entry files remain identical.
 
 The guard detects common `-f`, combined short flags, `--force*`, `--mirror`,
 `--delete`, `-d`, and `+refspec` forms, including quoted/nested command strings.
+Compound commands are inspected separately, and literal examples passed to
+`printf`/`echo` are not recursively interpreted as shell programs. Explicit shell
+`-c` bodies are inspected. This remains a bounded heuristic, not a shell AST: Git-
+looking command substitutions and ambiguous tokenization may still require review.
 It does not interpret arbitrary programs, resolve existing Git aliases or prevent
 all alternate APIs. Interactive stdin is outside its inspection. It does not grant
 permission when no pattern matches; normal tool permissions continue to apply.

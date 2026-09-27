@@ -6,38 +6,84 @@ import shlex
 import sys
 
 
-def risky_git(command):
-    # Inspect nested shell strings too; this is detection, not a shell interpreter.
-    pending = [command]
-    seen = set()
-    while pending:
-        text = pending.pop()
-        if text in seen:
-            continue
-        seen.add(text)
-        try:
-            tokens = shlex.split(text)
-        except ValueError:
-            return True  # Unparseable shell text needs human inspection.
-        for token in tokens:
-            if token != text and re.search(r"(?:^|[\s/])git(?:\s|$)", token):
-                pending.append(token)
-        git_present = bool(re.search(r"(?:^|[\s/;(=`])git(?:[\s'\"]|$)", text))
-        if not git_present:
-            continue
-        # Conservatively catch quoted subcommands, global options and compound forms.
-        words = [t.strip(";()`") for t in tokens]
-        push = "push" in words
-        dangerous = any(
-            t.startswith(("--force", "--mirror", "--delete", "+"))
-            or bool(re.fullmatch(r"-[A-Za-z]*[fd][A-Za-z]*", t))
-            for t in words
-        )
-        if push and dangerous:
+def dangerous_push_args(args):
+    return any(
+        arg.startswith(("--force", "--mirror", "--delete", "+"))
+        or bool(re.fullmatch(r"-[A-Za-z]*[fd][A-Za-z]*", arg))
+        for arg in args
+    )
+
+
+def risky_command(words, depth):
+    # Only executable positions count; printf/echo arguments are data.
+    while words and (re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0])
+                     or words[0] in ("!", "if", "then", "elif", "do", "else")):
+        words = words[1:]
+    if not words:
+        return False
+    program = words[0].rsplit("/", 1)[-1]
+    args = words[1:]
+    if program in ("command", "exec", "env"):
+        while args:
+            if args[0] in ("-u", "--unset") and program == "env":
+                args = args[2:]
+            elif args[0].startswith("-") or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", args[0]):
+                args = args[1:]
+            else:
+                break
+        return risky_command(args, depth)
+    if program in ("sh", "bash", "zsh", "dash"):
+        for i, arg in enumerate(args):
+            if re.fullmatch(r"-[A-Za-z]*c[A-Za-z]*", arg):
+                return i + 1 >= len(args) or risky_git(args[i + 1], depth + 1)
+        return False
+    if program != "git":
+        return False
+    while args and args[0].startswith("-"):
+        option = args.pop(0)
+        if option in ("-C", "-c", "--git-dir", "--work-tree"):
+            if not args:
+                return True
+            value = args.pop(0)
+            if option == "-c" and value.startswith("alias.") and "=" in value:
+                alias = value.split("=", 1)[1]
+                if risky_git(alias[1:] if alias.startswith("!") else "git " + alias, depth + 1):
+                    return True
+        elif option.startswith("-c") and "alias." in option:
+            # Attached configuration syntax is left for human inspection.
             return True
-        # Inline aliases can contain an otherwise hidden push.
-        if any("alias." in t and "push" in t for t in words):
-            return True
+    return bool(args and args[0] == "push" and dangerous_push_args(args[1:]))
+
+
+def risky_git(command, depth=0):
+    if depth > 16:
+        return True
+    # Substitutions require a shell AST to distinguish execution from quoted data.
+    # Retain conservative handling for Git-looking substitutions, not a safety proof.
+    if ("$(" in command or "`" in command) and "git" in command and "push" in command:
+        return True
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+        quoted = shlex.shlex(command, posix=False, punctuation_chars=";&|()\n")
+        quoted.whitespace = " \t\r"
+        quoted.whitespace_split = True
+        raw_tokens = list(quoted)
+    except ValueError:
+        return True
+    # Keep quoted separators as arguments. Unaligned tokenizations are ambiguous.
+    if len(tokens) != len(raw_tokens):
+        return "git" in command and "push" in command
+    words = []
+    for token, raw in zip(tokens + [";"], raw_tokens + [";"]):
+        if token == raw and token and all(char in ";&|()\n" for char in token):
+            if risky_command(words, depth):
+                return True
+            words = []
+        else:
+            words.append(token)
     return False
 
 

@@ -38,6 +38,37 @@ class GuardTests(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertEqual(guard.output("codex", {"tool_name": "Bash", "tool_input": {"command": command}}), {})
 
+    def test_normal_compounds_and_literal_examples(self):
+        commands = [
+            "git push origin HEAD && rm -f /tmp/local-cache",
+            "git push origin HEAD; rm -f /tmp/local-cache",
+            "git push origin HEAD\nrm -f /tmp/local-cache",
+            "printf '%s' 'git push --force origin main'",
+            "echo git push --force origin main",
+            "bash -lc \"printf '%s' 'git push --force origin main'\"",
+        ]
+        for command in commands:
+            for host in ("codex", "claude"):
+                with self.subTest(command=command, host=host):
+                    self.assertEqual(guard.output(host, {"tool_name": "Bash", "tool_input": {"command": command}}), {})
+
+    def test_risky_commands_still_detected_across_boundaries(self):
+        commands = [
+            "printf '%s' example; git push origin HEAD --force",
+            "git status\ngit push --force origin HEAD",
+            "git status | git push -f origin HEAD",
+            "(git push -f origin HEAD)",
+            "command git push -f origin HEAD",
+            "git push origin ';' --force",
+            'echo "$(git push --force origin HEAD)"',
+            "env -u EXAMPLE git push --force origin HEAD",
+            "X=1 git push --force origin HEAD",
+            "sh -c 'git status && git push origin HEAD --force'",
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertTrue(guard.risky_git(command))
+
     def test_hook_process_and_invalid_input(self):
         good = subprocess.run([sys.executable, str(GUARD), "codex"], input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push -f origin HEAD"}}), text=True, capture_output=True)
         self.assertEqual(good.returncode, 0)
