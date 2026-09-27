@@ -75,6 +75,37 @@ test.describe("Cloudflare staging", () => {
     expect(crossSite.status()).toBe(403);
   });
 
+  test("explains the Home Screen requirement in an iPhone browser tab", async ({ browser }) => {
+    // Device emulation verifies the UI branch, not real iOS push delivery.
+    const context = await browser.newContext({
+      baseURL: stagingBaseUrl,
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1",
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto("/login?next=%2Fsettings");
+      await page.getByLabel("Email").fill(stagingEmail!);
+      await page.getByLabel("Password").fill(stagingPassword!);
+      await page.getByRole("button", { name: "Log in" }).click();
+      await expect(page).toHaveURL(/\/settings$/);
+      const warning = page.getByRole("note", { name: "Home Screen app required" });
+      await expect(warning).toBeVisible();
+      await expect(warning).toContainText("Reminders cannot be enabled in this browser tab.");
+      await expect(warning.getByRole("listitem")).toHaveCount(3);
+      await expect(warning).toHaveCSS("background-color", "rgb(255, 244, 204)");
+      const settings = page.getByRole("region", { name: "Today reminder" });
+      await expect(settings.getByRole("button", { name: "Enable reminders" })).toBeDisabled();
+      await expect(settings.getByText("Add to Home Screen first to enable reminders.")).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+      await settings.screenshot({ path: "test-results/notification-install-warning.png" });
+    } finally {
+      await context.close();
+    }
+  });
+
   test("renders Podcast safely when staging has no copied personal episodes", async ({ page }) => {
     await page.goto("/login?next=%2Fpodcast");
     await page.getByLabel("Email").fill(stagingEmail!);

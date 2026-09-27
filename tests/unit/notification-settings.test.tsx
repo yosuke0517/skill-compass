@@ -89,10 +89,39 @@ describe("NotificationSettings", () => {
     browser(false, "default", true);
     Reflect.deleteProperty(navigator, "serviceWorker");
     render(<NotificationSettings />);
-    expect(await screen.findByText(/Add to Home Screen/)).toBeTruthy();
+    expect(await screen.findByRole("note")).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+  it("explains why reminders are disabled in an iPhone browser tab even if push APIs exist", async () => {
+    browser(false, "default", true);
+    render(<NotificationSettings />);
+    const warning = await screen.findByRole("note");
+    expect(warning.textContent).toContain("Home Screen app required");
+    expect(warning.textContent).toContain("Add to Home Screen");
+    expect(warning.textContent).toContain("Open Skill Compass from its Home Screen icon");
+    const button = screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-describedby")).toBe(warning.id);
+    fireEvent.click(button);
+    expect(Notification.requestPermission).not.toHaveBeenCalled();
+  });
+  it.each(["navigator", "display-mode"])("hides the installation warning in an installed iPhone app (%s)", async (mode) => {
+    browser(false, "default", true);
+    if (mode === "navigator") Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
+    else vi.mocked(matchMedia).mockReturnValue({ matches: true } as MediaQueryList);
+    render(<NotificationSettings />);
+    await screen.findByText("Off");
+    expect(screen.queryByRole("note")).toBeNull();
+    expect((screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+  it("does not require installation in a supported desktop browser", async () => {
+    browser();
+    render(<NotificationSettings />);
+    await screen.findByText("Off");
+    expect(screen.queryByRole("note")).toBeNull();
+    expect((screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled).toBe(false);
   });
   it("recognizes iPadOS using its desktop user agent", async () => {
     browser();

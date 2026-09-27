@@ -79,6 +79,7 @@ jobs:
         run: |
           mkdir -p staging-verification
           cp staging-mcp-smoke.json staging-verification/mcp-smoke.json
+          cp test-results/notification-install-warning.png staging-verification/notification-install-warning.png
           git rev-parse HEAD > staging-verification/commit-sha.txt
           sha256sum drizzle-d1/*.sql > staging-verification/d1-migrations.sha256
           sha256sum /tmp/staging-plan.json > staging-verification/terraform-plan.sha256

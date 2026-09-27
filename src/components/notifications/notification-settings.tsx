@@ -191,6 +191,7 @@ export function NotificationSettings() {
   }
   const supported = capability?.supported ?? false,
     denied = capability?.denied ?? false;
+  const needsInstallation = Boolean(capability?.ios && !capability.standalone);
   const unavailable = !supported || !config?.configured || !config.publicKey;
   return (
     <section
@@ -204,11 +205,24 @@ export function NotificationSettings() {
         </div>
         <strong>{loaded ? (status.enabled ? "On" : "Off") : "Loading…"}</strong>
       </div>
-      {capability?.ios && !capability.standalone ? (
-        <p className="notification-guidance">
-          On iPhone or iPad, use Share → Add to Home Screen, then open Skill Compass from your Home
-          Screen to enable reminders.
-        </p>
+      {needsInstallation ? (
+        <aside
+          id="notification-install-warning"
+          className="notification-install-warning"
+          role="note"
+          aria-labelledby="notification-install-heading"
+        >
+          <strong id="notification-install-heading">Home Screen app required</strong>
+          <p>
+            On iPhone or iPad, notifications only work when you open Skill Compass from your Home
+            Screen. Reminders cannot be enabled in this browser tab.
+          </p>
+          <ol>
+            <li>Open the browser’s Share menu and choose Add to Home Screen.</li>
+            <li>Open Skill Compass from its Home Screen icon.</li>
+            <li>Return to Settings and enable reminders.</li>
+          </ol>
+        </aside>
       ) : null}
       {capability && !supported && !(capability.ios && !capability.standalone) ? (
         <p className="notification-guidance">
@@ -268,14 +282,18 @@ export function NotificationSettings() {
           <button
             type="button"
             disabled={
-              busy || unavailable || denied || Boolean(capability?.ios && !capability.standalone)
+              busy || unavailable || denied || needsInstallation
             }
+            aria-describedby={needsInstallation ? "notification-install-warning" : undefined}
             onClick={() => void enable()}
           >
             Enable reminders
           </button>
         )}
       </div>
+      {needsInstallation && !status.enabled ? (
+        <p className="notification-install-reason">Add to Home Screen first to enable reminders.</p>
+      ) : null}
       {notice ? (
         <p className="notification-success" role="status">
           {notice}
