@@ -1861,6 +1861,12 @@ p {
 .notification-time input { background: #ffffff; border: 1px solid var(--border); border-radius: 9px; min-height: 40px; padding: 0 9px; }
 .notification-time span, .notification-guidance, .notification-success, .notification-error { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin: 0; }
 .notification-guidance { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.notification-install-warning { background: #fff4cc; border: 1px solid #d6aa39; border-left: 4px solid #b57a00; border-radius: 12px; color: #593c00; padding: 14px 16px; font-size: 0.88rem; line-height: 1.6; overflow-wrap: anywhere; }
+.notification-install-warning strong { display: block; font-size: 0.98rem; }
+.notification-install-warning p { color: inherit; margin: 8px 0; }
+.notification-install-warning ol { margin: 8px 0 0; padding-left: 22px; }
+.notification-install-warning li + li { margin-top: 4px; }
+.notification-install-reason { color: #765000; font-size: 0.82rem; line-height: 1.5; margin: 0; }
 .notification-actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .notification-error { color: #9f2f2f; }
 .notification-success { color: var(--accent-dark); }
