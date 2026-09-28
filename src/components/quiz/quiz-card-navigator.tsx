@@ -240,6 +240,21 @@ export function QuizCardNavigator({
         />
       </div>
 
+      {answeredCount > 0 ? (
+        <section className="add-questions-card" aria-label="Saved progress" role="status">
+          <div>
+            <strong>
+              {currentQuestions.every((question) => question.status === "answered" && question.answer.correct !== null)
+                ? "Practice complete · "
+                : ""}
+              {answeredCount} {answeredCount === 1 ? "answer" : "answers"} saved
+            </strong>
+            <span>You can stop here. Submitted answers are saved one at a time.</span>
+            <span lang="ja">ここで終了しても大丈夫です。送信した回答は1問ずつ保存されています。</span>
+          </div>
+        </section>
+      ) : null}
+
       {navigatorAction}
 
       <nav className="quiz-card-controls" aria-label="Question navigation">

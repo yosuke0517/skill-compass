@@ -90,8 +90,28 @@ describe("QuizCardNavigator", () => {
       expect(screen.getByRole("status", { name: "Correct answer" })).toBeTruthy();
       expect(screen.getByLabelText("Answer review")).toBeTruthy();
       expect(screen.getByText("1 answered, 1 unanswered")).toBeTruthy();
+      expect(screen.getByLabelText("Saved progress").textContent).toContain("1 answer saved");
+      expect(screen.getByLabelText("Saved progress").textContent).toContain("You can stop here");
     });
     expect(scrollIntoView).not.toHaveBeenCalled();
+    cleanup();
+    render(<QuizCardNavigator quizDayId="quiz-day-1" questions={[answered]} translations={{}} />);
+    expect(screen.getByLabelText("Saved progress").textContent).toContain("Practice complete");
+    expect(screen.getByLabelText("Saved progress").textContent).toContain("1 answer saved");
+    cleanup();
+    render(<QuizCardNavigator quizDayId="quiz-day-1" questions={[
+      { ...answered, answer: { ...answered.answer, correct: null } },
+    ]} translations={{}} />);
+    expect(screen.getByLabelText("Saved progress").textContent).not.toContain("Practice complete");
+  });
+
+  it("does not claim an unsuccessful submission was saved", async () => {
+    actionMocks.submitQuizAnswerAction.mockResolvedValue({ status: "error", message: "Unable to save" });
+    render(<QuizCardNavigator quizDayId="quiz-day-1" questions={questions} translations={{}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit answer" }));
+    await screen.findByText("Unable to save");
+    expect(screen.queryByLabelText("Saved progress")).toBeNull();
   });
 
   it("scrolls the newly selected question card to its top", async () => {
