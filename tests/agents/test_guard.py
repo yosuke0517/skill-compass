@@ -69,6 +69,28 @@ class GuardTests(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertTrue(guard.risky_git(command))
 
+    def test_quoted_document_body_is_data(self):
+        for delimiter in ("'EOF'", '"EOF"'):
+            command = "cat > record.md <<" + delimiter + "\nNo `git push` was performed.\n$(git push --force origin HEAD)\nEOF\ngit switch -c codex/rules-example"
+            for host in ("codex", "claude"):
+                with self.subTest(delimiter=delimiter, host=host):
+                    self.assertEqual(guard.output(host, {"tool_name": "Bash", "tool_input": {"command": command}}), {})
+
+    def test_document_boundary_does_not_hide_execution(self):
+        commands = [
+            "cat > record.md <<EOF\n$(git push --force origin HEAD)\nEOF",
+            "cat > record.md <<'EOF'\ntext\nEOF\ngit push --force origin HEAD",
+            "cat > record.md <<'EOF'; git push --force origin HEAD\ntext\nEOF",
+            "sh <<'EOF'\ngit push --force origin HEAD\nEOF",
+            "cat > $(git push --force origin HEAD) <<'EOF'\ntext\nEOF",
+            "cat > record.md <<'EOF'\ngit push --force origin HEAD",
+        ]
+        for command in commands:
+            for host, expected in (("codex", "deny"), ("claude", "ask")):
+                with self.subTest(command=command, host=host):
+                    result = guard.output(host, {"tool_name": "Bash", "tool_input": {"command": command}})
+                    self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], expected)
+
     def test_hook_process_and_invalid_input(self):
         good = subprocess.run([sys.executable, str(GUARD), "codex"], input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push -f origin HEAD"}}), text=True, capture_output=True)
         self.assertEqual(good.returncode, 0)
