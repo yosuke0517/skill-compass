@@ -26,6 +26,55 @@ same protocol; a test checks that the small entry files remain identical.
    stops/asks before execution. Do not test this against production. This live host
    acceptance check is separate from the automated hook-input and CLI-rule tests.
 
+## First-time Codex hook trust (CLI)
+
+Hook definitions live in this repository's `.codex/hooks.json`; the implementation
+is `scripts/agents/guard.py`. Committing these files does not itself authorize their
+execution. Codex separately asks the operator to review and trust the definitions.
+Trusting these project hooks does not install them in every other project. Check
+**Source** in the review screen to distinguish project hooks from user/plugin hooks.
+
+The following UI was verified with Codex CLI `0.158.0-alpha.2.1` on macOS on
+2026-09-28. Use the **terminal CLI**, not the Codex desktop app's chat composer or
+the OS shell, for the `/hooks` command. Desktop UI and trust propagation from CLI
+to desktop have not been verified.
+
+1. In a terminal, start Codex with this checkout as its working directory (replace
+   the example path with your own):
+
+   ```sh
+   codex -C /absolute/path/to/skill-compass
+   ```
+
+   If the shell says `command not found: codex`, the executable is not available
+   on that shell's PATH; this does not establish that no CLI is installed. On the
+   tested Mac, the app-bundled executable could be started directly:
+
+   ```sh
+   "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" -C /absolute/path/to/skill-compass
+   ```
+
+   This bundle path is installation-specific, not a stable installation contract.
+   If it does not exist, locate the installed CLI before proceeding.
+2. At **Hooks need review**, select **Review hooks** and press Enter. If that
+   screen does not appear, type `/hooks` inside the running Codex CLI.
+3. Select **PreToolUse**, then press Enter to open its hook details. Confirm the
+   Source is this checkout's `.codex/hooks.json`, the matcher is `Bash`, and the
+   command invokes `scripts/agents/guard.py` with the `codex` argument. Press **t**
+   to trust this reviewed hook; Esc returns to the event list.
+4. Repeat for **UserPromptSubmit**, checking the same source and script. Review
+   the individual definitions before using any “trust all” option: other projects
+   or user/plugin configurations can expose different hooks in the same browser.
+5. Confirm both events show **Installed 1 / Active 1**, with no review pending.
+   The Review column may disappear when no hooks require review. Esc closes the
+   browser. New or changed definitions can require another trust review.
+
+**Active is activation evidence, not an enforcement test.** Follow the disposable-
+repository acceptance check above to verify actual event firing and command
+control. Record the client version, project path, event and observed result.
+The operator confirmed both events Active in the CLI on 2026-09-28; this alone
+is not evidence that the desktop app or a different checkout has loaded them.
+
 ## Coverage and limits
 
 | Control | Codex | Claude Code |
