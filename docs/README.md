@@ -20,6 +20,7 @@
 - [Skill Compass Lite設計](specs/skill-compass-lite-design.md)
 - [Podcast Studio設計](specs/skill-compass-podcast-studio-design.md)
 - [Skill Compass全体のプロダクト＆アーキテクチャショーケース](showcase/skill-compass-architecture.html)
+- [GitHub Stacked Pull Requests 解説](guides/stacked-pull-requests.md)
 - [MVP進捗記録](superpowers/progress/skill-compass-mvp.md)
 
 ## 非公開の構成説明資料
