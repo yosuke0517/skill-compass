@@ -1,0 +1,16 @@
+# Prompt for ordinary pushes too: flags and refspecs vary.
+prefix_rule(
+    pattern = [["git", "/usr/bin/git", "/opt/homebrew/bin/git"], "push"],
+    decision = "prompt",
+    justification = "Confirm the destination and authorized push scope; force pushes require separate approval.",
+    match = ["git push origin HEAD", "git push --force origin HEAD", "git push origin +HEAD:main"],
+    not_match = ["git status", "git diff"],
+)
+
+# Global options can precede a hidden subcommand; ask conservatively.
+prefix_rule(
+    pattern = [["git", "/usr/bin/git", "/opt/homebrew/bin/git"], ["-C", "-c", "--git-dir", "--work-tree"]],
+    decision = "prompt",
+    justification = "Inspect the Git subcommand after global options before execution.",
+    match = ["git -C /tmp push origin HEAD", "git -c alias.fp=push fp"],
+)

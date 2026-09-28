@@ -52,3 +52,7 @@ docs/private/
 .DS_Store
 .idea/
 .vscode/
+
+# Machine-local agent settings
+.claude/settings.local.json
+__pycache__/

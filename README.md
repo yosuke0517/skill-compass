@@ -16,3 +16,9 @@ Skill Compassは、AI支援時代のエンジニアに向けた実務判断力�
 Guideに相当するインフラ構成・セキュリティ・運用の詳細説明資料は、アクセスを制限したGoogle Driveで管理します。閲覧や技術面談での利用については、プロジェクト担当者に確認してください。資料を公開リポジトリやアプリの配信対象へ追加しないでください。
 
 事業・サービスの譲渡時は、このリポジトリとあわせて担当者から資料の保管先・アクセス権を引き継ぎ、受領者が閲覧できることを確認してください。リポジトリの譲渡だけではGoogle Driveの権限は引き継がれません。
+
+## AI-assisted development
+
+Codex and Claude Code share [agent instructions](AGENTS.md) and an
+[approval-based improvement workflow](docs/agents/README.md). Start there for
+project setup, permission coverage, task records and policy-update PRs.
