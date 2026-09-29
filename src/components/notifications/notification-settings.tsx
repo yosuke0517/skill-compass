@@ -14,6 +14,14 @@ function publicKeyBytes(value: string) {
   return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
 }
 function messageFor(error: string) {
+  if (error === "permission_timeout")
+    return "The notification permission request did not respond. Close and reopen the Home Screen app, then try again.";
+  if (error === "worker_timeout")
+    return "The notification service did not become ready. Close and reopen the app, then try again.";
+  if (error === "subscription_timeout")
+    return "Device registration did not respond. Check your connection, reopen the app, and try again.";
+  if (error === "request_timeout")
+    return "The server did not respond. Your notification setting could not be confirmed. Reload Settings to check it before trying again.";
   if (error === "subscription_conflict")
     return "This browser subscription belongs to another account. Remove this site's notification permission, then enable it again while signed in to this account.";
   if (error === "test_unavailable_or_rate_limited")
@@ -33,7 +41,25 @@ function deliveryError(error: string) {
     return "The last delivery could not reach the push service. The reminder will try again tomorrow.";
   return `The last delivery failed (${error}).`;
 }
+function withDeadline<T>(promise: PromiseLike<T>, code: string, milliseconds = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(code)), milliseconds);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (cause) => {
+        clearTimeout(timer);
+        reject(cause);
+      },
+    );
+  });
+}
 async function post(body: Record<string, unknown>) {
+  return withDeadline(send(body), "request_timeout");
+}
+async function send(body: Record<string, unknown>) {
   const response = await fetch("/api/notifications", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -53,6 +79,7 @@ export function NotificationSettings() {
     [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const registration = useRef<Promise<ServiceWorkerRegistration> | null>(null);
   const subscription = useRef<PushSubscription | null>(null);
   useEffect(() => {
@@ -126,32 +153,46 @@ export function NotificationSettings() {
     setBusy(true);
     setError(null);
     setNotice(null);
+    setProgress("Waiting for notification permission…");
     try {
+      // Keep the permission request in the click handler's user activation.
       const permissionPromise = Notification.requestPermission();
-      const permission = await permissionPromise;
+      const permission = await withDeadline(permissionPromise, "permission_timeout", 30000);
       if (permission !== "granted") {
         setError(
-          "Notifications are blocked in your browser settings. Allow them for this site, then try again.",
+          permission === "denied"
+            ? "Notifications are blocked in your browser settings. Allow them for this site, then try again."
+            : "Notification permission was not granted. Tap Enable reminders again and allow notifications when prompted.",
         );
         return;
       }
-      const worker = await registration.current;
+      setProgress("Preparing notifications…");
+      const worker = await withDeadline(Promise.resolve(registration.current), "worker_timeout");
       if (!worker || !config?.publicKey) throw new Error("push_unavailable");
-      let current = await worker.pushManager.getSubscription();
+      setProgress("Registering this device…");
+      let current = await withDeadline(
+        worker.pushManager.getSubscription(),
+        "subscription_timeout",
+      );
       if (current && status.lastError === "subscription_expired") {
-        await current.unsubscribe();
+        await withDeadline(current.unsubscribe(), "subscription_timeout");
         current = null;
         subscription.current = null;
       }
-      current ??= await worker.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: publicKeyBytes(config.publicKey),
-      });
+      current ??= await withDeadline(
+        worker.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: publicKeyBytes(config.publicKey),
+        }),
+        "subscription_timeout",
+      );
       subscription.current = current;
+      setProgress("Saving reminder settings…");
       await save(current, draftTime, "Daily reminder enabled on this device.");
     } catch (cause) {
       setError(messageFor(cause instanceof Error ? cause.message : "request_failed"));
     } finally {
+      setProgress(null);
       setBusy(false);
     }
   }
@@ -281,20 +322,19 @@ export function NotificationSettings() {
         ) : (
           <button
             type="button"
-            disabled={
-              busy || unavailable || denied || needsInstallation
-            }
+            disabled={busy || unavailable || denied || needsInstallation}
             aria-describedby={needsInstallation ? "notification-install-warning" : undefined}
             onClick={() => void enable()}
           >
-            Enable reminders
+            {progress ? "Enabling reminders…" : "Enable reminders"}
           </button>
         )}
       </div>
       {needsInstallation && !status.enabled ? (
         <p className="notification-install-reason">Add to Home Screen first to enable reminders.</p>
       ) : null}
-      {notice ? (
+      {progress ? <p role="status">{progress}</p> : null}
+      {!progress && notice ? (
         <p className="notification-success" role="status">
           {notice}
         </p>

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationSettings } from "@/components/notifications/notification-settings";
 const key = "key",
@@ -63,6 +63,7 @@ describe("NotificationSettings", () => {
   );
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -107,21 +108,29 @@ describe("NotificationSettings", () => {
     fireEvent.click(button);
     expect(Notification.requestPermission).not.toHaveBeenCalled();
   });
-  it.each(["navigator", "display-mode"])("hides the installation warning in an installed iPhone app (%s)", async (mode) => {
-    browser(false, "default", true);
-    if (mode === "navigator") Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
-    else vi.mocked(matchMedia).mockReturnValue({ matches: true } as MediaQueryList);
-    render(<NotificationSettings />);
-    await screen.findByText("Off");
-    expect(screen.queryByRole("note")).toBeNull();
-    expect((screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled).toBe(false);
-  });
+  it.each(["navigator", "display-mode"])(
+    "hides the installation warning in an installed iPhone app (%s)",
+    async (mode) => {
+      browser(false, "default", true);
+      if (mode === "navigator")
+        Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
+      else vi.mocked(matchMedia).mockReturnValue({ matches: true } as MediaQueryList);
+      render(<NotificationSettings />);
+      await screen.findByText("Off");
+      expect(screen.queryByRole("note")).toBeNull();
+      expect(
+        (screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    },
+  );
   it("does not require installation in a supported desktop browser", async () => {
     browser();
     render(<NotificationSettings />);
     await screen.findByText("Off");
     expect(screen.queryByRole("note")).toBeNull();
-    expect((screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
   it("recognizes iPadOS using its desktop user agent", async () => {
     browser();
@@ -154,6 +163,60 @@ describe("NotificationSettings", () => {
       time: "18:30",
       subscription: { endpoint },
     });
+  });
+  it("shows progress immediately and times out a silent permission request without saving", async () => {
+    const b = browser(false, "default", true);
+    Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
+    let resolvePermission!: (value: NotificationPermission) => void;
+    vi.mocked(Notification.requestPermission).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePermission = resolve;
+        }),
+    );
+    render(<NotificationSettings />);
+    await screen.findByText("Off");
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Enable reminders" }));
+    expect(Notification.requestPermission).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status").textContent).toMatch(/Waiting for notification permission/i);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(screen.getByRole("alert").textContent).toMatch(/permission request did not respond/i);
+    expect(
+      (screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    await act(async () => {
+      resolvePermission("granted");
+    });
+    expect(b.subscribe).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("reports stalled subscription registration rather than staying silently busy", async () => {
+    const b = browser();
+    b.subscribe.mockImplementation(() => new Promise(() => {}));
+    render(<NotificationSettings />);
+    await screen.findByText("Off");
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Enable reminders" }));
+    });
+    expect(screen.getByRole("status").textContent).toMatch(/Registering this device/i);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+    expect(screen.getByRole("alert").textContent).toMatch(/device registration did not respond/i);
+    expect(screen.getByText("Off")).toBeTruthy();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("does not describe a dismissed permission prompt as blocked", async () => {
+    browser();
+    vi.mocked(Notification.requestPermission).mockResolvedValue("default");
+    render(<NotificationSettings />);
+    await screen.findByText("Off");
+    fireEvent.click(screen.getByRole("button", { name: "Enable reminders" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/permission was not granted/i);
   });
   it("updates an enabled time without requesting permission again", async () => {
     browser(true);
