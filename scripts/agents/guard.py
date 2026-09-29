@@ -55,9 +55,28 @@ def risky_command(words, depth):
     return bool(args and args[0] == "push" and dangerous_push_args(args[1:]))
 
 
+def without_literal_document_body(command):
+    # Deliberately support only a leading, standalone cat with a quoted delimiter.
+    # Other shell grammar retains the existing conservative inspection.
+    header = re.match(
+        r"[ \t]*cat[ \t]+>[ \t]*[A-Za-z0-9_./-]+[ \t]+<<"
+        r"(?P<quote>['\"])(?P<delimiter>[A-Za-z_][A-Za-z0-9_]*)(?P=quote)[ \t]*\n",
+        command,
+    )
+    if not header:
+        return command
+    body = command[header.end():]
+    end = re.search(r"(?m)^" + re.escape(header["delimiter"]) + r"(?:\n|\Z)", body)
+    if not end:
+        return command
+    # Keep the header and all following commands; only literal input is removed.
+    return command[:header.end()] + header["delimiter"] + "\n" + body[end.end():]
+
+
 def risky_git(command, depth=0):
     if depth > 16:
         return True
+    command = without_literal_document_body(command)
     # Substitutions require a shell AST to distinguish execution from quoted data.
     # Retain conservative handling for Git-looking substitutions, not a safety proof.
     if ("$(" in command or "`" in command) and "git" in command and "push" in command:
