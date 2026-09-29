@@ -1,6 +1,8 @@
 # Skill Compass agent instructions
 
 Read `docs/agents/workflow.md` before starting development or changing agent policy.
+Use `docs/LLM/README.md` to select task-specific product guidance, including design
+and QA tasks. Read matching guides only; do not preload the entire directory.
 The same workflow applies to Codex and Claude Code. Keep product-specific settings
 in `.codex/` and `.claude/`; do not duplicate the common policy there.
 
