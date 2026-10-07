@@ -30,6 +30,7 @@ Check Worker logs for `today_notifications` counts, including failures. A succes
 4. Complete Today and verify its scheduled reminder is skipped.
 5. Turn off reminders and verify no later notification is sent.
 6. On iPhone verify Home Screen installation and notification permission. Desktop automated tests alone do not prove iOS delivery.
+7. Deny notification permission, restore it in device settings, and return to the app. Verify that the recovery guidance disappears, reminders can be enabled without reloading, and no subscription is created until the user enables reminders.
 
 ## Returning after denying permission
 
