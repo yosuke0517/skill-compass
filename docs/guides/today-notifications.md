@@ -30,3 +30,9 @@ Check Worker logs for `today_notifications` counts, including failures. A succes
 4. Complete Today and verify its scheduled reminder is skipped.
 5. Turn off reminders and verify no later notification is sent.
 6. On iPhone verify Home Screen installation and notification permission. Desktop automated tests alone do not prove iOS delivery.
+
+## Returning after denying permission
+
+On iPhone/iPad, Settings → Notifications → Skill Compass → Allow Notifications restores OS permission. Return to Skill Compass and select Enable reminders if the reminder is Off. Returning to the foreground rechecks permission without prompting, subscribing, or saving settings automatically. Other browsers show guidance to their site notification settings. Revoked permission blocks test sends but does not prevent turning off a saved reminder.
+
+The Settings notification card includes a page reload button. Reloading does not grant permission. It is disabled while a notification operation is pending, and asks before discarding an edited reminder time.

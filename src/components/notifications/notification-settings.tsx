@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+const permissionDismissed =
+  "Notification permission was not granted. Tap Enable reminders again and allow notifications when prompted.";
 type Status = { enabled: boolean; time: string; lastError: string | null };
 type Config = { configured: boolean; publicKey: string | null };
 type Capability = { supported: boolean; ios: boolean; standalone: boolean; denied: boolean };
@@ -90,15 +92,22 @@ export function NotificationSettings() {
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
-    queueMicrotask(() => {
-      if (active)
-        setCapability({
-          supported,
-          ios,
-          standalone,
-          denied: supported && Notification.permission === "denied",
-        });
-    });
+    const refreshPermission = () => {
+      if (!active || document.visibilityState === "hidden") return;
+      setCapability({
+        supported,
+        ios,
+        standalone,
+        denied: supported && Notification.permission === "denied",
+      });
+      if (supported && Notification.permission === "granted") {
+        setError((current) => (current === permissionDismissed ? null : current));
+      }
+    };
+    queueMicrotask(refreshPermission);
+    window.addEventListener("focus", refreshPermission);
+    window.addEventListener("pageshow", refreshPermission);
+    document.addEventListener("visibilitychange", refreshPermission);
     if (supported) {
       const installed = navigator.serviceWorker.register("/sw.js");
       registration.current = installed.then(() => navigator.serviceWorker.ready);
@@ -137,6 +146,9 @@ export function NotificationSettings() {
     })();
     return () => {
       active = false;
+      window.removeEventListener("focus", refreshPermission);
+      window.removeEventListener("pageshow", refreshPermission);
+      document.removeEventListener("visibilitychange", refreshPermission);
     };
   }, []);
   async function save(current: PushSubscription, time: string, success: string) {
@@ -158,12 +170,11 @@ export function NotificationSettings() {
       // Keep the permission request in the click handler's user activation.
       const permissionPromise = Notification.requestPermission();
       const permission = await withDeadline(permissionPromise, "permission_timeout", 30000);
+      setCapability((current) =>
+        current ? { ...current, denied: permission === "denied" } : current,
+      );
       if (permission !== "granted") {
-        setError(
-          permission === "denied"
-            ? "Notifications are blocked in your browser settings. Allow them for this site, then try again."
-            : "Notification permission was not granted. Tap Enable reminders again and allow notifications when prompted.",
-        );
+        if (permission === "default") setError(permissionDismissed);
         return;
       }
       setProgress("Preparing notifications…");
@@ -272,9 +283,10 @@ export function NotificationSettings() {
         </p>
       ) : null}
       {denied ? (
-        <p className="notification-guidance">
-          Notifications are blocked in your browser settings. Allow notifications for Skill Compass,
-          then return here.
+        <p className="notification-guidance" role="alert" id="notification-permission-help">
+          {capability?.ios
+            ? "通知がオフになっています。iPhone／iPadの「設定 → 通知 → Skill Compass」で「通知を許可」をオンにして、この画面に戻ってください。リマインダーがOffの場合は「Enable reminders」を押してください。"
+            : "Notifications are blocked in your browser settings. Allow notifications for Skill Compass, then return here. If reminders are Off, select Enable reminders."}
         </p>
       ) : null}
       {config && !config.configured ? (
@@ -307,7 +319,7 @@ export function NotificationSettings() {
             >
               Save reminder time
             </button>
-            <button type="button" disabled={busy} onClick={() => void action("test")}>
+            <button type="button" disabled={busy || denied} onClick={() => void action("test")}>
               Send test notification
             </button>
             <button
@@ -323,12 +335,33 @@ export function NotificationSettings() {
           <button
             type="button"
             disabled={busy || unavailable || denied || needsInstallation}
-            aria-describedby={needsInstallation ? "notification-install-warning" : undefined}
+            aria-describedby={
+              needsInstallation
+                ? "notification-install-warning"
+                : denied
+                  ? "notification-permission-help"
+                  : undefined
+            }
             onClick={() => void enable()}
           >
             {progress ? "Enabling reminders…" : "Enable reminders"}
           </button>
         )}
+        <button
+          type="button"
+          className="ghost-button"
+          disabled={busy}
+          onClick={() => {
+            if (
+              draftTime !== status.time &&
+              !window.confirm("保存していない時刻の変更を破棄して再読み込みしますか？")
+            )
+              return;
+            window.location.reload();
+          }}
+        >
+          再読み込み
+        </button>
       </div>
       {needsInstallation && !status.enabled ? (
         <p className="notification-install-reason">Add to Home Screen first to enable reminders.</p>
