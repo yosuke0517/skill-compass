@@ -75,6 +75,68 @@ describe("NotificationSettings", () => {
     expect(Notification.requestPermission).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+  it.each(["focus", "pageshow", "visibilitychange"])(
+    "recovers from a rejected iPhone prompt on %s without subscribing automatically",
+    async (event) => {
+      const b = browser(false, "default", true);
+      Object.defineProperty(navigator, "standalone", { configurable: true, value: true });
+      vi.mocked(Notification.requestPermission).mockResolvedValue("denied");
+      render(<NotificationSettings />);
+      await screen.findByText("Off");
+      fireEvent.click(screen.getByRole("button", { name: "Enable reminders" }));
+      expect((await screen.findByRole("alert")).textContent).toContain(
+        "設定 → 通知 → Skill Compass",
+      );
+      expect(
+        (screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+      Object.defineProperty(Notification, "permission", { configurable: true, value: "granted" });
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      fireEvent(event === "visibilitychange" ? document : window, new Event(event));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(
+        (screen.getByRole("button", { name: "Enable reminders" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+      expect(Notification.requestPermission).toHaveBeenCalledTimes(1);
+      expect(b.subscribe).not.toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("refreshes denied permission on return and leaves disabling available", async () => {
+    browser(true, "granted");
+    vi.mocked(fetch).mockImplementationOnce(() =>
+      response({ enabled: true, time: "09:00", lastError: null }),
+    );
+    render(<NotificationSettings />);
+    await screen.findByText("On");
+    Object.defineProperty(Notification, "permission", { configurable: true, value: "denied" });
+    fireEvent.focus(window);
+    expect(
+      (screen.getByRole("button", { name: "Send test notification" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Turn off reminders" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(screen.getByRole("alert").textContent).toContain("browser settings");
+  });
+  it("reloads the page and confirms before discarding an edited reminder time", async () => {
+    browser();
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<NotificationSettings />);
+    await screen.findByText("Off");
+    fireEvent.click(screen.getByRole("button", { name: "再読み込み" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText("Reminder time"), { target: { value: "18:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "再読み込み" }));
+    expect(confirm).toHaveBeenCalled();
+    expect(reload).toHaveBeenCalledTimes(1);
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "再読み込み" }));
+    expect(reload).toHaveBeenCalledTimes(2);
+  });
   it("loads endpoint status even when sending is not configured", async () => {
     browser(true);
     const f = vi.mocked(fetch);
