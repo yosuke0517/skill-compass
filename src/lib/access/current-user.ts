@@ -6,6 +6,7 @@ import { planEntitlements, userEntitlementOverrides, users } from "@/db/schema";
 import { ENTITLEMENT_IDS, PLAN_IDS, ROLE_IDS } from "@/lib/access/catalog";
 import { resolveEntitlements } from "@/lib/access/resolve-entitlements";
 import type { CurrentUserAccess, EntitlementId, PlanId, RoleId } from "@/lib/access/types";
+import { hasAdminAccess } from "@/lib/access/guards";
 import { requireSession } from "@/lib/auth/session";
 
 export async function requireCurrentUser(): Promise<CurrentUserAccess> {
@@ -52,7 +53,7 @@ export async function getCurrentUserById(userId: string): Promise<CurrentUserAcc
 
 export async function requireAdmin(): Promise<CurrentUserAccess> {
   const user = await requireCurrentUser();
-  if (user.role !== "admin" || !user.entitlements.has("access.manage")) {
+  if (!hasAdminAccess(user)) {
     redirect("/settings?error=admin-required");
   }
   return user;

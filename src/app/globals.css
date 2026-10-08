@@ -2698,7 +2698,7 @@ p {
   .admin-shell { padding: 14px; }
   .admin-body { grid-template-columns: 1fr; }
   .admin-sidebar { min-height: auto; padding: 10px; position: static; }
-  .admin-sidebar nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .admin-sidebar nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-nav-label { display: none; }
   .admin-sidebar nav a { justify-content: center; padding: 0 4px; }
   .admin-back { justify-content: center; }
