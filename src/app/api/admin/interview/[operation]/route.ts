@@ -11,6 +11,24 @@ const handle = createInterviewHandler({
   enabled: () => process.env.NODE_ENV === "development" && process.env.INTERVIEW_LOCAL_MOCK === "1",
   service: new InterviewMockService(),
 });
+import { relayRuntime } from "@/lib/interview/relay-runtime";
 export async function POST(request: Request, context: { params: Promise<{ operation: string }> }) {
-  return handle(request, (await context.params).operation);
+  try {
+    const runtime = await relayRuntime();
+    if (runtime)
+      return createInterviewHandler({
+        user: async () => {
+          const s = await getSession();
+          return s.authenticated && s.userId ? getCurrentUserById(s.userId) : null;
+        },
+        enabled: () => true,
+        service: runtime.service,
+      })(request, (await context.params).operation);
+    return handle(request, (await context.params).operation);
+  } catch {
+    return Response.json(
+      { error: "中継設定を確認できません。" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 }

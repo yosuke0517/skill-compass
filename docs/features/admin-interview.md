@@ -1,56 +1,95 @@
-# Admin interview support — local mock
+# Admin interview support — local implementation
 
-This change adds `/admin/interview` to the existing admin shell. It does not enable a cloud provider or deploy a service. Admin access uses the same predicate as `requireAdmin`: a fresh active database user with `role=admin` and `access.manage`. A pro plan alone is not sufficient. No existing role/plan data is modified.
+The isolated implementation now includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. No cloud services, IAM changes, paid requests, or deployments have been performed. Real Google identity verification, model quality, actual OS audio capture, and real-time endurance remain unverified.
 
-All six POST operations under `/api/admin/interview/[operation]` resolve the signed login session and current database permissions before parsing input: start, stop, reconnect, pulse, audio, hint. Role/user fields supplied by clients are ignored. Sessions are owner-scoped and responses are no-store. Same-origin, bounded bodies, audio sequence validation, rate and duration limits apply. No bearer provider credential reaches the browser.
+## Implemented behavior
 
-## What works
+- `/admin/interview` and every browser API use the existing signed login session and fresh active admin/`access.manage` check. Pro membership alone never grants access.
+- The relay screen asks for audio permission only after a click and before allocating a ticket. It sends interviewer audio only. The original separate-microphone capture test is still available when relay mode is unset. Video is never processed or sent.
+- Cookie-authenticated start/reconnect returns a random 256-bit ticket, valid for 30 seconds. Only its SHA-256 hash is stored. Tickets are sent in the first WebSocket frame, never URLs or browser persistent storage.
+- The relay authenticates its callback using a Google-signed ID token. The Worker verifies fixed issuer/audience/runtime subject and RS256 against a fixed Google JWKS endpoint. Local test signing keys cannot be selected in production.
+- D1 consumes tickets with a single conditional `UPDATE … RETURNING`; SQL triggers atomically reserve duration/hint allowances and enforce one active session. No allowance is created by migration. Concurrent starts, ticket replay, and stale-session revival are rejected.
+- Five-minute trials reserve 20 hint attempts; 40-minute sessions reserve 80. The initial allowance is 45 minutes/100 hints. Failures, stopping, cleanup, and reconnect do not refund or create quota. Metadata cleanup never resets the separate allowance row. These are operational controls, not a monetary hard cap.
+- Browser heartbeat and relay lease renewal occur every 15 seconds. Each lease is capped by the last browser heartbeat plus 30 seconds and the original session deadline. Stop/transport close cancels audio and in-flight hints immediately; failed lease renewal stops the relay. Reconnect needs a new ticket and either confirmed prior release or prior lease expiry. It preserves the original deadline and remaining attempts; missing audio/history is not reconstructed.
+- PCM is mono 16 kHz, 100-ms chunks with sequence numbers, acknowledgements, a two-second backlog cap, and real-time rate limits. Authorization timeout is five seconds; WebSocket frames are limited to 4 KiB. No provider is constructed before authorization.
+- STT uses V2 gRPC; a four-minute rotation half-closes the old input and drains final results while accepting new audio. A drain failure stops processing rather than silently dropping a seam.
+- Final interviewer text triggers hints after coalescing. Every attempt is atomically reserved in D1, with a 2.5-second minimum interval and eight-second abort timeout. Only six recent bounded turns are considered. The complete text prompt is trimmed to 1,800 UTF-8 bytes; generated output is capped at 512 tokens and displayed as two or three lines. These byte controls are conservative input limits, not a measured provider token count.
+- The prompt requests clarification points and answer structure, without invented experience or automatic speech. Google responses marked as thoughts are excluded. There is no narration or speech synthesis.
+- The mock relay emits explicitly labeled interim/final sample text after fake PCM events; manual sample text is also supported. It does not claim to transcribe audio.
 
-- Manual start/stop; repeated starts replace a user's old session. Stop clears displayed samples/hints and stops media tracks. Pending responses cannot restore stopped text.
-- Three deterministic structure hints from a user-supplied sample question, explicitly labeled mock. No generated autobiographical answers or speech.
-- Interviewer tab/system capture or selected audio input, optional separate self microphone, independent meters. PCM is mono 16 kHz, 100 ms / 3200 byte chunks. Screen video is never read, rendered or sent.
-- Audio test validates/discards PCM on the local server; it does **not** recognize speech. Browser permissions are requested only after a manual start. The browser may not offer system/application audio on a given OS.
-- Forty-minute absolute session deadline, 15-second heartbeat, 60-second idle expiry, bounded audio queue, eight-second fetch timeout, and manual reconnect retaining the deadline/last acknowledged sequence. On network failure capture stops; no offline audio backlog is kept. Missing audio is not reconstructed.
-- At most 80 sample hints per session and one hint per 2.5 seconds. These are operational limits, not monetary caps.
-- No audio/text database writes, localStorage, download, or transcript logs. Only ephemeral session metadata lives on the server. The browser retains at most six sample questions until stop/unmount. Typed question draft is cleared on stop.
+## Data retention and deployment boundary
 
-The process-local mock is intentionally enabled only with **both** `NODE_ENV=development` and `INTERVIEW_LOCAL_MOCK=1`. Production APIs return 503. The map is not a distributed session store; deployment is not supported at this stage. Restart/HMR can invalidate sessions. Old inactive metadata is removed on the next request; it contains no audio or transcript.
+The browser and relay keep bounded audio/text only in memory. Stop/unmount clears the display, draft, queue, stream, and pending work. D1 stores owner/session/deadline/usage/ticket hashes only. Rows older than expiry plus 24 hours are removed on the next ticket request; this is not a scheduled deletion guarantee. Provider retention and D1 backups are separate from application storage.
+
+The relay must be reachable by the browser and its application authorization protects provider calls. An unauthenticated connection can still consume relay compute. Origin checks, connection/rate limits, and max-instance settings are not complete DDoS protection or a billing hard cap. Public reachability, service identity/permissions, processing regions, and cloud billing require separate approval. Do not deploy the mock configuration.
 
 ## Local setup
 
-Use an isolated checkout, install locked dependencies (`pnpm install --frozen-lockfile`), and use the existing local Cloudflare preview binding, never `--remote`.
+Use this isolated checkout and the existing local preview D1 binding, always `--local`. Existing app dependencies and disposable admin accounts must be set up as in `scripts/interview/create-local-fixtures.mjs`; do not import production data.
 
-1. Create an ignored `.env.local` with a fresh local SESSION_SECRET (32+ characters), a syntactically valid dummy DATABASE_URL (the app uses D1), `NEXT_DEV_WRANGLER_ENV=preview`, and `INTERVIEW_LOCAL_MOCK=1`.
-2. `pnpm exec wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0000_adorable_prism.sql`
-3. Run `node scripts/interview/create-local-fixtures.mjs`, then `pnpm exec wrangler d1 execute skill-compass-preview --env preview --local --file .private/interview/seed.sql`. These create disposable admin/free, normal/free and normal/pro users. The random local-only password is in ignored `.private/interview/credentials.json`; admin email is `preview_admin@skill-compass.invalid`. Do not use production database exports or credentials.
-4. `NEXT_DEV_WRANGLER_ENV=preview pnpm exec next dev --webpack --hostname 127.0.0.1 --port 4320`
-5. Visit `http://127.0.0.1:4320/login?next=/admin/interview`, log in with the local admin fixture, start, and send a sample question. Audio test needs Chrome/OS permission.
+```sh
+node scripts/interview/setup-local-relay.mjs
+./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0002_interview_relay.sql
+./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file .private/interview/relay-local-budget.sql
+NEXT_DEV_WRANGLER_ENV=preview npm run dev -- --webpack --hostname 127.0.0.1 --port 4320
+```
 
-Validation: `pnpm lint`, `pnpm typecheck`, `pnpm test`. `tests/unit/interview.test.ts` exercises each operation for anonymous, normal/free, normal/pro, admin-without-required-entitlement, and role revocation, plus origin/body limits, PCM validation, owner isolation, reconnect and accelerated 40-minute expiry. Browser verification additionally uses real session cookies and local D1: `node scripts/interview/verify-local.mjs` (Chrome installed at the macOS default path). It creates screenshots under ignored `test-results/`.
+The setup script creates an ignored, local-only RSA signing fixture and loopback configuration. It does not issue Google credentials. The local budget SQL deliberately resets test metadata and test allowance; never run it against a remote database or as a runtime recovery mechanism.
 
-## Cloud connection boundary / proposal only
+In a second terminal:
 
-The current host is Next.js/OpenNext on Cloudflare Workers, with D1. Google's STT streaming is gRPC-only; Workers lists `node:http2` as a nonfunctional stub. Therefore the existing standalone Node Google STT adapter cannot simply be bundled into the Worker.
+```sh
+cd services/interview-relay
+npm ci
+node --env-file=../../.private/interview/relay.env --import tsx src/index.ts
+```
 
-Proposed route: authenticated SkillCompass page → same-origin admin gateway → dedicated Node WebSocket/gRPC relay → Google STT and Vertex REST. A Cloud Run container is a candidate, not provisioned or approved. Keep Google credentials in the relay's service identity, not a browser or shared Owner credential. Relay access must use short-lived, audience-bound, one-session tickets issued after fresh admin verification; validate ticket ownership on reconnect, and recheck admin authorization during active use with fail-closed expiry. A browser role flag or a hidden page is insufficient. Choose a trusted gateway/relay authentication mechanism before implementing external connections.
+Open `http://127.0.0.1:4320/login?next=/admin/interview` and use the disposable local admin fixture. Its random password is in the ignored fixture file; do not paste it into chat or commits. Selecting a real input in mock mode only validates/discards PCM and produces clearly labeled sample events.
 
-Preserve the standalone adapter's four-minute STT rollover and half-close drain. Google's streaming limit is five minutes, not forty. The existing standalone rotation tests remain available separately; this mock integration does not claim to exercise gRPC rollover. Relay lifetime/deadline must survive transport reconnects, with quotas/revocation coordinated across instances. Do not keep transcripts in a shared persistence store just to reconnect. An interrupted process can end the session explicitly, requiring manual restart, instead of claiming lossless recovery.
+To use the original HTTP mock screen again, remove the `INTERVIEW_RELAY_*` settings and `INTERVIEW_LOCAL_JWKS` from `.env.local`; leave the original development mock flag. Never turn off authorization checks to troubleshoot a connection.
 
-Cloud Run supports WebSockets with configurable request timeouts up to 60 minutes, but reconnect can reach another instance and open connections incur compute billing. A 40-minute wall-clock and real OS capture test remain required, including seam accuracy, disconnects, token expiry, sleep and tab closure. The local mock HTTP-per-chunk transport is a test seam only, not a production audio transport.
+## Verification commands
 
-Minimum follow-up approvals/configuration: enable Speech/Vertex services in the user-chosen project; establish a dedicated least-privilege runtime identity (Speech recognition and Vertex prediction); if selecting Cloud Run, approve its API/build/artifact/hosting resources and service-to-service permissions; choose processing regions/model and budget. No API enablement, IAM change, credential creation, paid inference, new cloud service or deployment has occurred in this task. STT usage, Vertex tokens, relay compute/network and Cloudflare gateway usage are separate cost components; monetary totals and credit application are not measured. Confirm a quote after region/runtime sizing, before provisioning.
+```sh
+npm run lint
+npm run typecheck
+npm test
+cd services/interview-relay
+npm run typecheck
+npm test
+```
 
-Official references checked 2026-10-08:
+From the app root, with both local servers running and a freshly initialized **local** test allowance:
+
+```sh
+node scripts/interview/verify-relay-local.mjs
+```
+
+This browser test consumes its 5-minute and 40-minute reservations (without waiting their full real durations). It verifies anonymous/normal/pro denial, authenticated PCM acknowledgement, sample hints, ticket replay rejection, same-deadline reconnect, stop cleanup, logout, and desktop/390px rendering. Screenshots are written under ignored `test-results/`.
+
+## Cloud configuration prepared, not applied
+
+App configuration: `INTERVIEW_RELAY_MODE=google`, fixed `INTERVIEW_RELAY_URL` (`wss`), `INTERVIEW_RELAY_AUDIENCE` (the HTTPS redeem URL), and the numeric `INTERVIEW_RELAY_SUBJECT` of the approved runtime service account. Do not configure local JWKS in production.
+
+Relay configuration: the same mode/audience, fixed `INTERVIEW_BROWSER_ORIGIN`, `INTERVIEW_GOOGLE_ENABLED=1`, `GOOGLE_CLOUD_PROJECT`, and selected `INTERVIEW_GEMINI_MODEL`. The implementation defaults to STT `us`/`chirp_3` and Vertex `global`/`gemini-3.1-flash-lite`. Google service-account keys are not required. An isolated container recipe is supplied in `services/interview-relay/Dockerfile`; container execution is not yet verified.
+
+The proposed initial runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. API activation, service identity, Cloud Run/image resources, public entrance, production D1 migration/allowance, and Worker deployment have not been executed. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
+
+## Official references
+
+- https://docs.cloud.google.com/docs/authentication/get-id-token
+- https://docs.cloud.google.com/run/docs/authenticating/service-to-service
+- https://developers.cloudflare.com/d1/worker-api/prepared-statements/
 - https://cloud.google.com/speech-to-text/v2/docs/streaming-recognize
 - https://cloud.google.com/speech-to-text/v2/quotas
-- https://developers.cloudflare.com/workers/runtime-apis/nodejs/#non-functional-stub-modules
 - https://cloud.google.com/run/docs/triggering/websockets
 
-## Verification record (2026-10-08)
+The ticket-and-callback protocol is application code, not a vendor-provided combined product. Mock identity and transport tests do not establish production IAM correctness.
 
-- `vitest run`: 98 files, 493 tests passed (including 33 interview tests).
-- Whole-repository ESLint and TypeScript no-emit checks passed.
-- Local Chrome + local D1: anonymous 401; normal/free and normal/pro 403 for all six API operations; admin/free can render/start/use the mock. Client role spoof fields do not grant access.
-- Browser: three sample hints, clearing on stop, fake-device PCM accepted, meters, all acquired audio tracks end on stop, desktop/mobile screenshots.
-- Unit timing simulation: 40-minute deadline survives heartbeat/reconnect, cannot be extended, and expires at the boundary; idle expiry and stop invalidate the session. Late hint results, repeated clicks and failed-start reconnect are covered.
-- No paid calls or deployment. Real system capture, actual cloud model accuracy/latency, real-time 40-minute endurance, distributed relay/rollover, token expiry and production Cloudflare build remain unverified.
+## Verification record — 2026-10-09
+
+- Application: ESLint and TypeScript passed; 102 test files / 507 tests passed.
+- Relay: clean offline lockfile install, TypeScript, and 18 tests passed. Google wire behavior was tested with fake transports; real provider APIs were never called.
+- Chrome + local D1 + local signed-ID relay: anonymous/normal/pro denial; fake PCM to labeled interim/final sample text and automatic hints; ticket replay denial; reconnect with unchanged deadline; stop clears tracks/text; logout fails closed. Desktop and 390px screenshots were inspected for overflow/readability.
+- Next.js standalone build and OpenNext Cloudflare Worker bundling passed. Existing middleware deprecation/bundler warnings remain; no deployment was attempted.
+- Docker CLI is present, but its daemon socket is unavailable. Container execution was not verified. Real Google identity, real STT/Vertex accuracy/latency, OS system audio, and wall-clock 40-minute endurance remain pending.
