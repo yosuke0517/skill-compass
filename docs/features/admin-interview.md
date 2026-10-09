@@ -1,6 +1,6 @@
 # Admin interview support — local implementation
 
-The isolated implementation now includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. No cloud services, IAM changes, paid requests, or deployments have been performed. Real Google identity verification, model quality, actual OS audio capture, and real-time endurance remain unverified.
+The isolated implementation includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. An explicitly approved, bounded cloud trial is being deployed; private deployment identifiers and approval evidence are kept in the ignored operator record. Real Google identity verification, model quality, actual OS audio capture, and real-time endurance remain unverified.
 
 ## Implemented behavior
 
@@ -73,7 +73,9 @@ App configuration: `INTERVIEW_RELAY_MODE=google`, fixed `INTERVIEW_RELAY_URL` (`
 
 Relay configuration: the same mode/audience, fixed `INTERVIEW_BROWSER_ORIGIN`, `INTERVIEW_GOOGLE_ENABLED=1`, `GOOGLE_CLOUD_PROJECT`, and selected `INTERVIEW_GEMINI_MODEL`. The implementation defaults to STT `us`/`chirp_3` and Vertex `global`/`gemini-3.1-flash-lite`. Google service-account keys are not required. An isolated container recipe is supplied in `services/interview-relay/Dockerfile`; container execution is not yet verified.
 
-The proposed initial runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. API activation, service identity, Cloud Run/image resources, public entrance, production D1 migration/allowance, and Worker deployment have not been executed. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
+The runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. The approved API activation, service identity, Cloud Run/image resources, public entrance, and production D1 migration/allowance have been provisioned. Worker deployment is still pending. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
+
+The relay's public health endpoint is `/health`. The initially used `/healthz` returned a Google frontend 404 in the deployed environment, while ordinary paths reached the container.
 
 ## Official references
 
