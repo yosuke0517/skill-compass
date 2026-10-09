@@ -21,7 +21,8 @@ export function connectRelay(
       closed = false,
       sequence = 0,
       ack = 0;
-    const timeout = setTimeout(() => fail("中継接続がタイムアウトしました。"), 8_000);
+    // Allow a scale-to-zero relay to start, while staying within the 30s ticket lifetime.
+    const timeout = setTimeout(() => fail("中継接続がタイムアウトしました。"), 20_000);
     const close = () => {
       if (closed) return;
       closed = true;

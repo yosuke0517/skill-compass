@@ -1,6 +1,6 @@
 # Admin interview support — local implementation
 
-The isolated implementation includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. An explicitly approved, bounded cloud trial is being deployed; private deployment identifiers and approval evidence are kept in the ignored operator record. Real Google identity verification, model quality, actual OS audio capture, and real-time endurance remain unverified.
+The isolated implementation includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. The explicitly approved, bounded cloud trial has completed one real Chrome tab-audio → Google STT → Vertex hint flow. Private deployment identifiers and approval evidence are kept in the ignored operator record. Broad model quality, other OS/audio sources, and real-time endurance remain unverified.
 
 ## Implemented behavior
 
@@ -9,7 +9,7 @@ The isolated implementation includes a ticket-authorized WebSocket relay and Goo
 - Cookie-authenticated start/reconnect returns a random 256-bit ticket, valid for 30 seconds. Only its SHA-256 hash is stored. Tickets are sent in the first WebSocket frame, never URLs or browser persistent storage.
 - The relay authenticates its callback using a Google-signed ID token. The Worker verifies fixed issuer/audience/runtime subject and RS256 against a fixed Google JWKS endpoint. Local test signing keys cannot be selected in production.
 - D1 consumes tickets with a single conditional `UPDATE … RETURNING`; SQL triggers atomically reserve duration/hint allowances and enforce one active session. No allowance is created by migration. Concurrent starts, ticket replay, and stale-session revival are rejected.
-- Five-minute trials reserve 20 hint attempts; 40-minute sessions reserve 80. The initial allowance is 45 minutes/100 hints. Failures, stopping, cleanup, and reconnect do not refund or create quota. Metadata cleanup never resets the separate allowance row. These are operational controls, not a monetary hard cap.
+- Five-minute trials reserve 20 hint attempts; 40-minute sessions reserve 80. Allowances are provisioned explicitly; the approved production trial was only five minutes/20 hints, once. Failures, stopping, cleanup, and reconnect do not refund or create quota. Metadata cleanup never resets the separate allowance row. These are operational controls, not a monetary hard cap.
 - Browser heartbeat and relay lease renewal occur every 15 seconds. Each lease is capped by the last browser heartbeat plus 30 seconds and the original session deadline. Stop/transport close cancels audio and in-flight hints immediately; failed lease renewal stops the relay. Reconnect needs a new ticket and either confirmed prior release or prior lease expiry. It preserves the original deadline and remaining attempts; missing audio/history is not reconstructed.
 - PCM is mono 16 kHz, 100-ms chunks with sequence numbers, acknowledgements, a two-second backlog cap, and real-time rate limits. Authorization timeout is five seconds; WebSocket frames are limited to 4 KiB. No provider is constructed before authorization.
 - STT uses V2 gRPC; a four-minute rotation half-closes the old input and drains final results while accepting new audio. A drain failure stops processing rather than silently dropping a seam.
@@ -67,15 +67,15 @@ node scripts/interview/verify-relay-local.mjs
 
 This browser test consumes its 5-minute and 40-minute reservations (without waiting their full real durations). It verifies anonymous/normal/pro denial, authenticated PCM acknowledgement, sample hints, ticket replay rejection, same-deadline reconnect, stop cleanup, logout, and desktop/390px rendering. Screenshots are written under ignored `test-results/`.
 
-## Cloud configuration prepared, not applied
+## Cloud configuration
 
 App configuration: `INTERVIEW_RELAY_MODE=google`, fixed `INTERVIEW_RELAY_URL` (`wss`), `INTERVIEW_RELAY_AUDIENCE` (the HTTPS redeem URL), and the numeric `INTERVIEW_RELAY_SUBJECT` of the approved runtime service account. Do not configure local JWKS in production.
 
-Relay configuration: the same mode/audience, fixed `INTERVIEW_BROWSER_ORIGIN`, `INTERVIEW_GOOGLE_ENABLED=1`, `GOOGLE_CLOUD_PROJECT`, and selected `INTERVIEW_GEMINI_MODEL`. The implementation defaults to STT `us`/`chirp_3` and Vertex `global`/`gemini-3.1-flash-lite`. Google service-account keys are not required. An isolated container recipe is supplied in `services/interview-relay/Dockerfile`; container execution is not yet verified.
+Relay configuration: the same mode/audience, fixed `INTERVIEW_BROWSER_ORIGIN`, `INTERVIEW_GOOGLE_ENABLED=1`, `GOOGLE_CLOUD_PROJECT`, and selected `INTERVIEW_GEMINI_MODEL`. The implementation defaults to STT `us`/`chirp_3` and Vertex `global`/`gemini-3.1-flash-lite`. Google service-account keys are not required. An isolated container recipe is supplied in `services/interview-relay/Dockerfile`; container execution has been verified on Cloud Run.
 
-The runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. The approved API activation, service identity, Cloud Run/image resources, public entrance, and production D1 migration/allowance have been provisioned. The Worker has also been deployed; an authenticated browser trial is still pending. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
+The runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. The approved API activation, service identity, Cloud Run/image resources, public entrance, and production D1 migration/allowance have been provisioned. The Worker has also been deployed; an authenticated browser trial has successfully produced real transcription and three hint lines. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
 
-The relay's public health endpoint is `/health`. The initially used `/healthz` returned a Google frontend 404 in the deployed environment, while ordinary paths reached the container.
+The local relay's health endpoint is `/health`; its container update is pending a registry connectivity fix. The initially used `/healthz` returned a Google frontend 404 in the deployed environment, while ordinary paths reached the container.
 
 ## Official references
 
@@ -91,7 +91,9 @@ The ticket-and-callback protocol is application code, not a vendor-provided comb
 ## Verification record — 2026-10-09
 
 - Application: ESLint and TypeScript passed; 102 test files / 507 tests passed.
-- Relay: clean offline lockfile install, TypeScript, and 18 tests passed. Google wire behavior was tested with fake transports; real provider APIs were never called.
+- Relay: clean offline lockfile install, TypeScript, and 18 tests passed. Google wire behavior was initially tested with fake transports; the bounded production trial subsequently exercised both real providers.
 - Chrome + local D1 + local signed-ID relay: anonymous/normal/pro denial; fake PCM to labeled interim/final sample text and automatic hints; ticket replay denial; reconnect with unchanged deadline; stop clears tracks/text; logout fails closed. Desktop and 390px screenshots were inspected for overflow/readability.
 - Next.js standalone build and OpenNext Cloudflare Worker bundling passed. Existing middleware deprecation/bundler warnings remain. The approved production Worker deployment has since completed; private deployment identifiers are recorded in the ignored operator record.
-- Docker CLI is present, but its daemon socket is unavailable. Container execution was not verified. Real Google identity, real STT/Vertex accuracy/latency, OS system audio, and wall-clock 40-minute endurance remain pending.
+- Cloud Run container execution and real Google ID-token callbacks passed in the approved production trial. Chrome shared-tab audio produced the expected Japanese question transcript and three structure/clarification hints. No personal microphone was captured. Stop cleared capture and all displayed conversation.
+- The first connection exceeded the old eight-second deadline; reconnect within the same trial succeeded. Cold start is plausible but not established as the cause. The client now allows 20 seconds, within the 30-second ticket lifetime; three regression tests cover delayed readiness, timeout, and immediate manual stop.
+- Other OS/system-audio sources, broader STT/model quality, measured latency/cost, and wall-clock 40-minute endurance remain unverified. The one trial allocation is consumed; do not reset or replenish it automatically.
