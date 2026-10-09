@@ -73,7 +73,7 @@ App configuration: `INTERVIEW_RELAY_MODE=google`, fixed `INTERVIEW_RELAY_URL` (`
 
 Relay configuration: the same mode/audience, fixed `INTERVIEW_BROWSER_ORIGIN`, `INTERVIEW_GOOGLE_ENABLED=1`, `GOOGLE_CLOUD_PROJECT`, and selected `INTERVIEW_GEMINI_MODEL`. The implementation defaults to STT `us`/`chirp_3` and Vertex `global`/`gemini-3.1-flash-lite`. Google service-account keys are not required. An isolated container recipe is supplied in `services/interview-relay/Dockerfile`; container execution is not yet verified.
 
-The runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. The approved API activation, service identity, Cloud Run/image resources, public entrance, and production D1 migration/allowance have been provisioned. Worker deployment is still pending. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
+The runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. The approved API activation, service identity, Cloud Run/image resources, public entrance, and production D1 migration/allowance have been provisioned. The Worker has also been deployed; an authenticated browser trial is still pending. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
 
 The relay's public health endpoint is `/health`. The initially used `/healthz` returned a Google frontend 404 in the deployed environment, while ordinary paths reached the container.
 
@@ -93,5 +93,5 @@ The ticket-and-callback protocol is application code, not a vendor-provided comb
 - Application: ESLint and TypeScript passed; 102 test files / 507 tests passed.
 - Relay: clean offline lockfile install, TypeScript, and 18 tests passed. Google wire behavior was tested with fake transports; real provider APIs were never called.
 - Chrome + local D1 + local signed-ID relay: anonymous/normal/pro denial; fake PCM to labeled interim/final sample text and automatic hints; ticket replay denial; reconnect with unchanged deadline; stop clears tracks/text; logout fails closed. Desktop and 390px screenshots were inspected for overflow/readability.
-- Next.js standalone build and OpenNext Cloudflare Worker bundling passed. Existing middleware deprecation/bundler warnings remain; no deployment was attempted.
+- Next.js standalone build and OpenNext Cloudflare Worker bundling passed. Existing middleware deprecation/bundler warnings remain. The approved production Worker deployment has since completed; private deployment identifiers are recorded in the ignored operator record.
 - Docker CLI is present, but its daemon socket is unavailable. Container execution was not verified. Real Google identity, real STT/Vertex accuracy/latency, OS system audio, and wall-clock 40-minute endurance remain pending.
