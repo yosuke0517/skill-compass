@@ -8,6 +8,7 @@ const admin = { id: "admin", role: "admin", entitlements: new Set(["access.manag
 function setup() {
   const sql = new DatabaseSync(":memory:");
   sql.exec(readFileSync("drizzle-d1/0002_interview_relay.sql", "utf8"));
+  sql.exec(readFileSync("drizzle-d1/0003_interview_developer.sql", "utf8"));
   sql.exec("INSERT INTO interview_relay_allowance VALUES(1,2700000,100)");
   const db: SqlDatabase = {
     prepare(query) {
@@ -47,6 +48,101 @@ function setup() {
   };
 }
 describe("relay SQLite authorization and budget", () => {
+  it("grants nobody on migration and rejects role/email/owner/developer claims from other admins", async () => {
+    const { service, sql } = setup();
+    expect(sql.prepare("SELECT count(*) AS n FROM interview_relay_developers").get()?.n).toBe(0);
+    await expect(service.run("start", admin, { duration: "developer" })).rejects.toMatchObject({
+      status: 409,
+    });
+    sql.exec("INSERT INTO interview_relay_developers VALUES('admin',1,1000000)");
+    await expect(
+      service.run(
+        "start",
+        { ...admin, id: "other-admin" },
+        {
+          duration: "developer",
+          owner: "admin",
+          userId: "admin",
+          email: "owner@example.com",
+          developer: true,
+        },
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      service.run(
+        "start",
+        { ...admin, role: "normal", entitlements: new Set() },
+        {
+          duration: "developer",
+        },
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+  it("allows repeated developer starts and over 80 hint attempts without consuming standard quota", async () => {
+    const { store, tick, sql } = setup();
+    sql.exec(
+      "UPDATE interview_relay_allowance SET duration_remaining=0,hints_remaining=0; INSERT INTO interview_relay_developers VALUES('admin',1,1000000)",
+    );
+    for (let run = 0; run < 2; run++) {
+      const ticket = await store.ticket("admin", "developer");
+      expect(ticket.usageMode).toBe("developer");
+      expect(ticket.hintLimit).toBeNull();
+      const grant = await store.redeem(ticket.ticket, "n");
+      for (let i = 0; i < 81; i++) {
+        tick(2500);
+        await store.pulse(grant.id, "admin");
+        await store.lease(grant.id, grant.generation, "n", true);
+      }
+      expect((await store.pulse(grant.id, "admin")).hintAttempts).toBe(81);
+      await store.stop(grant.id, "admin");
+      await store.release(grant.id, grant.generation, "n");
+    }
+    const allowance = sql.prepare("SELECT * FROM interview_relay_allowance").get();
+    expect(allowance?.duration_remaining).toBe(0);
+    expect(allowance?.hints_remaining).toBe(0);
+    await expect(store.ticket("other-admin", "trial")).rejects.toMatchObject({ status: 409 });
+  });
+  it("atomically reserves estimated cost, rejects overspend, and never refunds on release/reconnect", async () => {
+    const { store, tick, sql } = setup();
+    sql.exec("INSERT INTO interview_relay_developers VALUES('admin',1,17000)");
+    const t = await store.ticket("admin", "developer");
+    const g = await store.redeem(t.ticket, "n");
+    const remaining = () =>
+      sql.prepare("SELECT budget_microusd AS n FROM interview_relay_developers").get()?.n;
+    expect(remaining()).toBe(2000); // 30 seconds prepaid.
+    const results = await Promise.allSettled([
+      store.lease(g.id, 1, "n", true),
+      store.lease(g.id, 1, "n", true),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(remaining()).toBe(0);
+    tick(2500);
+    await expect(store.lease(g.id, 1, "n", true)).rejects.toThrow();
+    expect(remaining()).toBe(0);
+    expect((await store.get(g.id))?.hints).toBe(1);
+    await store.release(g.id, 1, "n");
+    await store.pulse(g.id, "admin");
+    const again = await store.ticket("admin", "trial", g.id);
+    expect(again.usageMode).toBe("developer");
+    expect(again.expiresAt).toBe(t.expiresAt);
+    await expect(store.redeem(again.ticket, "next")).rejects.toThrow();
+    expect(remaining()).toBe(0);
+  });
+  it("retains singleton, ticket replay, rate limit and developer revocation protections", async () => {
+    const { store, sql } = setup();
+    sql.exec("INSERT INTO interview_relay_developers VALUES('admin',1,1000000)");
+    const t = await store.ticket("admin", "developer");
+    await expect(store.ticket("admin", "developer")).rejects.toMatchObject({ status: 409 });
+    const g = await store.redeem(t.ticket, "n");
+    await expect(store.redeem(t.ticket, "replay")).rejects.toMatchObject({ status: 410 });
+    await store.lease(g.id, 1, "n", true);
+    await expect(store.lease(g.id, 1, "n", true)).rejects.toMatchObject({ status: 410 });
+    sql.exec("UPDATE interview_relay_developers SET enabled=0");
+    await expect(store.lease(g.id, 1, "n")).rejects.toThrow();
+    await expect(store.pulse(g.id, "admin")).rejects.toThrow();
+    await store.stop(g.id, "admin");
+    await store.release(g.id, 1, "n");
+  });
   it("reserves quota atomically; competing starts cannot allocate two sessions", async () => {
     const { store, sql } = setup();
     const results = await Promise.allSettled([

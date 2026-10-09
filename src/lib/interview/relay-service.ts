@@ -11,7 +11,14 @@ export class InterviewRelayService {
     assertInterviewAdmin(user);
     if (operation === "start")
       return {
-        ...(await this.store.ticket(user.id, input.duration === "full" ? "full" : "trial")),
+        ...(await this.store.ticket(
+          user.id,
+          input.duration === "developer"
+            ? "developer"
+            : input.duration === "full"
+              ? "full"
+              : "trial",
+        )),
         relayUrl: this.config.url,
         mode: this.config.mode,
       };

@@ -29,6 +29,40 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("relay panel", () => {
+  it("shows server-confirmed developer mode, elapsed time and generated hint count", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        id: "session",
+        ticket: "a".repeat(64),
+        relayUrl: "ws://127.0.0.1:4318/audio",
+        expiresAt: Date.now() + 2400000,
+        startedAt: Date.now() - 65000,
+        usageMode: "developer",
+        hintAttempts: 3,
+        hintLimit: null,
+      }),
+    );
+    render(<RelayInterviewPanel providerMode="mock" />);
+    fireEvent.change(screen.getByLabelText("利用時間"), { target: { value: "developer" } });
+    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain("通常の予約枠");
+    fireEvent.click(screen.getByText("開始", { exact: true }));
+    await screen.findByText("実行中", { exact: true });
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).duration).toBe(
+      "developer",
+    );
+    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain(
+      "本人限定・開発者試験",
+    );
+    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain("経過 1:05");
+    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain("生成試行 3回");
+    const args = vi.mocked(connectRelay).mock.calls[0];
+    const { act } = await import("@testing-library/react");
+    act(() => args[4]({ type: "hints", lines: ["状況を整理", "判断と結果を振り返る"] }));
+    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain("ヒント表示 1回");
+    fireEvent.click(screen.getByText("停止・表示を消去"));
+    expect(transport.close).toHaveBeenCalled();
+    expect(screen.queryByText("状況を整理")).toBeNull();
+  });
   it("does not acquire audio or request a ticket until clicked; repeated clicks issue one ticket", async () => {
     let resolve!: (r: Response) => void;
     vi.mocked(fetch).mockReturnValueOnce(new Promise((r) => (resolve = r)));

@@ -18,6 +18,8 @@ export type RelayRow = {
   hints: number;
   hint_limit: number;
   state: string;
+  created_at: number;
+  usage_mode: "standard" | "developer";
 };
 export type Grant = {
   id: string;
@@ -47,7 +49,7 @@ export class RelayStore {
     private db: SqlDatabase,
     private now = Date.now,
   ) {}
-  async ticket(owner: string, duration: "trial" | "full", id?: string) {
+  async ticket(owner: string, duration: "trial" | "full" | "developer", id?: string) {
     const now = this.now(),
       code = randomCode(),
       hash = await codeHash(code);
@@ -71,8 +73,8 @@ export class RelayStore {
         row = await this.db
           .prepare(
             `INSERT INTO interview_relay_sessions
-          (id,owner,created_at,expires_at,heartbeat,generation,code_hash,code_expires,hint_limit)
-          VALUES (?,?,?,?,?,1,?,?,?) RETURNING *`,
+          (id,owner,created_at,expires_at,heartbeat,generation,code_hash,code_expires,hint_limit,usage_mode,charged_until)
+          VALUES (?,?,?,?,?,1,?,?,?,?,?) RETURNING *`,
           )
           .bind(
             crypto.randomUUID(),
@@ -83,17 +85,28 @@ export class RelayStore {
             hash,
             now + 30_000,
             hints,
+            duration === "developer" ? "developer" : "standard",
+            now,
           )
           .first<RelayRow>();
       } catch {
         throw new InterviewError(
           409,
-          "利用枠が未設定・消費済み、または接続が残っています。開始を繰り返さず確認してください。",
+          "利用枠・開発者許可・費用目安枠が不足しているか、接続が残っています。",
         );
       }
     }
     if (!row) throw fail();
-    return { id: row.id, expiresAt: row.expires_at, ticket: code, ticketExpiresAt: now + 30_000 };
+    return { id: row.id, ...this.details(row), ticket: code, ticketExpiresAt: now + 30_000 };
+  }
+  private details(row: RelayRow) {
+    return {
+      expiresAt: row.expires_at,
+      startedAt: row.created_at,
+      usageMode: row.usage_mode,
+      hintAttempts: row.hints,
+      hintLimit: row.usage_mode === "developer" ? null : row.hint_limit,
+    };
   }
   async pulse(id: string, owner: string) {
     const row = await this.db
@@ -103,7 +116,7 @@ export class RelayStore {
       .bind(this.now(), id, owner, this.now())
       .first<RelayRow>();
     if (!row) throw fail();
-    return { expiresAt: row.expires_at };
+    return this.details(row);
   }
   async stop(id: string, owner: string) {
     await this.db
@@ -130,10 +143,10 @@ export class RelayStore {
     const now = this.now();
     const row = await this.db
       .prepare(
-        `UPDATE interview_relay_sessions SET code_hash=NULL,nonce=?,relay_until=MIN(expires_at,heartbeat+30000,?)
+        `UPDATE interview_relay_sessions SET code_hash=NULL,nonce=?,relay_until=MIN(expires_at,heartbeat+30000,?),charged_until=MAX(charged_until,MIN(expires_at,heartbeat+30000,?))
       WHERE code_hash=? AND code_expires>? AND state='active' AND expires_at>? AND heartbeat>? AND relay_until<=? RETURNING *`,
       )
-      .bind(nonce, now + 30_000, await codeHash(code), now, now, now - 30_000, now)
+      .bind(nonce, now + 30_000, now + 30_000, await codeHash(code), now, now, now - 30_000, now)
       .first<RelayRow>();
     if (!row) throw fail();
     return row;
@@ -142,11 +155,12 @@ export class RelayStore {
     const now = this.now();
     const row = await this.db
       .prepare(
-        `UPDATE interview_relay_sessions SET relay_until=MIN(expires_at,heartbeat+30000,?)${reserveHint ? ",hints=hints+1,last_hint=?" : ""}
+        `UPDATE interview_relay_sessions SET relay_until=MIN(expires_at,heartbeat+30000,?),charged_until=MAX(charged_until,MIN(expires_at,heartbeat+30000,?))${reserveHint ? ",hints=hints+1,last_hint=?" : ""}
       WHERE id=? AND generation=? AND nonce=? AND state='active' AND expires_at>? AND heartbeat>? AND relay_until>?
-      ${reserveHint ? "AND hints<hint_limit AND last_hint<=?" : ""} RETURNING *`,
+      ${reserveHint ? "AND (usage_mode='developer' OR hints<hint_limit) AND last_hint<=?" : ""} RETURNING *`,
       )
       .bind(
+        now + 30_000,
         ...(reserveHint ? [now + 30_000, now] : [now + 30_000]),
         id,
         generation,

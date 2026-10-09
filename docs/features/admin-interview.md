@@ -30,6 +30,7 @@ Use this isolated checkout and the existing local preview D1 binding, always `--
 ```sh
 node scripts/interview/setup-local-relay.mjs
 ./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0002_interview_relay.sql
+./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0003_interview_developer.sql
 ./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file .private/interview/relay-local-budget.sql
 NEXT_DEV_WRANGLER_ENV=preview npm run dev -- --webpack --hostname 127.0.0.1 --port 4320
 ```
@@ -76,6 +77,16 @@ Relay configuration: the same mode/audience, fixed `INTERVIEW_BROWSER_ORIGIN`, `
 The runtime permissions are `speech.recognizers.recognize`, `aiplatform.endpoints.predict`, and `serviceusage.services.use`. The approved API activation, service identity, Cloud Run/image resources, public entrance, and production D1 migration/allowance have been provisioned. The Worker has also been deployed; an authenticated browser trial has successfully produced real transcription and three hint lines. Each initial test and actual use consumes the already provisioned allowance; replenishment is an explicit operator action.
 
 The local relay's health endpoint is `/health`; its container update is pending a registry connectivity fix. The initially used `/healthz` returned a Google frontend 404 in the deployed environment, while ordinary paths reached the container.
+
+## Developer testing
+
+The `developer` option requests a server-authorized testing session. It does not grant access. A separately provisioned `interview_relay_developers` row must match the existing authenticated user's immutable ID and be enabled. Migration grants nobody; no email matching, client role claim, shared admin auto-enrollment, or browser endpoint can create this permission. Fresh active-admin checks remain mandatory for starts and relay callbacks.
+
+Developer sessions do not consume the normal five-minute/20-hint or 40-minute/80-hint reservation pool. Starts and total hint attempts have no fixed count limit, but each connection ends after 40 minutes. The singleton, 30-second ticket, generation/nonce, heartbeat/lease, hint rate limit, manual stop, and no-persistent-conversation rules remain unchanged. Reconnect preserves the original mode/deadline; it cannot upgrade a standard session.
+
+A separate persistent estimate budget bounds paid testing. SQL triggers atomically reserve $0.03 per minute of authorized audio/relay time and $0.002 per hint attempt **before** provider processing. Time is prepaid through each lease deadline; paused/reconnected intervals can be conservatively counted, and stopping does not refund prepaid time. Failed hint attempts count. Exhaustion or disabling the owner row denies subsequent grants; outstanding processing stops by its already reserved lease deadline. Session cleanup cannot refill this budget. This accounting is deliberately conservative, not Google's invoice or an absolute cloud billing cap; image storage, unrelated requests, taxes, and future price changes are separate. No actual calls above the approved operational spending scope are authorized by choosing this option.
+
+The UI shows the server-confirmed mode, elapsed session time, displayed hint count, and periodically refreshed server attempt count. Displayed hints count only this page's received results; the attempt count can include failed/discarded generations. No credentials or unrelated roles are created or changed.
 
 ## Official references
 

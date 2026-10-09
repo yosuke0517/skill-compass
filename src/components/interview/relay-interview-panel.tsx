@@ -3,7 +3,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { capture } from "@/lib/interview/capture";
 import { connectRelay, type RelayTransport } from "@/lib/interview/relay-client";
 import styles from "./interview.module.css";
-type Session = { id: string; expiresAt: number };
+type Session = {
+  id: string;
+  expiresAt: number;
+  startedAt?: number;
+  usageMode?: "standard" | "developer";
+  hintAttempts?: number;
+  hintLimit?: number | null;
+};
 type Ticket = Session & { ticket: string; relayUrl: string };
 export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "google" }) {
   const [capturing, setCapturing] = useState(false),
@@ -19,6 +26,10 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
     [lines, setLines] = useState<string[]>([]),
     [level, setLevel] = useState(0),
     [remaining, setRemaining] = useState(0);
+  const [usageMode, setUsageMode] = useState<"standard" | "developer">("standard");
+  const [elapsed, setElapsed] = useState(0);
+  const [hintAttempts, setHintAttempts] = useState(0);
+  const [generated, setGenerated] = useState(0);
   const session = useRef<Session | null>(null),
     socket = useRef<RelayTransport | null>(null),
     control = useRef<AbortController | null>(null),
@@ -119,7 +130,11 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
         void api("stop", { id: reply.id }).catch(() => {});
         return;
       }
-      session.current = { id: reply.id, expiresAt: reply.expiresAt };
+      session.current = reply;
+      setUsageMode(reply.usageMode ?? "standard");
+      setElapsed(Math.max(0, Math.floor((Date.now() - (reply.startedAt ?? Date.now())) / 1000)));
+      setHintAttempts(reply.hintAttempts ?? 0);
+      if (!reconnect) setGenerated(0);
       setRemaining(Math.ceil((reply.expiresAt - Date.now()) / 1000));
       const connected = await connectRelay(
         reply.relayUrl,
@@ -134,7 +149,10 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
               setInterim("");
             } else setInterim(event.text);
           }
-          if (event.type === "hints") setLines(event.lines);
+          if (event.type === "hints") {
+            setLines(event.lines);
+            setGenerated((n) => n + 1);
+          }
           if (event.type === "warning") setError(event.message);
         },
         (message) => pause(message, current),
@@ -157,6 +175,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
       if (!s) return;
       const left = Math.max(0, Math.ceil((s.expiresAt - Date.now()) / 1000));
       setRemaining(left);
+      if (s.startedAt) setElapsed(Math.max(0, Math.floor((Date.now() - s.startedAt) / 1000)));
       if (!left) {
         generation.current++;
         release();
@@ -185,6 +204,9 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
       if (s && !pending) {
         pending = true;
         void api("pulse", { id: s.id }, control.current?.signal)
+          .then((reply) => {
+            if (current === epoch.current) setHintAttempts(reply.hintAttempts ?? 0);
+          })
           .catch(() => pause("本人の利用許可を確認できません。", current))
           .finally(() => {
             pending = false;
@@ -216,6 +238,15 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
           ／ 保存なし
         </span>
       </div>
+      <p aria-label="利用モードと使用状況">
+        現在のモード：{usageMode === "developer" ? "本人限定・開発者試験" : "通常の予約枠"}
+        {` ／ 経過 ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")} ／ ヒント表示 ${generated}回 ／ 生成試行 ${hintAttempts}回（定期更新）`}
+      </p>
+      {usageMode === "developer" && (
+        <p>
+          開始回数・ヒント総回数の固定上限なし。通常の予約枠は消費しません。1接続40分、同時接続1件、生成間隔と費用目安枠による停止は有効です。Googleの実請求上限ではありません。
+        </p>
+      )}
       <fieldset disabled={locked} className={styles.controls}>
         <legend>音声入力と利用枠</legend>
         <label>
@@ -227,6 +258,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
           >
             <option value="trial">5分試験（20ヒントまで）</option>
             <option value="full">40分本番（80ヒントまで）</option>
+            <option value="developer">開発者試験（本人への個別許可が必要）</option>
           </select>
         </label>
         <label>
