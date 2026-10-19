@@ -31,6 +31,7 @@ Use this isolated checkout and the existing local preview D1 binding, always `--
 node scripts/interview/setup-local-relay.mjs
 ./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0002_interview_relay.sql
 ./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0003_interview_developer.sql
+./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file drizzle-d1/0004_interview_learning.sql
 ./node_modules/.bin/wrangler d1 execute skill-compass-preview --env preview --local --file .private/interview/relay-local-budget.sql
 NEXT_DEV_WRANGLER_ENV=preview npm run dev -- --webpack --hostname 127.0.0.1 --port 4320
 ```
@@ -108,3 +109,17 @@ The ticket-and-callback protocol is application code, not a vendor-provided comb
 - Cloud Run container execution and real Google ID-token callbacks passed in the approved production trial. Chrome shared-tab audio produced the expected Japanese question transcript and three structure/clarification hints. No personal microphone was captured. Stop cleared capture and all displayed conversation.
 - The first connection exceeded the old eight-second deadline; reconnect within the same trial succeeded. Cold start is plausible but not established as the cause. The client now allows 20 seconds, within the 30-second ticket lifetime; three regression tests cover delayed readiness, timeout, and immediate manual stop.
 - Other OS/system-audio sources, broader STT/model quality, measured latency/cost, and wall-clock 40-minute endurance remain unverified. The one trial allocation is consumed; do not reset or replenish it automatically.
+
+## Optional text history
+
+Text history is off by default. After migration `0004_interview_learning.sql` and a compatible relay are deployed, set `INTERVIEW_LEARNING_ENABLED=1` to expose the opt-in checkbox. Do not enable the flag with an older relay. No audio is persisted. Mock mode supports the same record pipeline without provider calls; its model is labeled `mock-no-provider`.
+
+Consenting sessions retain final transcript text, the exact prepared Vertex request (bounded context, instruction, model, prompt version and generation settings), output, attempt status and wall-clock latency. A prepared request can fail or abort before network submission; it is not proof that the provider accepted it. Generation success, WebSocket send and visible-page render acknowledgement are separate fields. Render acknowledgement does not prove that the user read the hint. Logging failures show a warning while the audio session continues; history may be incomplete.
+
+`/admin/interview/history` allows the owning active administrator to review, evaluate, export and delete records. Export downloads JSON locally and never reruns a model. Each database read returns at most ten turns and ten generations; export gathers all pages. Avoid exporting an active session if a stable comparison snapshot is required. Session ownership is checked for every operation. Deletion cannot be undone by late relay callbacks.
+
+History expires 30 days after session creation. Expired records immediately disappear from reads and writes. The existing scheduled worker deletes batches of up to 100 expired sessions with cascading children; maintenance mode suspends scheduled deletion. Database backups have independent platform retention. Relay authorization metadata still follows its separate 24-hour cleanup policy.
+
+Rollout order: additive migration, Worker with learning flag off, compatible relay (`/health` returns `learningVersion: 1`), then enable the flag. Rollback by disabling the flag for new sessions and reverting the relay only after consenting sessions finish. Retain the new Worker purge job and schema so existing saved records can still be read/deleted and expire normally. No new storage bucket or IAM role is required.
+
+Local verification: run the `interview-learning`, `interview-relay-store`, and `relay-interview-panel` Vitest suites; run `node --import tsx --test tests/*.test.ts` in `services/interview-relay`. All provider tests inject synthetic responses. Live capture and paid-provider verification must be performed separately using the user's manual Start action.

@@ -1,13 +1,35 @@
 import { GoogleAuth } from "google-auth-library";
-import { hintInstruction, hintLines, type Turn, type HintAdapter } from "../shared.js";
+import {
+  hintInstruction,
+  hintLines,
+  promptVersion,
+  type HintTrace,
+  type Turn,
+  type HintAdapter,
+} from "../shared.js";
 export class MockHints implements HintAdapter {
-  async generate(_turns: Turn[], signal: AbortSignal) {
+  async generate(turns: Turn[], signal: AbortSignal, trace?: (value: HintTrace) => Promise<void>) {
     signal.throwIfAborted();
-    return [
+    if (trace)
+      await trace({
+        request: {
+          model: "mock-no-provider",
+          promptVersion,
+          body: {
+            systemInstruction: { parts: [{ text: hintInstruction }] },
+            contents: [{ role: "user", parts: [{ text: JSON.stringify(boundedContext(turns)) }] }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+          },
+        },
+      });
+    const lines = [
       "質問の確認観点を整理する",
       "自分が実際に経験した例を選ぶ",
       "結論・行動・結果の順で話す",
     ];
+    if (trace) await trace({ output: lines.join("\n") });
+    signal.throwIfAborted();
+    return lines;
   }
 }
 // Conservatively bound the entire prompt in UTF-8 bytes, not only character count.
@@ -30,8 +52,15 @@ export class VertexHints implements HintAdapter {
     if (!/^[a-z][a-z0-9-]{4,62}$/.test(project) || !/^gemini-[a-z0-9.-]+$/.test(model))
       throw new Error("Invalid model config");
   }
-  async generate(turns: Turn[], signal: AbortSignal) {
+  async generate(turns: Turn[], signal: AbortSignal, trace?: (value: HintTrace) => Promise<void>) {
     const token = await this.token();
+    signal.throwIfAborted();
+    const body = {
+      systemInstruction: { parts: [{ text: hintInstruction }] },
+      contents: [{ role: "user", parts: [{ text: JSON.stringify(boundedContext(turns)) }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+    };
+    if (trace) await trace({ request: { model: this.model, promptVersion, body } });
     signal.throwIfAborted();
     const result = await this.request(
       `https://aiplatform.googleapis.com/v1/projects/${this.project}/locations/global/publishers/google/models/${this.model}:generateContent`,
@@ -40,24 +69,20 @@ export class VertexHints implements HintAdapter {
         redirect: "error",
         signal,
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: hintInstruction }] },
-          contents: [{ role: "user", parts: [{ text: JSON.stringify(boundedContext(turns)) }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
-        }),
+        body: JSON.stringify(body),
       },
     );
     if (!result.ok) throw new Error("ヒント生成に失敗しました。");
     const reader = result.body?.getReader();
-    let body = "";
+    let responseBody = "";
     const decoder = new TextDecoder();
     if (!reader) throw new Error("Empty response");
     try {
       for (;;) {
         const part = await reader.read();
         if (part.done) break;
-        body += decoder.decode(part.value, { stream: true });
-        if (body.length > 65_536) {
+        responseBody += decoder.decode(part.value, { stream: true });
+        if (responseBody.length > 65_536) {
           await reader.cancel();
           throw new Error("Response too large");
         }
@@ -65,12 +90,13 @@ export class VertexHints implements HintAdapter {
     } finally {
       reader.releaseLock();
     }
-    const value = JSON.parse(body);
-    return hintLines(
+    const value = JSON.parse(responseBody);
+    const output =
       value.candidates?.[0]?.content?.parts
         ?.filter((p: { thought?: boolean }) => !p.thought)
         .map((p: { text?: string }) => p.text ?? "")
-        .join("\n") ?? "",
-    );
+        .join("\n") ?? "";
+    if (trace) await trace({ output });
+    return hintLines(output);
   }
 }

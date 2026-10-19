@@ -1,14 +1,18 @@
 import { assertInterviewAdmin, InterviewError, type InterviewUser } from "./mock-service";
 import { RelayStore, type Grant, type RelayRow } from "./relay-store";
-export type RelayConfig = { mode: "mock" | "google"; url: string };
+import type { LearningStore } from "./learning-store";
+export type RelayConfig = { mode: "mock" | "google"; url: string; learningEnabled?: boolean };
 export class InterviewRelayService {
   constructor(
     private store: RelayStore,
     private config: RelayConfig,
     private currentUser: (id: string) => Promise<InterviewUser | null>,
+    private learning?: LearningStore,
   ) {}
   async run(operation: string, user: InterviewUser | null, input: Record<string, unknown>) {
     assertInterviewAdmin(user);
+    if (operation === "start" && input.saveLearning === true && !this.config.learningEnabled)
+      throw new InterviewError(503, "履歴保存はまだ利用できません。");
     if (operation === "start")
       return {
         ...(await this.store.ticket(
@@ -18,6 +22,8 @@ export class InterviewRelayService {
             : input.duration === "full"
               ? "full"
               : "trial",
+          undefined,
+          input.saveLearning === true,
         )),
         relayUrl: this.config.url,
         mode: this.config.mode,
@@ -42,6 +48,7 @@ export class InterviewRelayService {
       expiresAt: row.expires_at,
       leaseUntil: row.relay_until,
       mode: this.config.mode,
+      saveLearning: row.save_learning === 1,
     };
   }
   async relay(operation: string, input: Record<string, unknown>) {
@@ -60,6 +67,20 @@ export class InterviewRelayService {
       throw new InterviewError(400, "接続世代が不正です。");
     // Release does not enable any processing, so allow it even after owner demotion.
     if (operation === "release") return this.store.release(id, generation as number, nonce);
+    if (operation === "record") {
+      const row = await this.store.get(id);
+      if (
+        !row ||
+        row.generation !== generation ||
+        row.nonce !== nonce ||
+        row.expires_at <= Date.now() ||
+        row.save_learning !== 1 ||
+        !this.learning
+      )
+        throw new InterviewError(403, "学習ログの保存は許可されていません。");
+      assertInterviewAdmin(await this.currentUser(row.owner));
+      return this.learning.record(id, row.owner, input.event);
+    }
     if (operation !== "lease" && operation !== "hint")
       throw new InterviewError(404, "操作が見つかりません。");
     const row = await this.store.get(id);

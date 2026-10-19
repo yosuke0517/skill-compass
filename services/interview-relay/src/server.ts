@@ -12,7 +12,7 @@ export function relayServer(config: {
   const http = createServer((req, res) => {
     res.setHeader("cache-control", "no-store");
     res.writeHead(req.url === "/health" ? 200 : 404);
-    res.end(req.url === "/health" ? "ok" : "not found");
+    res.end(req.url === "/health" ? JSON.stringify({ ok: true, learningVersion: 1 }) : "not found");
   });
   http.headersTimeout = 5_000;
   http.requestTimeout = 5_000;

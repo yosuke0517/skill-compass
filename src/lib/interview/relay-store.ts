@@ -20,6 +20,7 @@ export type RelayRow = {
   state: string;
   created_at: number;
   usage_mode: "standard" | "developer";
+  save_learning: number;
 };
 export type Grant = {
   id: string;
@@ -29,6 +30,7 @@ export type Grant = {
   expiresAt: number;
   leaseUntil: number;
   mode: "mock" | "google";
+  saveLearning?: boolean;
 };
 const fail = () =>
   new InterviewError(410, "利用枠・接続が失効しました。再接続条件を確認してください。");
@@ -49,7 +51,12 @@ export class RelayStore {
     private db: SqlDatabase,
     private now = Date.now,
   ) {}
-  async ticket(owner: string, duration: "trial" | "full" | "developer", id?: string) {
+  async ticket(
+    owner: string,
+    duration: "trial" | "full" | "developer",
+    id?: string,
+    saveLearning = false,
+  ) {
     const now = this.now(),
       code = randomCode(),
       hash = await codeHash(code);
@@ -73,8 +80,8 @@ export class RelayStore {
         row = await this.db
           .prepare(
             `INSERT INTO interview_relay_sessions
-          (id,owner,created_at,expires_at,heartbeat,generation,code_hash,code_expires,hint_limit,usage_mode,charged_until)
-          VALUES (?,?,?,?,?,1,?,?,?,?,?) RETURNING *`,
+          (id,owner,created_at,expires_at,heartbeat,generation,code_hash,code_expires,hint_limit,usage_mode,charged_until,save_learning)
+          VALUES (?,?,?,?,?,1,?,?,?,?,?,?) RETURNING *`,
           )
           .bind(
             crypto.randomUUID(),
@@ -87,6 +94,7 @@ export class RelayStore {
             hints,
             duration === "developer" ? "developer" : "standard",
             now,
+            saveLearning ? 1 : 0,
           )
           .first<RelayRow>();
       } catch {
@@ -106,6 +114,7 @@ export class RelayStore {
       usageMode: row.usage_mode,
       hintAttempts: row.hints,
       hintLimit: row.usage_mode === "developer" ? null : row.hint_limit,
+      saveLearning: row.save_learning === 1,
     };
   }
   async pulse(id: string, owner: string) {

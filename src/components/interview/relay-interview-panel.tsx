@@ -5,6 +5,7 @@ import { connectRelay, type RelayTransport } from "@/lib/interview/relay-client"
 import styles from "./interview.module.css";
 type Session = {
   id: string;
+  saveLearning?: boolean;
   expiresAt: number;
   startedAt?: number;
   usageMode?: "standard" | "developer";
@@ -12,7 +13,16 @@ type Session = {
   hintLimit?: number | null;
 };
 type Ticket = Session & { ticket: string; relayUrl: string };
-export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "google" }) {
+export function RelayInterviewPanel({
+  providerMode,
+  learningEnabled = false,
+}: {
+  providerMode: "mock" | "google";
+  learningEnabled?: boolean;
+}) {
+  const [saveLearning, setSaveLearning] = useState(false);
+  const [displayedGeneration, setDisplayedGeneration] = useState<string>();
+  const [saving, setSaving] = useState(false);
   const [capturing, setCapturing] = useState(false),
     [status, setStatus] = useState("停止中"),
     [error, setError] = useState(""),
@@ -80,6 +90,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
     setStatus("停止中");
     setTurns([]);
     setLines([]);
+    setDisplayedGeneration(undefined);
     setDraft("");
     setRemaining(0);
     setError("");
@@ -100,6 +111,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
     setStatus("接続中");
     setError("");
     setLines([]);
+    setDisplayedGeneration(undefined);
     const abort = new AbortController();
     control.current = abort;
     try {
@@ -123,7 +135,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
       const old = session.current;
       const reply = await api(
         reconnect && old ? "reconnect" : "start",
-        reconnect && old ? { id: old.id } : { duration },
+        reconnect && old ? { id: old.id } : { duration, saveLearning },
         abort.signal,
       );
       if (current !== epoch.current) {
@@ -131,6 +143,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
         return;
       }
       session.current = reply;
+      setSaving(reply.saveLearning === true);
       setUsageMode(reply.usageMode ?? "standard");
       setElapsed(Math.max(0, Math.floor((Date.now() - (reply.startedAt ?? Date.now())) / 1000)));
       setHintAttempts(reply.hintAttempts ?? 0);
@@ -151,6 +164,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
           }
           if (event.type === "hints") {
             setLines(event.lines);
+            setDisplayedGeneration(event.generationId);
             setGenerated((n) => n + 1);
           }
           if (event.type === "warning") setError(event.message);
@@ -185,6 +199,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
         setDraft("");
         setTurns([]);
         setLines([]);
+        setDisplayedGeneration(undefined);
         setError("利用時間の上限で停止しました。再接続で延長はできません。");
       }
     }, 1000);
@@ -215,6 +230,29 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
     }, 15000);
     return () => clearInterval(timer);
   }, [active, pause]);
+  useEffect(() => {
+    const current = session.current;
+    if (!displayedGeneration || !current?.saveLearning || !active) return;
+    const acknowledge = () => {
+      if (document.visibilityState !== "visible") return;
+      void fetch("/api/admin/interview-learning/displayed", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: current.id, generationId: displayedGeneration }),
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error();
+        })
+        .catch(() => setError("画面反映の記録を保存できませんでした。"));
+    };
+    const frame = requestAnimationFrame(acknowledge);
+    document.addEventListener("visibilitychange", acknowledge);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", acknowledge);
+    };
+  }, [displayedGeneration, active]);
   return (
     <div className={styles.panel}>
       <header>
@@ -235,7 +273,7 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
           {remaining > 0
             ? `残り ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`
             : "手動で開始"}{" "}
-          ／ 保存なし
+          ／ {saving && locked ? "文字の保存あり" : "保存なし"}
         </span>
       </div>
       <p aria-label="利用モードと使用状況">
@@ -249,6 +287,19 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
       )}
       <fieldset disabled={locked} className={styles.controls}>
         <legend>音声入力と利用枠</legend>
+        <label>
+          <input
+            type="checkbox"
+            checked={saveLearning}
+            disabled={!learningEnabled}
+            onChange={(e) => setSaveLearning(e.target.checked)}
+          />
+          文字の履歴を30日保存する（任意）
+        </label>
+        <p>
+          保存する場合：確定した文字起こし、モデルへの入力、ヒントと評価を保存します。音声は保存しません。
+          {!learningEnabled && "履歴保存は準備中です。"}
+        </p>
         <label>
           利用時間
           <select
@@ -375,8 +426,9 @@ export function RelayInterviewPanel({ providerMode }: { providerMode: "mock" | "
           )}
         </section>
       </div>
+      <a href="/admin/interview/history">保存した履歴・評価を見る</a>
       <p className={styles.footer}>
-        録音・文字起こしの永続保存なし。停止で表示を消去。回答の代作・自動発話は行いません。再接続までの音声は復元されません。
+        音声の保存なし。文字の保存は開始前に選択した場合のみ30日間。停止は表示を消去し、保存済み履歴は履歴画面から削除できます。回答の代作・自動発話は行いません。再接続までの音声は復元されません。
       </p>
     </div>
   );

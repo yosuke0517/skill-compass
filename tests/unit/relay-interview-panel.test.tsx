@@ -29,6 +29,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("relay panel", () => {
+  it("starts with saving off and requires an explicit checkbox choice", async () => {
+    render(<RelayInterviewPanel providerMode="mock" learningEnabled />);
+    const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByText("開始", { exact: true }));
+    await screen.findByText("実行中", { exact: true });
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).saveLearning).toBe(true);
+    expect(checkbox.matches(":disabled")).toBe(true);
+  });
+
   it("shows server-confirmed developer mode, elapsed time and generated hint count", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       Response.json({
@@ -72,6 +83,7 @@ describe("relay panel", () => {
     fireEvent.click(screen.getByText("開始", { exact: true }));
     fireEvent.click(screen.getByText("開始", { exact: true }));
     expect(fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).saveLearning).toBe(false);
     resolve(
       Response.json({
         id: "session",

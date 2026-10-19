@@ -3,6 +3,7 @@ import { getCurrentUserById } from "@/lib/access/current-user";
 import { InterviewRelayService } from "./relay-service";
 import { RelayStore } from "./relay-store";
 import { createRelayIdentityVerifier } from "./identity";
+import { LearningStore } from "./learning-store";
 export function relaySettings() {
   const mode = process.env.INTERVIEW_RELAY_MODE;
   if (mode !== "mock" && mode !== "google") return null;
@@ -27,6 +28,7 @@ export function relaySettings() {
   const keys = local ? JSON.parse(process.env.INTERVIEW_LOCAL_JWKS ?? "null") : undefined;
   if (local && !keys) throw new Error("Local identity keys required");
   return {
+    learningEnabled: process.env.INTERVIEW_LEARNING_ENABLED === "1",
     mode: mode as "mock" | "google",
     url: url.href,
     audience: audience.href,
@@ -39,7 +41,12 @@ export async function relayRuntime() {
   if (!config) return null;
   const { env } = await getCloudflareContext({ async: true });
   return {
-    service: new InterviewRelayService(new RelayStore(env.DB), config, getCurrentUserById),
+    service: new InterviewRelayService(
+      new RelayStore(env.DB),
+      config,
+      getCurrentUserById,
+      new LearningStore(env.DB),
+    ),
     verify: createRelayIdentityVerifier(config),
   };
 }

@@ -5,5 +5,9 @@ import { RelayInterviewPanel } from "@/components/interview/relay-interview-pane
 export default async function InterviewPage() {
   await requireAdmin();
   const settings = relaySettings();
-  return settings ? <RelayInterviewPanel providerMode={settings.mode} /> : <InterviewPanel />;
+  return settings ? (
+    <RelayInterviewPanel providerMode={settings.mode} learningEnabled={settings.learningEnabled} />
+  ) : (
+    <InterviewPanel />
+  );
 }

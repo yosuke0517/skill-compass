@@ -15,6 +15,7 @@ export class RelayConnection {
   private hintTimer?: ReturnType<typeof setTimeout>;
   private history: Turn[] = [];
   private hintBusy = false;
+  private hintTask?: Promise<void>;
   private hintVersion = 0;
   private lastHint = -Infinity;
   private sequence = 0;
@@ -23,6 +24,36 @@ export class RelayConnection {
   private messages = 0;
   private startedAt = Date.now();
   private totalBytes = 0;
+  private turnIds: string[] = [];
+  private records: Promise<void> = Promise.resolve();
+  private recordPending = 0;
+  private async record(event: object) {
+    if (!this.grant?.saveLearning) return;
+    if (this.recordPending >= 32) {
+      this.wire.send({
+        type: "warning",
+        message: "学習ログ保存が混雑しています。一部の記録を保存できません。",
+      });
+      return;
+    }
+    const claim = this.claim();
+    this.recordPending++;
+    this.records = this.records
+      .then(async () => {
+        await this.authority.call("record", { ...claim, event }, AbortSignal.timeout(4000));
+      })
+      .catch(() => {
+        if (this.alive())
+          this.wire.send({
+            type: "warning",
+            message: "学習ログを保存できませんでした。履歴に欠落がある可能性があります。",
+          });
+      })
+      .finally(() => {
+        this.recordPending--;
+      });
+    await this.records;
+  }
   constructor(
     private wire: Wire,
     private authority: Authority,
@@ -164,6 +195,11 @@ export class RelayConnection {
     if (!text) return;
     this.wire.send({ ...event, text });
     if (event.final) {
+      if (this.grant?.saveLearning) {
+        const turnId = randomUUID();
+        this.turnIds = [...this.turnIds, turnId].slice(-6);
+        void this.record({ kind: "turn", eventId: turnId, source: event.source, text: event.text });
+      }
       this.history = [...this.history, { source: event.source, text: text.slice(-500) }].slice(-6);
       this.hintVersion++;
       this.scheduleHint();
@@ -174,7 +210,7 @@ export class RelayConnection {
     if (this.hintBusy) return;
     this.hintTimer = setTimeout(
       () => {
-        void this.generateHint();
+        this.hintTask = this.generateHint();
       },
       Math.max(300, 2500 - (this.now() - this.lastHint)),
     );
@@ -183,6 +219,12 @@ export class RelayConnection {
     if (!this.alive() || this.hintBusy) return;
     this.hintBusy = true;
     const version = this.hintVersion;
+    const generationId = randomUUID();
+    const turnIds = [...this.turnIds];
+    const turns = [...this.history];
+    const started = this.now();
+    let output: string | undefined;
+    let requested = false;
     const controller = new AbortController();
     this.pendingHint = controller;
     const timeout = setTimeout(() => {
@@ -198,10 +240,49 @@ export class RelayConnection {
       signal.throwIfAborted();
       if (!this.alive()) return;
       this.lastHint = this.now();
-      const lines = await this.hints!.generate([...this.history], signal);
-      if (this.alive() && !signal.aborted && version === this.hintVersion)
-        this.wire.send({ type: "hints", lines });
+      const lines = await this.hints!.generate(
+        turns,
+        signal,
+        this.grant?.saveLearning
+          ? async (trace) => {
+              if (trace.request) {
+                requested = true;
+                await this.record({
+                  kind: "request",
+                  eventId: generationId,
+                  turnIds,
+                  request: trace.request,
+                });
+              }
+              if (trace.output !== undefined) output = trace.output;
+            }
+          : undefined,
+      );
+      if (requested)
+        await this.record({
+          kind: "result",
+          eventId: generationId,
+          status: "success",
+          lines,
+          output,
+          errorCode: null,
+          latencyMs: Math.max(0, this.now() - started),
+        });
+      if (this.alive() && !signal.aborted && version === this.hintVersion) {
+        this.wire.send({ type: "hints", lines, ...(requested ? { generationId } : {}) });
+        if (requested) await this.record({ kind: "sent", eventId: generationId });
+      }
     } catch {
+      if (requested)
+        await this.record({
+          kind: "result",
+          eventId: generationId,
+          status: signal.aborted ? "aborted" : "error",
+          lines: [],
+          output,
+          errorCode: signal.aborted ? "ABORTED" : "GENERATION_FAILED",
+          latencyMs: Math.max(0, this.now() - started),
+        });
       if (this.alive() && !signal.aborted)
         this.wire.send({
           type: "warning",
@@ -221,6 +302,7 @@ export class RelayConnection {
       g.generation !== old.generation ||
       g.nonce !== old.nonce ||
       g.mode !== old.mode ||
+      g.saveLearning !== old.saveLearning ||
       g.expiresAt !== old.expiresAt ||
       g.leaseUntil > this.now() + 30_500
     )
@@ -261,8 +343,17 @@ export class RelayConnection {
     clearInterval(this.timer);
     this.stream?.close();
     this.history = [];
+    this.turnIds = [];
     this.wire.close();
-    if (this.grant)
-      void this.authority.call("release", this.claim(), AbortSignal.timeout(4_000)).catch(() => {});
+    if (this.grant) {
+      const release = () =>
+        this.authority.call("release", this.claim(), AbortSignal.timeout(4_000));
+      if (this.grant.saveLearning)
+        void Promise.resolve(this.hintTask)
+          .then(() => this.records)
+          .then(release)
+          .catch(() => {});
+      else void release().catch(() => {});
+    }
   }
 }

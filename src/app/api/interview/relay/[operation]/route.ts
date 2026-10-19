@@ -8,8 +8,9 @@ export async function POST(request: Request, context: { params: Promise<{ operat
     const runtime = await relayRuntime();
     if (!runtime) return json({ error: "中継は無効です。" }, 503);
     await runtime.verify(request);
-    const input = await readInterviewJson(request, 4_096);
-    return json(await runtime.service.relay((await context.params).operation, input));
+    const operation = (await context.params).operation;
+    const input = await readInterviewJson(request, operation === "record" ? 131072 : 4_096);
+    return json(await runtime.service.relay(operation, input));
   } catch (e) {
     return json(
       { error: e instanceof InterviewError ? e.message : "中継接続を確認できません。" },

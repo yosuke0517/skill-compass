@@ -1,6 +1,6 @@
 export type RelayEvent =
   | { type: "transcript"; text: string; final: boolean }
-  | { type: "hints"; lines: string[] }
+  | { type: "hints"; lines: string[]; generationId?: string }
   | { type: "warning"; message: string };
 export type RelayTransport = {
   audio(buffer: ArrayBuffer): void;
