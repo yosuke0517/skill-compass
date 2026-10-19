@@ -48,6 +48,88 @@ function setup() {
     },
   };
 }
+describe("start diagnostics without granting access", () => {
+  it("recognizes a D1 wrapped trigger error without exposing wrapper details", async () => {
+    const db: SqlDatabase = {
+      prepare() {
+        return {
+          bind() {
+            return this;
+          },
+          async run() {
+            return {};
+          },
+          async first() {
+            throw new Error("D1 query failed", {
+              cause: new Error("allowance exhausted: SQLITE_CONSTRAINT"),
+            });
+          },
+        };
+      },
+    };
+    await expect(new RelayStore(db).ticket("owner", "trial")).rejects.toMatchObject({
+      status: 409,
+      code: "STANDARD_ALLOWANCE_EXHAUSTED",
+    });
+  });
+
+  it("reports available modes using the exact owner and does not spend quota", async () => {
+    const { store, sql } = setup();
+    sql.exec(
+      "UPDATE interview_relay_allowance SET duration_remaining=0,hints_remaining=0; INSERT INTO interview_relay_developers VALUES('admin',1,15000)",
+    );
+    expect(await store.availability("admin")).toEqual({
+      trial: false,
+      full: false,
+      developer: true,
+    });
+    expect(await store.availability("other")).toEqual({
+      trial: false,
+      full: false,
+      developer: false,
+    });
+    expect(
+      sql.prepare("SELECT budget_microusd FROM interview_relay_developers").get()?.budget_microusd,
+    ).toBe(15000);
+    expect(sql.prepare("SELECT count(*) n FROM interview_relay_sessions").get()?.n).toBe(0);
+  });
+  it("separates standard allowance, developer permission and developer budget failures", async () => {
+    const { store, sql } = setup();
+    sql.exec("UPDATE interview_relay_allowance SET duration_remaining=0,hints_remaining=0");
+    await expect(store.ticket("admin", "trial")).rejects.toMatchObject({
+      status: 409,
+      code: "STANDARD_ALLOWANCE_EXHAUSTED",
+    });
+    await expect(store.ticket("admin", "developer")).rejects.toMatchObject({
+      code: "DEVELOPER_NOT_ALLOWED",
+    });
+    sql.exec("INSERT INTO interview_relay_developers VALUES('admin',1,14999)");
+    await expect(store.ticket("admin", "developer")).rejects.toMatchObject({
+      code: "DEVELOPER_BUDGET_EXHAUSTED",
+    });
+  });
+  it("identifies an active connection without stopping it", async () => {
+    const { store, sql } = setup();
+    const session = await store.ticket("admin", "trial");
+    await expect(store.ticket("admin", "trial")).rejects.toMatchObject({ code: "ACTIVE_SESSION" });
+    expect(
+      sql.prepare("SELECT state FROM interview_relay_sessions WHERE id=?").get(session.id)?.state,
+    ).toBe("active");
+  });
+  it("does not disguise database faults as allowance errors or expose raw details", async () => {
+    const { store, sql } = setup();
+    sql.exec(
+      "CREATE TRIGGER broken_storage BEFORE INSERT ON interview_relay_sessions BEGIN SELECT RAISE(ABORT,'synthetic private database detail'); END",
+    );
+    await expect(store.ticket("admin", "trial")).rejects.toMatchObject({
+      status: 503,
+      code: "START_DATABASE_ERROR",
+    });
+    await expect(store.ticket("admin", "trial")).rejects.not.toThrow(
+      "synthetic private database detail",
+    );
+  });
+});
 describe("relay SQLite authorization and budget", () => {
   it("grants nobody on migration and rejects role/email/owner/developer claims from other admins", async () => {
     const { service, sql } = setup();

@@ -29,6 +29,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("relay panel", () => {
+  it("uses the server-authorized initial mode and exposes a safe failure code", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json(
+        { error: "通常利用枠が不足しています。", code: "STANDARD_ALLOWANCE_EXHAUSTED" },
+        { status: 409 },
+      ),
+    );
+    render(<RelayInterviewPanel providerMode="mock" initialDuration="developer" />);
+    expect(screen.getByLabelText("利用時間")).toHaveProperty("value", "developer");
+    fireEvent.click(screen.getByText("開始", { exact: true }));
+    await screen.findByText("一時停止", { exact: true });
+    expect(screen.getByRole("alert").textContent).toContain("STANDARD_ALLOWANCE_EXHAUSTED");
+    expect(screen.getByRole("alert").textContent).toContain("利用時間を選び直せます");
+    expect(connectRelay).not.toHaveBeenCalled();
+  });
+
   it("starts with saving off and requires an explicit checkbox choice", async () => {
     render(<RelayInterviewPanel providerMode="mock" learningEnabled />);
     const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
@@ -55,7 +71,9 @@ describe("relay panel", () => {
     );
     render(<RelayInterviewPanel providerMode="mock" />);
     fireEvent.change(screen.getByLabelText("利用時間"), { target: { value: "developer" } });
-    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain("通常の予約枠");
+    expect(screen.getByLabelText("利用モードと使用状況").textContent).toContain(
+      "開発者試験（開始前）",
+    );
     fireEvent.click(screen.getByText("開始", { exact: true }));
     await screen.findByText("実行中", { exact: true });
     expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).duration).toBe(

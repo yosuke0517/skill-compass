@@ -16,9 +16,11 @@ type Ticket = Session & { ticket: string; relayUrl: string };
 export function RelayInterviewPanel({
   providerMode,
   learningEnabled = false,
+  initialDuration = "trial",
 }: {
   providerMode: "mock" | "google";
   learningEnabled?: boolean;
+  initialDuration?: "trial" | "developer";
 }) {
   const [saveLearning, setSaveLearning] = useState(false);
   const [displayedGeneration, setDisplayedGeneration] = useState<string>();
@@ -26,7 +28,7 @@ export function RelayInterviewPanel({
   const [capturing, setCapturing] = useState(false),
     [status, setStatus] = useState("停止中"),
     [error, setError] = useState(""),
-    [duration, setDuration] = useState("trial");
+    [duration, setDuration] = useState<string>(initialDuration);
   const [input, setInput] = useState(providerMode === "mock" ? "sample" : "display"),
     [device, setDevice] = useState(""),
     [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -58,7 +60,10 @@ export function RelayInterviewPanel({
         : AbortSignal.timeout(8_000),
     });
     const value = await response.json();
-    if (!response.ok) throw new Error(value.error ?? "接続に失敗しました。");
+    if (!response.ok)
+      throw new Error(
+        (value.error ?? "接続に失敗しました。") + (value.code ? ` [${value.code}]` : ""),
+      );
     return value as Ticket;
   }
   const release = useCallback(() => {
@@ -77,7 +82,12 @@ export function RelayInterviewPanel({
       release();
       busy.current = false;
       setStatus("一時停止");
-      setError(message + " 音声取得は停止済みです。再接続では会話文脈を引き継ぎません。");
+      setError(
+        message +
+          (session.current
+            ? " 音声取得は停止済みです。再接続では会話文脈を引き継ぎません。"
+            : " 音声取得は停止済みです。停止ボタンで戻ると利用時間を選び直せます。"),
+      );
     },
     [release],
   );
@@ -277,7 +287,16 @@ export function RelayInterviewPanel({
         </span>
       </div>
       <p aria-label="利用モードと使用状況">
-        現在のモード：{usageMode === "developer" ? "本人限定・開発者試験" : "通常の予約枠"}
+        現在のモード：
+        {locked && remaining > 0
+          ? usageMode === "developer"
+            ? "本人限定・開発者試験"
+            : "通常の予約枠"
+          : duration === "developer"
+            ? "開発者試験（開始前）"
+            : duration === "full"
+              ? "40分本番（開始前）"
+              : "5分試験（開始前）"}
         {` ／ 経過 ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")} ／ ヒント表示 ${generated}回 ／ 生成試行 ${hintAttempts}回（定期更新）`}
       </p>
       {usageMode === "developer" && (
@@ -309,7 +328,7 @@ export function RelayInterviewPanel({
           >
             <option value="trial">5分試験（20ヒントまで）</option>
             <option value="full">40分本番（80ヒントまで）</option>
-            <option value="developer">開発者試験（本人への個別許可が必要）</option>
+            <option value="developer">開発者試験（40分・本人への個別許可が必要）</option>
           </select>
         </label>
         <label>

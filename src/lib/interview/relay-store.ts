@@ -51,6 +51,18 @@ export class RelayStore {
     private db: SqlDatabase,
     private now = Date.now,
   ) {}
+  async availability(owner: string) {
+    const row = await this.db
+      .prepare(
+        `SELECT
+      EXISTS(SELECT 1 FROM interview_relay_allowance WHERE id=1 AND duration_remaining>=300000 AND hints_remaining>=20) AS trial,
+      EXISTS(SELECT 1 FROM interview_relay_allowance WHERE id=1 AND duration_remaining>=2400000 AND hints_remaining>=80) AS full,
+      EXISTS(SELECT 1 FROM interview_relay_developers WHERE user_id=? AND enabled=1 AND budget_microusd>=15000) AS developer`,
+      )
+      .bind(owner)
+      .first<{ trial: number; full: number; developer: number }>();
+    return { trial: row?.trial === 1, full: row?.full === 1, developer: row?.developer === 1 };
+  }
   async ticket(
     owner: string,
     duration: "trial" | "full" | "developer",
@@ -97,10 +109,56 @@ export class RelayStore {
             saveLearning ? 1 : 0,
           )
           .first<RelayRow>();
-      } catch {
+      } catch (error) {
+        // Only classify known trigger messages; never return raw SQL, credentials or user IDs.
+        const messages: string[] = [];
+        let cause: unknown = error;
+        for (let depth = 0; depth < 4 && cause instanceof Error; depth++) {
+          messages.push(cause.message);
+          cause = cause.cause;
+        }
+        const message = messages.join("\n");
+        if (/active session/.test(message))
+          throw new InterviewError(
+            409,
+            "別の接続がまだ有効です。使用中の画面で停止するか、接続確認の期限が切れてから開始してください。",
+            "ACTIVE_SESSION",
+          );
+        if (/allowance exhausted/.test(message))
+          throw new InterviewError(
+            409,
+            `${duration === "trial" ? "5分試験" : "40分本番"}の通常利用枠が不足しています。開発者試験の許可がある場合は、停止して利用時間を選び直してください。`,
+            "STANDARD_ALLOWANCE_EXHAUSTED",
+          );
+        if (/developer access or estimate budget unavailable/.test(message)) {
+          const access = await this.db
+            .prepare(
+              "SELECT enabled,budget_microusd FROM interview_relay_developers WHERE user_id=?",
+            )
+            .bind(owner)
+            .first<{ enabled: number; budget_microusd: number }>();
+          if (!access || access.enabled !== 1)
+            throw new InterviewError(
+              409,
+              "このアカウントには開発者試験の個別許可がありません。",
+              "DEVELOPER_NOT_ALLOWED",
+            );
+          if (access.budget_microusd < 15000)
+            throw new InterviewError(
+              409,
+              "開発者試験の費用目安枠が開始に必要な額を下回っています。",
+              "DEVELOPER_BUDGET_EXHAUSTED",
+            );
+          throw new InterviewError(
+            409,
+            "開発者試験の許可または費用目安枠が開始時に変更されました。",
+            "DEVELOPER_ACCESS_CHANGED",
+          );
+        }
         throw new InterviewError(
-          409,
-          "利用枠・開発者許可・費用目安枠が不足しているか、接続が残っています。",
+          503,
+          "開始情報をデータベースに保存できませんでした。利用枠不足とは別のサーバーエラーです。",
+          "START_DATABASE_ERROR",
         );
       }
     }

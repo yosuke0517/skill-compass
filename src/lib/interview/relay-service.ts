@@ -11,6 +11,7 @@ export class InterviewRelayService {
   ) {}
   async run(operation: string, user: InterviewUser | null, input: Record<string, unknown>) {
     assertInterviewAdmin(user);
+    if (operation === "status") return this.store.availability(user.id);
     if (operation === "start" && input.saveLearning === true && !this.config.learningEnabled)
       throw new InterviewError(503, "履歴保存はまだ利用できません。");
     if (operation === "start")

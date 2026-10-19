@@ -5,7 +5,7 @@ import {
   assertInterviewAdmin,
   type InterviewUser,
 } from "./mock-service";
-const operations = new Set(["start", "stop", "reconnect", "pulse", "audio", "hint"]);
+const operations = new Set(["start", "stop", "reconnect", "pulse", "audio", "hint", "status"]);
 export function createInterviewHandler(deps: {
   user: () => Promise<InterviewUser | null>;
   enabled: () => boolean;
@@ -38,7 +38,11 @@ export function createInterviewHandler(deps: {
       const input = await readInterviewJson(request);
       return json(await deps.service.run(operation, user, input as Record<string, unknown>));
     } catch (error) {
-      if (error instanceof InterviewError) return json({ error: error.message }, error.status);
+      if (error instanceof InterviewError)
+        return json(
+          { error: error.message, ...(error.code ? { code: error.code } : {}) },
+          error.status,
+        );
       return json({ error: "接続を確認できません。停止して再試行してください。" }, 503);
     }
   };

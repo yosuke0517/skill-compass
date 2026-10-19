@@ -1,11 +1,18 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
-import { InterviewMockService, INTERVIEW_DURATION_MS } from "@/lib/interview/mock-service";
+import { InterviewMockService, InterviewError, INTERVIEW_DURATION_MS } from "@/lib/interview/mock-service";
 import { createInterviewHandler } from "@/lib/interview/http";
 const admin = { id: "a", role: "admin", entitlements: new Set(["access.manage"]) };
-const operations = ["start", "stop", "reconnect", "pulse", "audio", "hint"];
+const operations = ["start", "stop", "reconnect", "pulse", "audio", "hint", "status"];
 const req = (body: object, origin = "http://localhost:3000") => new Request("http://localhost:3000/api/admin/interview/start", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(body) });
 describe("interview authorization boundary", () => {
+  it("returns safe machine-readable start failure codes", async () => {
+    const handler=createInterviewHandler({user:async()=>admin,enabled:()=>true,service:{run:async()=>{throw new InterviewError(503,"開始情報を保存できません。","START_DATABASE_ERROR");}}});
+    const response=await handler(req({duration:"developer"}),"start");
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({error:"開始情報を保存できません。",code:"START_DATABASE_ERROR"});
+  });
+
   for (const user of [null, { ...admin, role: "normal", plan: "free" }, { ...admin, role: "normal", plan: "pro" }, { ...admin, entitlements: new Set<string>() }]) {
     for (const operation of operations) it(`rejects ${user?.role ?? "anonymous"}/${user && "plan" in user ? user.plan : "-"} at ${operation}`, async () => {
       const service = new InterviewMockService(); const run = vi.spyOn(service, "run");
@@ -20,7 +27,7 @@ describe("interview authorization boundary", () => {
     const started = await (await handler(req({}), "start")).json();
     user = { ...admin, role: "normal" };
     for (const operation of operations) expect((await handler(req({ id: started.id }), operation)).status).toBe(403);
-    expect(lookup).toHaveBeenCalledTimes(7);
+    expect(lookup).toHaveBeenCalledTimes(8);
   });
   it("rejects cross-origin, oversized bodies, malformed JSON, disabled deployment", async () => {
     const deps = { user: async () => admin, service: new InterviewMockService(), enabled: () => true };

@@ -4,7 +4,7 @@ export const INTERVIEW_DURATION_MS = 40 * 60_000;
 export type InterviewUser = { id: string; role: string; entitlements: ReadonlySet<string> };
 type Session = { id: string; owner: string; expiresAt: number; touched: number; hints: number; lastHint: number; sequence: number };
 export class InterviewError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 export function assertInterviewAdmin(user: InterviewUser | null): asserts user is InterviewUser {
   if (!user) throw new InterviewError(401, "ログインしてください。");
