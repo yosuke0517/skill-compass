@@ -22,6 +22,7 @@ export function createInterviewHandler(deps: {
   return async (request: Request, operation: string): Promise<Response> => {
     const json = (value: unknown, status = 200) =>
       Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
+    let stage = "IDENTITY_LOOKUP_UNAVAILABLE";
     try {
       const user = await deps.user(); // Always server session + fresh DB access; never a body role.
       assertInterviewAdmin(user);
@@ -36,6 +37,7 @@ export function createInterviewHandler(deps: {
         return json({ error: "本接続は準備中です。ローカルのモックで確認してください。" }, 503);
       if (!operations.has(operation)) return json({ error: "操作が見つかりません。" }, 404);
       const input = await readInterviewJson(request);
+      stage = "CONFIRMATION_DATABASE_UNAVAILABLE";
       return json(await deps.service.run(operation, user, input as Record<string, unknown>));
     } catch (error) {
       if (error instanceof InterviewError)
@@ -43,7 +45,10 @@ export function createInterviewHandler(deps: {
           { error: error.message, ...(error.code ? { code: error.code } : {}) },
           error.status,
         );
-      return json({ error: "接続を確認できません。停止して再試行してください。" }, 503);
+      return json(
+        { error: "接続を確認できません。停止して再試行してください。", code: stage },
+        503,
+      );
     }
   };
 }

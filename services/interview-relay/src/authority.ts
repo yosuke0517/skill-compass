@@ -68,6 +68,16 @@ export function localTokens(audience: string, subject: string, key: string) {
     return value + "." + createSign("RSA-SHA256").update(value).sign(key, "base64url");
   });
 }
+export class AuthorityError extends Error {
+  constructor(public status: number) {
+    super(`Authority HTTP ${status}`);
+  }
+}
+export function retryableAuthority(error: unknown) {
+  return error instanceof AuthorityError
+    ? [502, 503, 504].includes(error.status)
+    : error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError");
+}
 export class WorkerAuthority implements Authority {
   constructor(
     private audience: string,
@@ -88,8 +98,7 @@ export class WorkerAuthority implements Authority {
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify(input),
     });
-    if (!response.ok)
-      throw new Error("利用許可を確認できません。停止または利用枠を確認してください。");
+    if (!response.ok) throw new AuthorityError(response.status);
     const value = (await response.json()) as Grant;
     if (operation === "release" || operation === "record" || operation === "end") return value;
     if (

@@ -27,7 +27,7 @@ export async function POST(request: Request, context: { params: Promise<{ operat
     return handle(request, (await context.params).operation);
   } catch {
     return Response.json(
-      { error: "中継設定を確認できません。" },
+      { error: "中継設定を確認できません。", code: "RUNTIME_UNAVAILABLE" },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }

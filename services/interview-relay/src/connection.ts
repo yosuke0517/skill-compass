@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
-import type { Authority, Grant } from "./authority.js";
+import { retryableAuthority, type Authority, type Grant } from "./authority.js";
 import type { SpeechAdapter, SpeechStream, HintAdapter, Turn, Event } from "./shared.js";
 type EndReason =
   | "CLIENT_STOP"
+  | "CLIENT_ABORTED"
+  | "CLIENT_CAPTURE_ENDED"
+  | "CLIENT_TRANSPORT_ERROR"
+  | "HEARTBEAT_UNAVAILABLE"
+  | "AUTHORIZATION_FAILED"
   | "CLIENT_DISCONNECTED"
   | "SESSION_LIMIT"
   | "LEASE_EXPIRED"
@@ -18,6 +23,7 @@ export class RelayConnection {
   private timer?: ReturnType<typeof setTimeout>;
   private deadline: ReturnType<typeof setTimeout>;
   private leaseBusy = false;
+  private leaseFailures = 0;
   private abort = new AbortController();
   private pendingHint?: AbortController;
   private hintTimer?: ReturnType<typeof setTimeout>;
@@ -111,7 +117,9 @@ export class RelayConnection {
     const remaining = Math.min(this.grant!.leaseUntil, this.grant!.expiresAt) - this.now();
     this.timer = setTimeout(
       () => void this.checkLease(),
-      Math.max(1000, Math.min(this.leaseInterval, remaining - 8000)),
+      this.leaseFailures
+        ? 500 * this.leaseFailures
+        : Math.max(1000, Math.min(this.leaseInterval, remaining - 8000)),
     );
   }
   async message(raw: Buffer, isBinary: boolean) {
@@ -191,7 +199,22 @@ export class RelayConnection {
         if (raw.length > 4096) throw new Error("要求が大きすぎます。");
         const data = JSON.parse(raw.toString());
         if (data.type === "stop") {
-          this.close("CLIENT_STOP");
+          const allowed: EndReason[] = [
+            "CLIENT_STOP",
+            "CLIENT_ABORTED",
+            "CLIENT_CAPTURE_ENDED",
+            "CLIENT_TRANSPORT_ERROR",
+            "HEARTBEAT_UNAVAILABLE",
+            "AUTHORIZATION_FAILED",
+            "SESSION_LIMIT",
+          ];
+          this.close(
+            allowed.includes(data.reason)
+              ? data.reason
+              : data.reason === undefined
+                ? "CLIENT_STOP"
+                : "CLIENT_DISCONNECTED",
+          );
           return;
         }
         if (
@@ -350,8 +373,13 @@ export class RelayConnection {
     this.leaseBusy = true;
     try {
       const g = await this.authority.call("lease", this.claim(), this.abort.signal);
-      if (!this.abort.signal.aborted) this.acceptLease(g);
-    } catch {
+      if (!this.abort.signal.aborted) {
+        this.acceptLease(g);
+        this.leaseFailures = 0;
+      }
+    } catch (error) {
+      // Retry only within the already granted deadline; arm() still enforces it.
+      if (retryableAuthority(error) && ++this.leaseFailures < 3 && this.alive()) return;
       this.fail("利用権限を確認できないため停止しました。[AUTHORITY_ERROR]", "AUTHORITY_ERROR");
     } finally {
       this.leaseBusy = false;
@@ -376,9 +404,20 @@ export class RelayConnection {
     this.turnIds = [];
     this.wire.close();
     if (this.grant) {
-      const end = this.authority
-        .call("end", { ...this.claim(), reason }, AbortSignal.timeout(4000))
-        .catch(() => {});
+      const end = (async () => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await this.authority.call(
+              "end",
+              { ...this.claim(), reason },
+              AbortSignal.timeout(4000),
+            );
+            return;
+          } catch (error) {
+            if (!retryableAuthority(error)) return;
+          }
+        }
+      })();
       const release = () =>
         this.authority.call("release", this.claim(), AbortSignal.timeout(4_000));
       if (this.grant.saveLearning)

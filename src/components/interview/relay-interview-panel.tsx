@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { capture } from "@/lib/interview/capture";
 import { connectRelay, type RelayTransport } from "@/lib/interview/relay-client";
+import { confirmationLoop, confirmRequest, displayReceipts } from "@/lib/interview/confirmation";
+import type { ClientEndReason } from "@/lib/interview/relay-client";
 import styles from "./interview.module.css";
 type Session = {
   id: string;
@@ -44,6 +46,8 @@ export function RelayInterviewPanel({
   const [elapsed, setElapsed] = useState(0);
   const [hintAttempts, setHintAttempts] = useState(0);
   const [generated, setGenerated] = useState(0);
+  const confirmedAt = useRef(0);
+  const receipts = useRef<ReturnType<typeof displayReceipts> | null>(null);
   const session = useRef<Session | null>(null),
     socket = useRef<RelayTransport | null>(null),
     control = useRef<AbortController | null>(null),
@@ -68,21 +72,21 @@ export function RelayInterviewPanel({
       );
     return value as Ticket;
   }
-  const release = useCallback(() => {
+  const release = useCallback((reason: ClientEndReason = "CLIENT_STOP") => {
     setLeaseSession(null);
+    socket.current?.close(reason);
     control.current?.abort();
     control.current = null;
-    socket.current?.close();
     socket.current = null;
     setLevel(0);
     setInterim("");
     setCapturing(false);
   }, []);
   const pause = useCallback(
-    (message: string, current: number) => {
+    (message: string, current: number, reason: ClientEndReason = "CLIENT_TRANSPORT_ERROR") => {
       if (current !== epoch.current) return;
       epoch.current++;
-      release();
+      release(reason);
       busy.current = false;
       setStatus("一時停止");
       setError(
@@ -141,12 +145,13 @@ export function RelayInterviewPanel({
               pulseFromAudio.current();
             }
           },
-          () => pause("音声共有が終了しました。", current),
+          () => pause("音声共有が終了しました。", current, "CLIENT_CAPTURE_ENDED"),
           abort.signal,
         );
       if (current !== epoch.current) return;
       if (input !== "sample") setCapturing(true);
       const old = session.current;
+      confirmedAt.current = performance.now();
       const reply = await api(
         reconnect && old ? "reconnect" : "start",
         reconnect && old ? { id: old.id } : { duration, saveLearning },
@@ -201,13 +206,13 @@ export function RelayInterviewPanel({
     const generation = epoch;
     const timer = setInterval(() => {
       const s = session.current;
-      if (!s) return;
+      if (!s || !control.current) return;
       const left = Math.max(0, Math.ceil((s.expiresAt - Date.now()) / 1000));
       setRemaining(left);
       if (s.startedAt) setElapsed(Math.max(0, Math.floor((Date.now() - s.startedAt) / 1000)));
       if (!left) {
         generation.current++;
-        release();
+        release("SESSION_LIMIT");
         session.current = null;
         busy.current = false;
         setStatus("停止中");
@@ -221,54 +226,55 @@ export function RelayInterviewPanel({
     return () => {
       clearInterval(timer);
       generation.current++;
+      socket.current?.close("CLIENT_ABORTED");
       control.current?.abort();
-      socket.current?.close();
     };
   }, [release]);
   useEffect(() => {
     if (!leaseSession) return;
-    let pending = false;
-    let lastAttempt = -Infinity;
     const current = epoch.current;
-    const pulse = () => {
-      if (pending || current !== epoch.current || performance.now() - lastAttempt < 10000) return;
-      pending = true;
-      lastAttempt = performance.now();
-      void api("pulse", { id: leaseSession.id }, control.current?.signal)
-        .then((reply) => {
-          if (current === epoch.current)
-            setHintAttempts((n) => Math.max(n, reply.hintAttempts ?? n));
-        })
-        .catch(() => pause("本人の利用許可を確認できません。[HEARTBEAT_FAILED]", current))
-        .finally(() => {
-          pending = false;
-        });
-    };
-    // Begin as soon as the ticket exists, including Cloud Run cold-start time.
-    // Audio callbacks keep renewal independent of background-tab timer throttling.
-    pulseFromAudio.current = pulse;
-    pulse();
-    const timer = setInterval(pulse, 5000);
+    const loop = confirmationLoop({
+      confirmedAt: confirmedAt.current,
+      request: (signal) =>
+        confirmRequest("/api/admin/interview/pulse", { id: leaseSession.id }, signal),
+      success: (reply) => {
+        if (current === epoch.current) setHintAttempts((n) => Math.max(n, reply.hintAttempts ?? n));
+      },
+      failure: (code, denied) =>
+        pause(
+          `接続確認を完了できないため停止しました。[${code}]`,
+          current,
+          denied ? "AUTHORIZATION_FAILED" : "HEARTBEAT_UNAVAILABLE",
+        ),
+    });
+    pulseFromAudio.current = loop.pulse;
     return () => {
-      clearInterval(timer);
+      loop.stop();
       pulseFromAudio.current = () => {};
     };
   }, [leaseSession, pause]);
   useEffect(() => {
+    const queue = displayReceipts(
+      (sessionId, generationId, signal) =>
+        confirmRequest(
+          "/api/admin/interview-learning/displayed",
+          { sessionId, generationId },
+          signal,
+        ),
+      () => setError("画面反映の記録を保存できませんでした。"),
+    );
+    receipts.current = queue;
+    return () => {
+      queue.stop();
+      receipts.current = null;
+    };
+  }, []);
+  useEffect(() => {
     const current = session.current;
     if (!displayedGeneration || !current?.saveLearning || !active) return;
     const acknowledge = () => {
-      if (document.visibilityState !== "visible") return;
-      void fetch("/api/admin/interview-learning/displayed", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId: current.id, generationId: displayedGeneration }),
-        signal: AbortSignal.timeout(8000),
-      })
-        .then((r) => {
-          if (!r.ok) throw new Error();
-        })
-        .catch(() => setError("画面反映の記録を保存できませんでした。"));
+      if (document.visibilityState === "visible")
+        receipts.current?.add(current.id, displayedGeneration);
     };
     const frame = requestAnimationFrame(acknowledge);
     document.addEventListener("visibilitychange", acknowledge);

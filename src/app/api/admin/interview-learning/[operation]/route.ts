@@ -7,6 +7,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 export async function POST(request: Request, context: { params: Promise<{ operation: string }> }) {
   const json = (body: unknown, status = 200) =>
     Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
+  let stage = "IDENTITY_LOOKUP_UNAVAILABLE";
   try {
     const session = await getSession();
     const user =
@@ -21,11 +22,15 @@ export async function POST(request: Request, context: { params: Promise<{ operat
     const input = await readInterviewJson(request, 8192);
     const { env } = await getCloudflareContext({ async: true });
     const operation = (await context.params).operation;
+    stage = "LEARNING_DATABASE_UNAVAILABLE";
     const result = await new LearningStore(env.DB).run(operation, user.id, input);
     return json(operation === "list" ? JSON.parse(result as string) : result);
   } catch (e) {
     return json(
-      { error: e instanceof InterviewError ? e.message : "履歴の操作を完了できません。" },
+      {
+        error: e instanceof InterviewError ? e.message : "履歴の操作を完了できません。",
+        code: e instanceof InterviewError ? e.code : stage,
+      },
       e instanceof InterviewError ? e.status : 503,
     );
   }

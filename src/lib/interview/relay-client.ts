@@ -1,3 +1,11 @@
+export type ClientEndReason =
+  | "CLIENT_STOP"
+  | "CLIENT_ABORTED"
+  | "CLIENT_CAPTURE_ENDED"
+  | "CLIENT_TRANSPORT_ERROR"
+  | "HEARTBEAT_UNAVAILABLE"
+  | "AUTHORIZATION_FAILED"
+  | "SESSION_LIMIT";
 export type RelayEvent =
   | { type: "transcript"; text: string; final: boolean }
   | { type: "hints"; lines: string[]; generationId?: string }
@@ -5,7 +13,7 @@ export type RelayEvent =
 export type RelayTransport = {
   audio(buffer: ArrayBuffer): void;
   sample(text: string): void;
-  close(): void;
+  close(reason?: ClientEndReason): void;
 };
 export function connectRelay(
   url: string,
@@ -23,23 +31,23 @@ export function connectRelay(
       ack = 0;
     // Allow a scale-to-zero relay to start, while staying within the 30s ticket lifetime.
     const timeout = setTimeout(() => fail("中継接続がタイムアウトしました。"), 20_000);
-    const close = () => {
+    const close = (reason: ClientEndReason = "CLIENT_STOP") => {
       if (closed) return;
       closed = true;
       clearTimeout(timeout);
       signal.removeEventListener("abort", abort);
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop" }));
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop", reason }));
       ws.close();
     };
     const fail = (message: string) => {
       if (closed) return;
-      close();
+      close("CLIENT_TRANSPORT_ERROR");
       if (!ready) reject(new Error(message));
       else onDisconnect(message);
     };
     const abort = () => {
       if (!ready) reject(new DOMException("停止しました。", "AbortError"));
-      close();
+      close("CLIENT_ABORTED");
     };
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) {

@@ -136,3 +136,23 @@ The lease regression test simulates two minutes of differently phased browser an
 ## Latest-question hint targeting
 
 Relay prompt `interview-cues-v2-latest` labels the latest utterance separately from chronological preceding context. A split recognition fragment is interpreted using its preceding fragment; older questions are context, not additional requests to answer. The full prompt retains its 1,800-byte bound. Vertex returns a structured `lines` array of two or three short lines. The relay rejects extra lines, embedded newlines, and lines longer than 60 characters instead of silently truncating away current-question advice. Saved input/output remains the exact provider trace; successful UI lines and raw output are retained separately. Clock-controlled lease/deadline tests do not establish 40-minute real-device endurance.
+
+### Transient confirmation failures
+
+Browser confirmation and relay lease renewal retry only network/timeouts and HTTP
+502/503/504, at most three attempts. Browser confirmation is single-flight with a
+three-second request timeout and stops within twenty seconds of the last confirmed
+request start. Failed attempts never move that deadline. Relay retries never extend
+an existing grant; the original session deadline, heartbeat bound and hard lease
+timer remain authoritative. Authorization, expiry and developer access/budget
+rejections stop immediately; known budget trigger failures return HTTP409.
+
+Visible hint receipts retry independently of replacement hints and deduplicate by
+session/generation. The server keeps the original displayed timestamp. A failed
+receipt does not stop audio. Disposal cancels pending receipt requests.
+
+Manual stop, capture end, transport loss, confirmation unavailability and revoked
+permission have distinct end reasons. Ending clears the processing lease before
+recording its first-wins reason, so revocation cannot prevent the terminal record.
+The stopped elapsed-time display freezes. No duration, budget or authorization
+allowance is increased by these changes.

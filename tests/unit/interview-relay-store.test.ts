@@ -201,7 +201,10 @@ describe("relay SQLite authorization and budget", () => {
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(remaining()).toBe(0);
     tick(2500);
-    await expect(store.lease(g.id, 1, "n", true)).rejects.toThrow();
+    await expect(store.lease(g.id, 1, "n", true)).rejects.toMatchObject({
+      status: 409,
+      code: "DEVELOPER_ACCESS_OR_BUDGET_EXHAUSTED",
+    });
     expect(remaining()).toBe(0);
     expect((await store.get(g.id))?.hints).toBe(1);
     await store.release(g.id, 1, "n");
@@ -223,7 +226,10 @@ describe("relay SQLite authorization and budget", () => {
     await expect(store.lease(g.id, 1, "n", true)).rejects.toMatchObject({ status: 410 });
     sql.exec("UPDATE interview_relay_developers SET enabled=0");
     await expect(store.lease(g.id, 1, "n")).rejects.toThrow();
-    await expect(store.pulse(g.id, "admin")).rejects.toThrow();
+    await expect(store.pulse(g.id, "admin")).rejects.toMatchObject({
+      status: 409,
+      code: "DEVELOPER_ACCESS_OR_BUDGET_EXHAUSTED",
+    });
     await store.stop(g.id, "admin");
     await store.release(g.id, 1, "n");
   });
@@ -347,5 +353,24 @@ describe("relay SQLite authorization and budget", () => {
     await store.ticket("admin", "full");
     await expect(store.pulse(old.id, "admin")).rejects.toMatchObject({ status: 410 });
     await expect(store.ticket("admin", "trial", old.id)).rejects.toMatchObject({ status: 410 });
+  });
+});
+
+it("records a terminal reason despite revoked developer access and preserves the first reason", async () => {
+  const { store, sql, tick } = setup();
+  sql.exec("INSERT INTO interview_relay_developers VALUES('admin',1,1000000)");
+  const t = await store.ticket("admin", "developer");
+  const g = await store.redeem(t.ticket, "n");
+  sql.exec("UPDATE interview_relay_developers SET enabled=0");
+  await store.end(g.id, 1, "n", "AUTHORIZATION_FAILED");
+  tick(1000);
+  await store.end(g.id, 1, "n", "CLIENT_STOP");
+  const row = sql
+    .prepare("SELECT end_reason,ended_at,relay_until FROM interview_relay_sessions WHERE id=?")
+    .get(g.id);
+  expect(row).toMatchObject({
+    end_reason: "AUTHORIZATION_FAILED",
+    ended_at: 100000,
+    relay_until: 0,
   });
 });

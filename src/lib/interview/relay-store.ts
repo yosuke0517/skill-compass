@@ -51,6 +51,23 @@ export class RelayStore {
     private db: SqlDatabase,
     private now = Date.now,
   ) {}
+  private async mutation<T>(operation: Promise<T>): Promise<T> {
+    try {
+      return await operation;
+    } catch (error) {
+      let current: unknown = error;
+      for (let depth = 0; depth < 5 && current instanceof Error; depth++) {
+        if (current.message.includes("developer access or estimate budget exhausted"))
+          throw new InterviewError(
+            409,
+            "開発者の利用権限または費用枠が不足しています。",
+            "DEVELOPER_ACCESS_OR_BUDGET_EXHAUSTED",
+          );
+        current = current.cause;
+      }
+      throw error;
+    }
+  }
   async availability(owner: string) {
     const row = await this.db
       .prepare(
@@ -176,12 +193,14 @@ export class RelayStore {
     };
   }
   async pulse(id: string, owner: string) {
-    const row = await this.db
-      .prepare(
-        `UPDATE interview_relay_sessions SET heartbeat=? WHERE id=? AND owner=? AND state='active' AND expires_at>? RETURNING *`,
-      )
-      .bind(this.now(), id, owner, this.now())
-      .first<RelayRow>();
+    const row = await this.mutation(
+      this.db
+        .prepare(
+          `UPDATE interview_relay_sessions SET heartbeat=? WHERE id=? AND owner=? AND state='active' AND expires_at>? RETURNING *`,
+        )
+        .bind(this.now(), id, owner, this.now())
+        .first<RelayRow>(),
+    );
     if (!row) throw fail();
     return this.details(row);
   }
@@ -208,43 +227,47 @@ export class RelayStore {
   }
   async redeem(code: string, nonce: string) {
     const now = this.now();
-    const row = await this.db
-      .prepare(
-        `UPDATE interview_relay_sessions SET code_hash=NULL,nonce=?,relay_until=MIN(expires_at,heartbeat+30000,?),charged_until=MAX(charged_until,MIN(expires_at,heartbeat+30000,?))
+    const row = await this.mutation(
+      this.db
+        .prepare(
+          `UPDATE interview_relay_sessions SET code_hash=NULL,nonce=?,relay_until=MIN(expires_at,heartbeat+30000,?),charged_until=MAX(charged_until,MIN(expires_at,heartbeat+30000,?))
       WHERE code_hash=? AND code_expires>? AND state='active' AND expires_at>? AND heartbeat>? AND relay_until<=? RETURNING *`,
-      )
-      .bind(nonce, now + 30_000, now + 30_000, await codeHash(code), now, now, now - 30_000, now)
-      .first<RelayRow>();
+        )
+        .bind(nonce, now + 30_000, now + 30_000, await codeHash(code), now, now, now - 30_000, now)
+        .first<RelayRow>(),
+    );
     if (!row) throw fail();
     return row;
   }
   async lease(id: string, generation: number, nonce: string, reserveHint = false) {
     const now = this.now();
-    const row = await this.db
-      .prepare(
-        `UPDATE interview_relay_sessions SET relay_until=MIN(expires_at,heartbeat+30000,?),charged_until=MAX(charged_until,MIN(expires_at,heartbeat+30000,?))${reserveHint ? ",hints=hints+1,last_hint=?" : ""}
+    const row = await this.mutation(
+      this.db
+        .prepare(
+          `UPDATE interview_relay_sessions SET relay_until=MIN(expires_at,heartbeat+30000,?),charged_until=MAX(charged_until,MIN(expires_at,heartbeat+30000,?))${reserveHint ? ",hints=hints+1,last_hint=?" : ""}
       WHERE id=? AND generation=? AND nonce=? AND state='active' AND expires_at>? AND heartbeat>? AND relay_until>?
       ${reserveHint ? "AND (usage_mode='developer' OR hints<hint_limit) AND last_hint<=?" : ""} RETURNING *`,
-      )
-      .bind(
-        now + 30_000,
-        ...(reserveHint ? [now + 30_000, now] : [now + 30_000]),
-        id,
-        generation,
-        nonce,
-        now,
-        now - 30_000,
-        now,
-        ...(reserveHint ? [now - 2_500] : []),
-      )
-      .first<RelayRow>();
+        )
+        .bind(
+          now + 30_000,
+          ...(reserveHint ? [now + 30_000, now] : [now + 30_000]),
+          id,
+          generation,
+          nonce,
+          now,
+          now - 30_000,
+          now,
+          ...(reserveHint ? [now - 2_500] : []),
+        )
+        .first<RelayRow>(),
+    );
     if (!row) throw fail();
     return row;
   }
   async end(id: string, generation: number, nonce: string, reason: string) {
     await this.db
       .prepare(
-        "UPDATE interview_relay_sessions SET ended_at=COALESCE(ended_at,?),end_reason=COALESCE(end_reason,?) WHERE id=? AND generation=? AND nonce=?",
+        "UPDATE interview_relay_sessions SET relay_until=0,ended_at=COALESCE(ended_at,?),end_reason=COALESCE(end_reason,?) WHERE id=? AND generation=? AND nonce=?",
       )
       .bind(this.now(), reason, id, generation, nonce)
       .run();

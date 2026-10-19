@@ -71,6 +71,11 @@ export class InterviewRelayService {
     if (operation === "end") {
       const reasons = [
         "CLIENT_STOP",
+        "CLIENT_ABORTED",
+        "CLIENT_CAPTURE_ENDED",
+        "CLIENT_TRANSPORT_ERROR",
+        "HEARTBEAT_UNAVAILABLE",
+        "AUTHORIZATION_FAILED",
         "CLIENT_DISCONNECTED",
         "SESSION_LIMIT",
         "LEASE_EXPIRED",

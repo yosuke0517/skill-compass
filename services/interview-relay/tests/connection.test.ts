@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RelayConnection } from "../src/connection.js";
-import type { Grant, Authority } from "../src/authority.js";
+import { AuthorityError, type Grant, type Authority } from "../src/authority.js";
 import type { Event } from "../src/shared.js";
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 function setup(
@@ -10,6 +10,7 @@ function setup(
     hint?: Promise<string[]>;
     mode?: "mock" | "google";
     interval?: number;
+    leaseErrors?: number[];
   } = {},
 ) {
   let now = Date.now(),
@@ -18,11 +19,13 @@ function setup(
     writes = 0,
     emitter: (e: Event) => void = () => {};
   const sent: Record<string, unknown>[] = [],
-    calls: string[] = [];
+    calls: string[] = [],
+    reasons: unknown[] = [];
   let grant: Grant;
   const authority: Authority = {
     async call(op, input, signal) {
       calls.push(op);
+      if (op === "end") reasons.push((input as { reason: string }).reason);
       signal.throwIfAborted();
       if (options.reject) throw new Error("denied");
       if (op === "redeem")
@@ -35,6 +38,8 @@ function setup(
           leaseUntil: now + 30_000,
           mode: options.mode ?? "mock",
         };
+      if (op === "lease" && options.leaseErrors?.length)
+        throw new AuthorityError(options.leaseErrors.shift()!);
       if (op === "lease" || op === "hint") grant = { ...grant, leaseUntil: now + 30000 };
       return grant;
     },
@@ -75,6 +80,7 @@ function setup(
     c,
     sent,
     calls,
+    reasons,
     auth: () =>
       c.message(Buffer.from(JSON.stringify({ type: "authorize", ticket: "a".repeat(64) })), false),
     emit: (event: Event) => emitter(event),
@@ -119,6 +125,7 @@ test("auth timeout never starts providers and cleans up a late grant", async (t)
   const authority: Authority = {
     call(op, input) {
       calls.push(op);
+      if (op === "end") reasons.push((input as { reason: string }).reason);
       if (op === "redeem") {
         nonce = (input as { nonce: string }).nonce;
         return new Promise((r) => (resolve = r));
@@ -273,4 +280,45 @@ test("renewal before a shortened lease survives heartbeat/relay phase skew", asy
   }
   assert.equal(events.filter((e) => e.type === "error").length, 0);
   c.close();
+});
+
+test("transient lease 503 recovers within granted deadline; denial is terminal", async () => {
+  const x = setup({ leaseErrors: [503] });
+  await x.auth();
+  // Invoke the renewal path without real-time waiting; hard-deadline tests remain separate.
+  await (x.c as unknown as { checkLease(): Promise<void> }).checkLease();
+  assert.equal(x.stats().closed, 0);
+  await (x.c as unknown as { checkLease(): Promise<void> }).checkLease();
+  assert.equal(x.stats().closed, 0);
+  assert.equal(x.calls.filter((op) => op === "lease").length, 2);
+  x.c.close();
+  const denied = setup({ leaseErrors: [409] });
+  await denied.auth();
+  await (denied.c as unknown as { checkLease(): Promise<void> }).checkLease();
+  assert.equal(denied.stats().closed, 1);
+  denied.c.close();
+});
+test("three unavailable lease attempts stop; no grant is extended", async () => {
+  const x = setup({ leaseErrors: [503, 503, 503] });
+  await x.auth();
+  for (let i = 0; i < 3; i++)
+    await (x.c as unknown as { checkLease(): Promise<void> }).checkLease();
+  assert.equal(x.stats().closed, 1);
+  assert.equal(x.calls.filter((op) => op === "lease").length, 3);
+  x.c.close();
+});
+
+test("client stop reasons remain distinct with backward-compatible manual stop", async () => {
+  for (const [reason, expected] of [
+    [undefined, "CLIENT_STOP"],
+    ["HEARTBEAT_UNAVAILABLE", "HEARTBEAT_UNAVAILABLE"],
+    ["unexpected", "CLIENT_DISCONNECTED"],
+  ]) {
+    const x = setup();
+    await x.auth();
+    await x.c.message(Buffer.from(JSON.stringify({ type: "stop", reason })), false);
+    await flush();
+    assert.deepEqual(x.reasons, [expected]);
+    x.c.close();
+  }
 });

@@ -80,7 +80,7 @@ describe("opt-in learning history", () => {
     expect(row).toMatchObject({
       ended_at: now(),
       end_reason: "LEASE_EXPIRED",
-      relay_until: grant.relay_until,
+      relay_until: 0,
     });
     expect(await learning.run("detail", "owner", { sessionId: ticket.id })).toMatchObject({
       endedAt: now(),
