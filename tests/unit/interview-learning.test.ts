@@ -50,6 +50,23 @@ const request = {
   },
 };
 describe("opt-in learning history", () => {
+  it("keeps old relays compatible when they release without an end callback", async () => {
+    const { relay, learning } = setup();
+    const ticket = await relay.ticket("owner", "developer", undefined, true);
+    const grant = await relay.redeem(ticket.ticket, "old-relay-nonce");
+    await relay.pulse(ticket.id, "owner");
+    await relay.lease(ticket.id, grant.generation, grant.nonce!, false);
+    await relay.release(ticket.id, grant.generation, grant.nonce!);
+    expect(await learning.run("detail", "owner", { sessionId: ticket.id })).toMatchObject({
+      endedAt: null,
+      endReason: null,
+    });
+    const next = await relay.ticket("owner", "trial", ticket.id);
+    const resumed = await relay.redeem(next.ticket, "resumed-nonce");
+    expect(resumed.generation).toBe(grant.generation + 1);
+    expect(resumed.expires_at).toBe(grant.expires_at);
+    await relay.release(ticket.id, resumed.generation, resumed.nonce!);
+  });
   it("records the authenticated relay end reason without extending a lease", async () => {
     const { relay, learning, sql, now } = setup();
     const ticket = await relay.ticket("owner", "developer", undefined, true);
