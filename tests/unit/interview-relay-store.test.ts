@@ -10,6 +10,7 @@ function setup() {
   sql.exec(readFileSync("drizzle-d1/0002_interview_relay.sql", "utf8"));
   sql.exec(readFileSync("drizzle-d1/0003_interview_developer.sql", "utf8"));
   sql.exec(readFileSync("drizzle-d1/0004_interview_learning.sql", "utf8"));
+  sql.exec(readFileSync("drizzle-d1/0005_interview_end_reason.sql", "utf8"));
   sql.exec("INSERT INTO interview_relay_allowance VALUES(1,2700000,100)");
   const db: SqlDatabase = {
     prepare(query) {

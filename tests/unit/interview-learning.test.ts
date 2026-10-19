@@ -13,6 +13,7 @@ function setup() {
     "0002_interview_relay",
     "0003_interview_developer",
     "0004_interview_learning",
+    "0005_interview_end_reason",
   ])
     sql.exec(readFileSync(`drizzle-d1/${name}.sql`, "utf8"));
   const db: SqlDatabase = {
@@ -49,6 +50,27 @@ const request = {
   },
 };
 describe("opt-in learning history", () => {
+  it("records the authenticated relay end reason without extending a lease", async () => {
+    const { relay, learning, sql, now } = setup();
+    const ticket = await relay.ticket("owner", "developer", undefined, true);
+    const grant = await relay.redeem(ticket.ticket, "test-nonce");
+    await relay.end(ticket.id, grant.generation, "wrong", "LEASE_EXPIRED");
+    expect(sql.prepare("SELECT ended_at FROM interview_relay_sessions").get()?.ended_at).toBeNull();
+    await relay.end(ticket.id, grant.generation, grant.nonce!, "LEASE_EXPIRED");
+    const row = sql
+      .prepare("SELECT ended_at,end_reason,relay_until FROM interview_relay_sessions")
+      .get();
+    expect(row).toMatchObject({
+      ended_at: now(),
+      end_reason: "LEASE_EXPIRED",
+      relay_until: grant.relay_until,
+    });
+    expect(await learning.run("detail", "owner", { sessionId: ticket.id })).toMatchObject({
+      endedAt: now(),
+      endReason: "LEASE_EXPIRED",
+    });
+  });
+
   it("defaults off and rejects opt-in until rollout is enabled", async () => {
     const { relay, sql } = setup();
     const admin = { id: "owner", role: "admin", entitlements: new Set(["access.manage"]) };

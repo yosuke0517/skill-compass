@@ -58,10 +58,13 @@ export class LearningStore {
   ) {}
   private async owned(sessionId: string, owner: string) {
     const row = await this.db
-      .prepare("SELECT id FROM interview_learning_sessions WHERE id=? AND owner=? AND expires_at>?")
+      .prepare(
+        "SELECT id,ended_at,end_reason FROM interview_learning_sessions WHERE id=? AND owner=? AND expires_at>?",
+      )
       .bind(sessionId, owner, this.now())
-      .first();
+      .first<{ id: string; ended_at: number | null; end_reason: string | null }>();
     if (!row) throw new InterviewError(404, "保存された履歴が見つかりません。");
+    return row;
   }
   async record(sessionId: string, owner: string, value: unknown) {
     const parsed = recordSchema.safeParse(value);
@@ -133,7 +136,7 @@ export class LearningStore {
       );
     const sessionId = id.safeParse(input.sessionId);
     if (!sessionId.success) throw new InterviewError(400, "履歴IDが不正です。");
-    await this.owned(sessionId.data, owner);
+    const session = await this.owned(sessionId.data, owner);
     if (operation === "delete") {
       await this.db
         .prepare("DELETE FROM interview_learning_sessions WHERE id=? AND owner=?")
@@ -166,6 +169,8 @@ export class LearningStore {
         offset: offset.data,
         pageSize: 10,
         sessionId: sessionId.data,
+        endedAt: session.ended_at,
+        endReason: session.end_reason,
         turns: JSON.parse(turns?.data ?? "[]"),
         generations: JSON.parse(generations?.data ?? "[]"),
       };

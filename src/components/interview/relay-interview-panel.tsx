@@ -25,6 +25,8 @@ export function RelayInterviewPanel({
   const [saveLearning, setSaveLearning] = useState(false);
   const [displayedGeneration, setDisplayedGeneration] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const [leaseSession, setLeaseSession] = useState<Session | null>(null);
+  const pulseFromAudio = useRef<() => void>(() => {});
   const [capturing, setCapturing] = useState(false),
     [status, setStatus] = useState("停止中"),
     [error, setError] = useState(""),
@@ -67,6 +69,7 @@ export function RelayInterviewPanel({
     return value as Ticket;
   }
   const release = useCallback(() => {
+    setLeaseSession(null);
     control.current?.abort();
     control.current = null;
     socket.current?.close();
@@ -135,6 +138,7 @@ export function RelayInterviewPanel({
             if (current === epoch.current) {
               setLevel(meter);
               socket.current?.audio(buffer);
+              pulseFromAudio.current();
             }
           },
           () => pause("音声共有が終了しました。", current),
@@ -153,6 +157,7 @@ export function RelayInterviewPanel({
         return;
       }
       session.current = reply;
+      setLeaseSession(reply);
       setSaving(reply.saveLearning === true);
       setUsageMode(reply.usageMode ?? "standard");
       setElapsed(Math.max(0, Math.floor((Date.now() - (reply.startedAt ?? Date.now())) / 1000)));
@@ -221,25 +226,34 @@ export function RelayInterviewPanel({
     };
   }, [release]);
   useEffect(() => {
-    if (!active) return;
+    if (!leaseSession) return;
     let pending = false;
-    const timer = setInterval(() => {
-      const s = session.current,
-        current = epoch.current;
-      if (s && !pending) {
-        pending = true;
-        void api("pulse", { id: s.id }, control.current?.signal)
-          .then((reply) => {
-            if (current === epoch.current) setHintAttempts(reply.hintAttempts ?? 0);
-          })
-          .catch(() => pause("本人の利用許可を確認できません。", current))
-          .finally(() => {
-            pending = false;
-          });
-      }
-    }, 15000);
-    return () => clearInterval(timer);
-  }, [active, pause]);
+    let lastAttempt = -Infinity;
+    const current = epoch.current;
+    const pulse = () => {
+      if (pending || current !== epoch.current || performance.now() - lastAttempt < 10000) return;
+      pending = true;
+      lastAttempt = performance.now();
+      void api("pulse", { id: leaseSession.id }, control.current?.signal)
+        .then((reply) => {
+          if (current === epoch.current)
+            setHintAttempts((n) => Math.max(n, reply.hintAttempts ?? n));
+        })
+        .catch(() => pause("本人の利用許可を確認できません。[HEARTBEAT_FAILED]", current))
+        .finally(() => {
+          pending = false;
+        });
+    };
+    // Begin as soon as the ticket exists, including Cloud Run cold-start time.
+    // Audio callbacks keep renewal independent of background-tab timer throttling.
+    pulseFromAudio.current = pulse;
+    pulse();
+    const timer = setInterval(pulse, 5000);
+    return () => {
+      clearInterval(timer);
+      pulseFromAudio.current = () => {};
+    };
+  }, [leaseSession, pause]);
   useEffect(() => {
     const current = session.current;
     if (!displayedGeneration || !current?.saveLearning || !active) return;

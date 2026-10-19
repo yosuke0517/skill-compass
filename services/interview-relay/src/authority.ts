@@ -12,7 +12,7 @@ export type Grant = {
 };
 export interface Authority {
   call(
-    operation: "redeem" | "lease" | "hint" | "release" | "record",
+    operation: "redeem" | "lease" | "hint" | "release" | "record" | "end",
     input: object,
     signal: AbortSignal,
   ): Promise<Grant>;
@@ -75,7 +75,7 @@ export class WorkerAuthority implements Authority {
     private request: typeof fetch = fetch,
   ) {}
   async call(
-    operation: "redeem" | "lease" | "hint" | "release" | "record",
+    operation: "redeem" | "lease" | "hint" | "release" | "record" | "end",
     input: object,
     signal: AbortSignal,
   ) {
@@ -91,7 +91,7 @@ export class WorkerAuthority implements Authority {
     if (!response.ok)
       throw new Error("利用許可を確認できません。停止または利用枠を確認してください。");
     const value = (await response.json()) as Grant;
-    if (operation === "release" || operation === "record") return value;
+    if (operation === "release" || operation === "record" || operation === "end") return value;
     if (
       typeof value.id !== "string" ||
       typeof value.owner !== "string" ||

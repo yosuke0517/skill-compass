@@ -68,6 +68,20 @@ export class InterviewRelayService {
       throw new InterviewError(400, "接続世代が不正です。");
     // Release does not enable any processing, so allow it even after owner demotion.
     if (operation === "release") return this.store.release(id, generation as number, nonce);
+    if (operation === "end") {
+      const reasons = [
+        "CLIENT_STOP",
+        "CLIENT_DISCONNECTED",
+        "SESSION_LIMIT",
+        "LEASE_EXPIRED",
+        "AUTHORITY_ERROR",
+        "PROVIDER_ERROR",
+        "PROCESSING_ERROR",
+      ];
+      if (typeof input.reason !== "string" || !reasons.includes(input.reason))
+        throw new InterviewError(400, "終了理由が不正です。");
+      return this.store.end(id, generation as number, nonce, input.reason);
+    }
     if (operation === "record") {
       const row = await this.store.get(id);
       if (

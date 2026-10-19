@@ -1,13 +1,21 @@
 import { randomUUID } from "node:crypto";
 import type { Authority, Grant } from "./authority.js";
 import type { SpeechAdapter, SpeechStream, HintAdapter, Turn, Event } from "./shared.js";
+type EndReason =
+  | "CLIENT_STOP"
+  | "CLIENT_DISCONNECTED"
+  | "SESSION_LIMIT"
+  | "LEASE_EXPIRED"
+  | "AUTHORITY_ERROR"
+  | "PROVIDER_ERROR"
+  | "PROCESSING_ERROR";
 type Wire = { send: (event: object) => void; close: () => void };
 /** No provider construction or audio forwarding until Worker redeems a one-use ticket. */
 export class RelayConnection {
   private phase: "new" | "auth" | "running" | "closed" = "new";
   private grant?: Grant;
   private stream?: SpeechStream;
-  private timer: ReturnType<typeof setInterval>;
+  private timer?: ReturnType<typeof setTimeout>;
   private deadline: ReturnType<typeof setTimeout>;
   private leaseBusy = false;
   private abort = new AbortController();
@@ -63,9 +71,6 @@ export class RelayConnection {
     private leaseInterval = 15_000,
   ) {
     this.deadline = setTimeout(() => this.fail("接続認証がタイムアウトしました。"), 5_000);
-    this.timer = setInterval(() => {
-      void this.checkLease();
-    }, leaseInterval);
   }
   private hints?: HintAdapter;
   private claim() {
@@ -82,8 +87,31 @@ export class RelayConnection {
   private arm() {
     clearTimeout(this.deadline);
     this.deadline = setTimeout(
-      () => this.fail("利用期限または接続の確認期限で停止しました。"),
+      () => {
+        if (this.alive()) {
+          this.arm();
+          return;
+        }
+        this.fail(
+          this.now() >= this.grant!.expiresAt
+            ? "利用時間の上限に達したため停止しました。[SESSION_LIMIT]"
+            : "接続確認の更新が期限に間に合わなかったため停止しました。[LEASE_EXPIRED]",
+          this.now() >= this.grant!.expiresAt ? "SESSION_LIMIT" : "LEASE_EXPIRED",
+        );
+      },
       Math.max(0, Math.min(this.grant!.leaseUntil, this.grant!.expiresAt) - this.now()),
+    );
+    this.scheduleLease();
+  }
+  private scheduleLease() {
+    clearTimeout(this.timer);
+    if (!this.alive() || this.leaseBusy) return;
+    // Heartbeat and relay renewal can have different phases. Renew BEFORE the
+    // granted deadline, including when a stale heartbeat shortened the lease.
+    const remaining = Math.min(this.grant!.leaseUntil, this.grant!.expiresAt) - this.now();
+    this.timer = setTimeout(
+      () => void this.checkLease(),
+      Math.max(1000, Math.min(this.leaseInterval, remaining - 8000)),
     );
   }
   async message(raw: Buffer, isBinary: boolean) {
@@ -163,7 +191,7 @@ export class RelayConnection {
         if (raw.length > 4096) throw new Error("要求が大きすぎます。");
         const data = JSON.parse(raw.toString());
         if (data.type === "stop") {
-          this.close();
+          this.close("CLIENT_STOP");
           return;
         }
         if (
@@ -184,7 +212,7 @@ export class RelayConnection {
   private event(event: Event) {
     if (!this.alive()) return;
     if (event.type === "error") {
-      this.fail(event.message);
+      this.fail(event.message, "PROVIDER_ERROR");
       return;
     }
     if (event.type !== "transcript") {
@@ -315,7 +343,8 @@ export class RelayConnection {
   private async checkLease() {
     if (this.phase !== "running" || this.leaseBusy) return;
     if (!this.alive()) {
-      this.fail("接続確認の期限で停止しました。");
+      const reason = this.now() >= this.grant!.expiresAt ? "SESSION_LIMIT" : "LEASE_EXPIRED";
+      this.fail(`利用時間または接続確認の期限で停止しました。[${reason}]`, reason);
       return;
     }
     this.leaseBusy = true;
@@ -323,37 +352,42 @@ export class RelayConnection {
       const g = await this.authority.call("lease", this.claim(), this.abort.signal);
       if (!this.abort.signal.aborted) this.acceptLease(g);
     } catch {
-      this.fail("利用権限を確認できないため停止しました。");
+      this.fail("利用権限を確認できないため停止しました。[AUTHORITY_ERROR]", "AUTHORITY_ERROR");
     } finally {
       this.leaseBusy = false;
+      this.scheduleLease();
     }
   }
-  private fail(message: string) {
+  private fail(message: string, reason: EndReason = "PROCESSING_ERROR") {
     if (this.phase === "closed") return;
     this.wire.send({ type: "error", message });
-    this.close();
+    this.close(reason);
   }
-  close() {
+  close(reason: EndReason = "CLIENT_DISCONNECTED") {
     if (this.phase === "closed") return;
     this.phase = "closed";
     this.abort.abort();
     this.pendingHint?.abort();
     clearTimeout(this.deadline);
     clearTimeout(this.hintTimer);
-    clearInterval(this.timer);
+    clearTimeout(this.timer);
     this.stream?.close();
     this.history = [];
     this.turnIds = [];
     this.wire.close();
     if (this.grant) {
+      const end = this.authority
+        .call("end", { ...this.claim(), reason }, AbortSignal.timeout(4000))
+        .catch(() => {});
       const release = () =>
         this.authority.call("release", this.claim(), AbortSignal.timeout(4_000));
       if (this.grant.saveLearning)
         void Promise.resolve(this.hintTask)
           .then(() => this.records)
+          .then(() => end)
           .then(release)
           .catch(() => {});
-      else void release().catch(() => {});
+      else void end.then(release).catch(() => {});
     }
   }
 }

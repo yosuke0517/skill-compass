@@ -29,6 +29,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("relay panel", () => {
+  it("renews the browser heartbeat while the relay is still cold-starting", async () => {
+    vi.mocked(connectRelay).mockReturnValueOnce(new Promise(() => {}));
+    render(<RelayInterviewPanel providerMode="mock" />);
+    fireEvent.click(screen.getByText("開始", { exact: true }));
+    await waitFor(() =>
+      expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith("/pulse"))).toBe(
+        true,
+      ),
+    );
+    expect(screen.getByText("接続中", { exact: true })).toBeTruthy();
+    fireEvent.click(screen.getByText("停止・表示を消去"));
+    expect(vi.mocked(connectRelay).mock.calls[0][3].aborted).toBe(true);
+  });
+
   it("uses the server-authorized initial mode and exposes a safe failure code", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       Response.json(

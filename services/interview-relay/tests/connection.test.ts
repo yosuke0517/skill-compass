@@ -106,7 +106,9 @@ test("only successful authorization enables PCM; gaps and repeat frames stop imm
   await x.c.message(audio, true);
   assert.equal(x.stats().closed, 1);
   assert.equal(x.stats().writes, 1);
+  await flush();
   assert.ok(x.calls.includes("release"));
+  assert.ok(x.calls.indexOf("end") < x.calls.indexOf("release"));
 });
 test("auth timeout never starts providers and cleans up a late grant", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
@@ -170,7 +172,18 @@ test("lease expiration shuts speech even if renewal has not returned", async (t)
   x.tick(30001);
   t.mock.timers.tick(30001);
   assert.equal(x.stats().closed, 1);
-  assert.ok(x.sent.some((e) => e.type === "error"));
+  assert.ok(x.sent.some((e) => e.type === "error" && String(e.message).includes("LEASE_EXPIRED")));
+});
+test("original session deadline still stops processing with a distinct reason", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const x = setup();
+  await x.auth();
+  x.tick(2400001);
+  t.mock.timers.tick(2400001);
+  await flush();
+  assert.equal(x.stats().closed, 1);
+  assert.ok(x.sent.some((e) => e.type === "error" && String(e.message).includes("SESSION_LIMIT")));
+  assert.ok(x.calls.indexOf("end") < x.calls.indexOf("release"));
 });
 test("mock sample follows transcript to authorized hint", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
@@ -205,4 +218,59 @@ test("an unresponsive hint is aborted at eight seconds and reports a visible tim
   t.mock.timers.tick(8000);
   assert.ok(x.sent.some((e) => e.type === "warning" && String(e.message).includes("タイムアウト")));
   x.c.close();
+});
+
+test("renewal before a shortened lease survives heartbeat/relay phase skew", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  let now = 100000,
+    heartbeat = now,
+    grant: Grant;
+  const events: Record<string, unknown>[] = [];
+  const authority: Authority = {
+    async call(op, input) {
+      if (op === "redeem")
+        grant = {
+          id: "s",
+          owner: "o",
+          generation: 1,
+          nonce: (input as { nonce: string }).nonce,
+          mode: "mock",
+          expiresAt: now + 2400000,
+          leaseUntil: now + 30000,
+        };
+      if (op === "lease")
+        grant = { ...grant, leaseUntil: Math.min(now + 30000, heartbeat + 30000) };
+      return grant;
+    },
+  };
+  const c = new RelayConnection(
+    { send: (e) => events.push(e as Record<string, unknown>), close() {} },
+    authority,
+    "mock",
+    () => ({
+      speech: {
+        open() {
+          return { write() {}, close() {} };
+        },
+      },
+      hints: {
+        async generate() {
+          return ["構成", "確認"];
+        },
+      },
+    }),
+    () => now,
+  );
+  await c.message(
+    Buffer.from(JSON.stringify({ type: "authorize", ticket: "a".repeat(64) })),
+    false,
+  );
+  for (let elapsed = 1000; elapsed <= 120000; elapsed += 1000) {
+    now += 1000;
+    t.mock.timers.tick(1000);
+    await flush();
+    if (elapsed % 16000 === 0) heartbeat = now;
+  }
+  assert.equal(events.filter((e) => e.type === "error").length, 0);
+  c.close();
 });

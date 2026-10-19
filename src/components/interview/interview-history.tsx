@@ -12,7 +12,14 @@ type Generation = {
   rating: string | null;
   comment: string | null;
 };
-type Detail = { sessionId: string; offset: number; turns: unknown[]; generations: Generation[] };
+type Detail = {
+  endedAt?: number | null;
+  endReason?: string | null;
+  sessionId: string;
+  offset: number;
+  turns: unknown[];
+  generations: Generation[];
+};
 export function InterviewHistory() {
   const [entries, setEntries] = useState<Entry[]>([]),
     [detail, setDetail] = useState<Detail | null>(null),
@@ -59,7 +66,14 @@ export function InterviewHistory() {
       new Blob(
         [
           JSON.stringify(
-            { schemaVersion: 1, sessionId: detail.sessionId, turns, generations },
+            {
+              schemaVersion: 1,
+              sessionId: detail.sessionId,
+              endedAt: detail.endedAt,
+              endReason: detail.endReason,
+              turns,
+              generations,
+            },
             null,
             2,
           ),
@@ -103,6 +117,10 @@ export function InterviewHistory() {
       {detail && (
         <section className="space-y-4">
           <h2>セッション {detail.sessionId}</h2>
+          <p>
+            終了通知：{detail.endReason ?? "未記録"}
+            {detail.endedAt ? ` ／ ${new Date(detail.endedAt).toLocaleString()}` : ""}
+          </p>
           <button disabled={busy} onClick={() => void action(download)}>
             全ページをJSONで書き出す
           </button>{" "}
