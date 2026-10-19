@@ -54,7 +54,14 @@ export class RelayConnection {
     this.recordPending++;
     this.records = this.records
       .then(async () => {
-        await this.authority.call("record", { ...claim, event }, AbortSignal.timeout(4000));
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await this.authority.call("record", { ...claim, event }, AbortSignal.timeout(4000));
+            break;
+          } catch (error) {
+            if (attempt === 2 || !retryableAuthority(error)) throw error;
+          }
+        }
       })
       .catch(() => {
         if (this.alive())
@@ -162,6 +169,11 @@ export class RelayConnection {
           grant.expiresAt <= this.now()
         )
           throw new Error("接続の認可条件が一致しません。");
+        // Restoring context never schedules a hint or replays audio. Only a new final turn does.
+        if (grant.saveLearning && grant.resumeContext) {
+          this.history = grant.resumeContext.map(({ source, text }) => ({ source, text }));
+          this.turnIds = grant.resumeContext.map((t) => t.id);
+        }
         this.phase = "running";
         this.arm();
         this.startedAt = this.now();
@@ -177,6 +189,8 @@ export class RelayConnection {
           id: grant.id,
           expiresAt: grant.expiresAt,
           mode: this.mode,
+          resumedTurns: this.history.length,
+          generation: grant.generation,
         });
         return;
       }

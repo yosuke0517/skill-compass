@@ -46,6 +46,9 @@ export function RelayInterviewPanel({
   const [elapsed, setElapsed] = useState(0);
   const [hintAttempts, setHintAttempts] = useState(0);
   const [generated, setGenerated] = useState(0);
+  const [rotations, setRotations] = useState(0);
+  const [resumedTurns, setResumedTurns] = useState(0);
+  const [connectionGeneration, setConnectionGeneration] = useState(1);
   const confirmedAt = useRef(0);
   const receipts = useRef<ReturnType<typeof displayReceipts> | null>(null);
   const session = useRef<Session | null>(null),
@@ -92,7 +95,7 @@ export function RelayInterviewPanel({
       setError(
         message +
           (session.current
-            ? " 音声取得は停止済みです。再接続では会話文脈を引き継ぎません。"
+            ? " 音声取得は停止済みです。保存ありの場合のみ直近6発話を再接続時に復元します。中断中の音声は復元できません。"
             : " 音声取得は停止済みです。停止ボタンで戻ると利用時間を選び直せます。"),
       );
     },
@@ -167,7 +170,12 @@ export function RelayInterviewPanel({
       setUsageMode(reply.usageMode ?? "standard");
       setElapsed(Math.max(0, Math.floor((Date.now() - (reply.startedAt ?? Date.now())) / 1000)));
       setHintAttempts(reply.hintAttempts ?? 0);
-      if (!reconnect) setGenerated(0);
+      if (!reconnect) {
+        setGenerated(0);
+        setRotations(0);
+        setTurns([]);
+      }
+      setResumedTurns(0);
       setRemaining(Math.ceil((reply.expiresAt - Date.now()) / 1000));
       const connected = await connectRelay(
         reply.relayUrl,
@@ -176,6 +184,11 @@ export function RelayInterviewPanel({
         abort.signal,
         (event) => {
           if (current !== epoch.current) return;
+          if (event.type === "ready") {
+            setResumedTurns(event.resumedTurns);
+            setConnectionGeneration(event.generation);
+          }
+          if (event.type === "status") setRotations((n) => n + 1);
           if (event.type === "transcript") {
             if (event.final) {
               setTurns((v) => [...v, event.text].slice(-6));
@@ -285,6 +298,10 @@ export function RelayInterviewPanel({
   }, [displayedGeneration, active]);
   return (
     <div className={styles.panel}>
+      <p>
+        音声認識の更新 {rotations}回 ／ 接続世代 {connectionGeneration} ／ 復元した発話{" "}
+        {resumedTurns}件
+      </p>
       <header>
         <h1>面接サポート</h1>
         <p>本人が話すための、短い確認メモ。</p>
@@ -315,13 +332,13 @@ export function RelayInterviewPanel({
           : duration === "developer"
             ? "開発者試験（開始前）"
             : duration === "full"
-              ? "40分本番（開始前）"
+              ? "60分本番（開始前）"
               : "5分試験（開始前）"}
         {` ／ 経過 ${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")} ／ ヒント表示 ${generated}回 ／ 生成試行 ${hintAttempts}回（定期更新）`}
       </p>
       {usageMode === "developer" && (
         <p>
-          開始回数・ヒント総回数の固定上限なし。通常の予約枠は消費しません。1接続40分、同時接続1件、生成間隔と費用目安枠による停止は有効です。Googleの実請求上限ではありません。
+          開始回数・ヒント総回数の固定上限なし。通常の予約枠は消費しません。1接続60分、同時接続1件、生成間隔と費用目安枠による停止は有効です。Googleの実請求上限ではありません。
         </p>
       )}
       <fieldset disabled={locked} className={styles.controls}>
@@ -347,8 +364,8 @@ export function RelayInterviewPanel({
             onChange={(e) => setDuration(e.target.value)}
           >
             <option value="trial">5分試験（20ヒントまで）</option>
-            <option value="full">40分本番（80ヒントまで）</option>
-            <option value="developer">開発者試験（40分・本人への個別許可が必要）</option>
+            <option value="full">60分本番（80ヒントまで）</option>
+            <option value="developer">開発者試験（60分・本人への個別許可が必要）</option>
           </select>
         </label>
         <label>

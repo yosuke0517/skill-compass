@@ -52,7 +52,7 @@ writeFileSync(
 // Explicit fixture only. Never run this SQL against a remote database.
 writeFileSync(
   directory + "/relay-local-budget.sql",
-  "DELETE FROM interview_relay_sessions;\nINSERT INTO interview_relay_allowance VALUES(1,2700000,100) ON CONFLICT(id) DO UPDATE SET duration_remaining=2700000,hints_remaining=100;\n",
+  "DELETE FROM interview_relay_sessions;\nINSERT INTO interview_relay_allowance VALUES(1,3900000,100) ON CONFLICT(id) DO UPDATE SET duration_remaining=3900000,hints_remaining=100;\n",
 );
 console.log(
   "Local test identity and loopback settings prepared. No cloud credentials or calls. Apply migration and fixture with wrangler --local only.",

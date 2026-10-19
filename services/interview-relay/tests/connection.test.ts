@@ -11,6 +11,8 @@ function setup(
     mode?: "mock" | "google";
     interval?: number;
     leaseErrors?: number[];
+    resumeContext?: Grant["resumeContext"];
+    onHint?: (turns: unknown) => void;
   } = {},
 ) {
   let now = Date.now(),
@@ -37,6 +39,8 @@ function setup(
           expiresAt: now + 2_400_000,
           leaseUntil: now + 30_000,
           mode: options.mode ?? "mock",
+          saveLearning: !!options.resumeContext,
+          resumeContext: options.resumeContext,
         };
       if (op === "lease" && options.leaseErrors?.length)
         throw new AuthorityError(options.leaseErrors.shift()!);
@@ -66,6 +70,7 @@ function setup(
         },
         hints: {
           async generate(_turns, signal) {
+            options.onHint?.(_turns);
             if (options.hint) return options.hint;
             signal.throwIfAborted();
             return ["観点を確認", "経験を思い出す"];
@@ -125,7 +130,6 @@ test("auth timeout never starts providers and cleans up a late grant", async (t)
   const authority: Authority = {
     call(op, input) {
       calls.push(op);
-      if (op === "end") reasons.push((input as { reason: string }).reason);
       if (op === "redeem") {
         nonce = (input as { nonce: string }).nonce;
         return new Promise((r) => (resolve = r));
@@ -321,4 +325,25 @@ test("client stop reasons remain distinct with backward-compatible manual stop",
     assert.deepEqual(x.reasons, [expected]);
     x.c.close();
   }
+});
+
+test("reconnect restores context but never regenerates until a new final utterance", async () => {
+  const requests: unknown[] = [];
+  const x = setup({
+    resumeContext: [{ id: "prior-turn", source: "interviewer", text: "previous question" }],
+    onHint: (t) => requests.push(t),
+  });
+  await x.auth();
+  await new Promise((r) => setTimeout(r, 350));
+  assert.equal(requests.length, 0);
+  assert.ok(x.sent.some((e) => e.type === "ready" && e.resumedTurns === 1));
+  x.emit({ type: "transcript", source: "interviewer", text: "new question", final: true });
+  await new Promise((r) => setTimeout(r, 350));
+  assert.deepEqual(requests, [
+    [
+      { source: "interviewer", text: "previous question" },
+      { source: "interviewer", text: "new question" },
+    ],
+  ]);
+  x.c.close();
 });

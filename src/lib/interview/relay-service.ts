@@ -59,7 +59,15 @@ export class InterviewRelayService {
       const row = await this.store.peek(code);
       if (!row) throw new InterviewError(410, "チケットは失効しています。");
       assertInterviewAdmin(await this.currentUser(row.owner));
-      return this.grant(await this.store.redeem(code, string(input.nonce)));
+      // Restore only owner-consented text, before issuing a fresh processing grant.
+      const resumeContext =
+        row.generation > 1 && row.save_learning === 1 && this.learning
+          ? await this.learning.resumeContext(row.id, row.owner)
+          : undefined;
+      return {
+        ...this.grant(await this.store.redeem(code, string(input.nonce))),
+        ...(resumeContext ? { resumeContext } : {}),
+      };
     }
     const id = string(input.id),
       nonce = string(input.nonce);

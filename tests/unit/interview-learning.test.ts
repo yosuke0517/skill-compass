@@ -206,3 +206,60 @@ describe("opt-in learning history", () => {
     ).rejects.toMatchObject({ status: 400 });
   });
 });
+
+it("resumes the last six consented final turns in order without reissuing hints", async () => {
+  const { relay, learning, sql } = setup();
+  const ticket = await relay.ticket("owner", "developer", undefined, true);
+  const grant = await relay.redeem(ticket.ticket, "old");
+  const ids = Array.from({ length: 8 }, () => randomUUID());
+  for (let i = 0; i < 8; i++)
+    await learning.record(ticket.id, "owner", {
+      kind: "turn",
+      eventId: ids[i],
+      source: "interviewer",
+      text: "turn-" + i,
+    });
+  await relay.end(ticket.id, grant.generation, grant.nonce!, "CLIENT_DISCONNECTED");
+  await relay.release(ticket.id, grant.generation, grant.nonce!);
+  const reconnect = await relay.ticket("owner", "trial", ticket.id);
+  const service = new InterviewRelayService(
+    relay,
+    { mode: "mock", url: "ws://127.0.0.1", learningEnabled: true },
+    async () => ({ id: "owner", role: "admin", entitlements: new Set(["access.manage"]) }),
+    learning,
+  );
+  const restored = (await service.relay("redeem", { ticket: reconnect.ticket, nonce: "new" })) as {
+    resumeContext: { id: string; text: string }[];
+    generation: number;
+    expiresAt: number;
+  };
+  expect(restored.resumeContext.map((t) => t.text)).toEqual([
+    "turn-2",
+    "turn-3",
+    "turn-4",
+    "turn-5",
+    "turn-6",
+    "turn-7",
+  ]);
+  expect(restored.resumeContext.map((t) => t.id)).toEqual(ids.slice(2));
+  expect(restored.generation).toBe(2);
+  expect(restored.expiresAt).toBe(ticket.expiresAt);
+  expect(sql.prepare("SELECT hints FROM interview_relay_sessions").get()?.hints).toBe(0);
+  expect(sql.prepare("SELECT count(*) AS n FROM interview_learning_turns").get()?.n).toBe(8);
+});
+
+it("never restores context for a session without text-saving consent", async () => {
+  const { relay, learning } = setup();
+  const ticket = await relay.ticket("owner", "developer");
+  const grant = await relay.redeem(ticket.ticket, "old");
+  await relay.release(ticket.id, grant.generation, grant.nonce!);
+  const reconnect = await relay.ticket("owner", "trial", ticket.id);
+  const service = new InterviewRelayService(
+    relay,
+    { mode: "mock", url: "ws://127.0.0.1", learningEnabled: true },
+    async () => ({ id: "owner", role: "admin", entitlements: new Set(["access.manage"]) }),
+    learning,
+  );
+  const restored = await service.relay("redeem", { ticket: reconnect.ticket, nonce: "new" });
+  expect(restored).not.toHaveProperty("resumeContext");
+});

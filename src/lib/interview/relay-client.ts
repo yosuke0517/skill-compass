@@ -7,6 +7,8 @@ export type ClientEndReason =
   | "AUTHORIZATION_FAILED"
   | "SESSION_LIMIT";
 export type RelayEvent =
+  | { type: "ready"; resumedTurns: number; generation: number }
+  | { type: "status"; state: "rotated" }
   | { type: "transcript"; text: string; final: boolean }
   | { type: "hints"; lines: string[]; generationId?: string }
   | { type: "warning"; message: string };
@@ -72,6 +74,11 @@ export function connectRelay(
           if (event.type !== "ready" || event.id !== expectedId) throw new Error();
           ready = true;
           clearTimeout(timeout);
+          onEvent({
+            type: "ready",
+            resumedTurns: Number.isSafeInteger(event.resumedTurns) ? event.resumedTurns : 0,
+            generation: Number.isSafeInteger(event.generation) ? event.generation : 1,
+          });
           resolve({
             close,
             sample(text) {
@@ -95,6 +102,10 @@ export function connectRelay(
               ws.send(frame);
             },
           });
+          return;
+        }
+        if (event.type === "status" && event.state === "rotated") {
+          onEvent({ type: "status", state: "rotated" });
           return;
         }
         if (event.type === "ack") {

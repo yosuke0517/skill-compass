@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { RotatingSpeech } from "../src/adapters/rotating.js";
 import type { Event, SpeechAdapter } from "../src/shared.js";
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-test("40-minute equivalent graceful rotation: every chunk once, final order, close and reconnect", async () => {
+test("60-minute equivalent graceful rotation: every chunk once, final order, close and reconnect", async () => {
   const events: Event[] = [],
     received: number[] = [],
     finalized: number[] = [];
@@ -48,13 +48,13 @@ test("40-minute equivalent graceful rotation: every chunk once, final order, clo
     chunk.writeUInt16LE(index++);
     stream.write(chunk);
   }, 1);
-  await sleep(115);
+  await sleep(165);
   clearInterval(writer);
   await sleep(6);
   stream.close();
   const count = opens;
   await sleep(20);
-  assert.ok(count >= 11);
+  assert.ok(count >= 16);
   assert.equal(opens, count);
   assert.equal(closes, count);
   assert.deepEqual(

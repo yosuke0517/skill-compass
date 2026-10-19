@@ -66,6 +66,22 @@ export class LearningStore {
     if (!row) throw new InterviewError(404, "保存された履歴が見つかりません。");
     return row;
   }
+  async resumeContext(sessionId: string, owner: string) {
+    await this.owned(sessionId, owner);
+    const row = await this.db
+      .prepare(
+        "SELECT json_group_array(json_object('id',id,'source',source,'text',substr(text,-500))) AS data FROM (SELECT id,source,text FROM interview_learning_turns WHERE session_id=? ORDER BY created_at DESC,rowid DESC LIMIT 6)",
+      )
+      .bind(sessionId)
+      .first<{ data: string }>();
+    return (
+      JSON.parse(row?.data ?? "[]") as {
+        id: string;
+        source: "interviewer" | "self";
+        text: string;
+      }[]
+    ).reverse();
+  }
   async record(sessionId: string, owner: string, value: unknown) {
     const parsed = recordSchema.safeParse(value);
     if (!parsed.success) throw new InterviewError(400, "学習ログの形式を確認できません。");

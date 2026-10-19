@@ -31,6 +31,7 @@ export type Grant = {
   leaseUntil: number;
   mode: "mock" | "google";
   saveLearning?: boolean;
+  resumeContext?: { id: string; source: "interviewer" | "self"; text: string }[];
 };
 const fail = () =>
   new InterviewError(410, "利用枠・接続が失効しました。再接続条件を確認してください。");
@@ -73,7 +74,7 @@ export class RelayStore {
       .prepare(
         `SELECT
       EXISTS(SELECT 1 FROM interview_relay_allowance WHERE id=1 AND duration_remaining>=300000 AND hints_remaining>=20) AS trial,
-      EXISTS(SELECT 1 FROM interview_relay_allowance WHERE id=1 AND duration_remaining>=2400000 AND hints_remaining>=80) AS full,
+      EXISTS(SELECT 1 FROM interview_relay_allowance WHERE id=1 AND duration_remaining>=3600000 AND hints_remaining>=80) AS full,
       EXISTS(SELECT 1 FROM interview_relay_developers WHERE user_id=? AND enabled=1 AND budget_microusd>=15000) AS developer`,
       )
       .bind(owner)
@@ -98,12 +99,12 @@ export class RelayStore {
       row = await this.db
         .prepare(
           `UPDATE interview_relay_sessions SET code_hash=?, code_expires=?, generation=generation+1, nonce=NULL, ended_at=NULL,end_reason=NULL, heartbeat=?
-        WHERE id=? AND owner=? AND state='active' AND expires_at>? AND relay_until<=? RETURNING *`,
+        WHERE id=? AND owner=? AND state='active' AND expires_at>? AND relay_until<=? AND (nonce IS NULL OR relay_until>0 OR heartbeat+30000<=?) RETURNING *`,
         )
-        .bind(hash, now + 30_000, now, id, owner, now, now)
+        .bind(hash, now + 30_000, now, id, owner, now, now, now)
         .first<RelayRow>();
     } else {
-      const minutes = duration === "trial" ? 5 : 40,
+      const minutes = duration === "trial" ? 5 : 60,
         hints = duration === "trial" ? 20 : 80;
       try {
         row = await this.db
@@ -144,7 +145,7 @@ export class RelayStore {
         if (/allowance exhausted/.test(message))
           throw new InterviewError(
             409,
-            `${duration === "trial" ? "5分試験" : "40分本番"}の通常利用枠が不足しています。開発者試験の許可がある場合は、停止して利用時間を選び直してください。`,
+            `${duration === "trial" ? "5分試験" : "60分本番"}の通常利用枠が不足しています。開発者試験の許可がある場合は、停止して利用時間を選び直してください。`,
             "STANDARD_ALLOWANCE_EXHAUSTED",
           );
         if (/developer access or estimate budget unavailable/.test(message)) {

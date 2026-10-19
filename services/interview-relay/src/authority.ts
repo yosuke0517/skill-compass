@@ -9,6 +9,7 @@ export type Grant = {
   leaseUntil: number;
   mode: "mock" | "google";
   saveLearning?: boolean;
+  resumeContext?: { id: string; source: "interviewer" | "self"; text: string }[];
 };
 export interface Authority {
   call(
@@ -111,6 +112,20 @@ export class WorkerAuthority implements Authority {
       !["mock", "google"].includes(value.mode)
     )
       throw new Error("Invalid authority reply");
+    if (
+      value.resumeContext !== undefined &&
+      (!Array.isArray(value.resumeContext) ||
+        value.resumeContext.length > 6 ||
+        value.resumeContext.some(
+          (t) =>
+            typeof t.id !== "string" ||
+            t.id.length > 128 ||
+            !["interviewer", "self"].includes(t.source) ||
+            typeof t.text !== "string" ||
+            t.text.length > 500,
+        ))
+    )
+      throw new Error("Invalid resume context");
     return value;
   }
 }

@@ -11,7 +11,7 @@ function setup() {
   sql.exec(readFileSync("drizzle-d1/0003_interview_developer.sql", "utf8"));
   sql.exec(readFileSync("drizzle-d1/0004_interview_learning.sql", "utf8"));
   sql.exec(readFileSync("drizzle-d1/0005_interview_end_reason.sql", "utf8"));
-  sql.exec("INSERT INTO interview_relay_allowance VALUES(1,2700000,100)");
+  sql.exec("INSERT INTO interview_relay_allowance VALUES(1,3900000,100)");
   const db: SqlDatabase = {
     prepare(query) {
       let values: (string | number | null)[] = [];
@@ -243,7 +243,7 @@ describe("relay SQLite authorization and budget", () => {
     expect(
       sql.prepare("SELECT duration_remaining FROM interview_relay_allowance").get()
         ?.duration_remaining,
-    ).toBe(2400000);
+    ).toBe(3600000);
   });
   it("stores only the hash and consumes a ticket once even on simultaneous redemption", async () => {
     const { store, sql } = setup();
@@ -283,7 +283,7 @@ describe("relay SQLite authorization and budget", () => {
       sql.prepare("SELECT hints_remaining FROM interview_relay_allowance").get()?.hints_remaining,
     ).toBe(20);
   });
-  it("expires without browser heartbeat; preserves absolute 40-minute deadline", async () => {
+  it("expires without browser heartbeat; preserves absolute 60-minute deadline", async () => {
     const { store, tick } = setup();
     const t = await store.ticket("admin", "full");
     const g = await store.redeem(t.ticket, "n");
@@ -293,7 +293,7 @@ describe("relay SQLite authorization and budget", () => {
     await expect(store.lease(g.id, 1, "n")).rejects.toMatchObject({ status: 410 });
     await store.pulse(g.id, "admin");
     await expect(store.lease(g.id, 1, "n")).rejects.toMatchObject({ status: 410 });
-    tick(2370000);
+    tick(3570000);
     await expect(store.ticket("admin", "trial", t.id)).rejects.toMatchObject({ status: 410 });
   });
   it("rechecks admin on redeem, lease, and hint; rejects client role claims", async () => {
@@ -373,4 +373,19 @@ it("records a terminal reason despite revoked developer access and preserves the
     ended_at: 100000,
     relay_until: 0,
   });
+});
+
+it("ending waits for record drain/release before reconnect; old generation cannot end the new grant", async () => {
+  const { store } = setup();
+  const t = await store.ticket("admin", "full");
+  expect(t.expiresAt - t.startedAt).toBe(3600000);
+  await store.redeem(t.ticket, "old");
+  await store.end(t.id, 1, "old", "CLIENT_DISCONNECTED");
+  await expect(store.ticket("admin", "trial", t.id)).rejects.toMatchObject({ status: 410 });
+  await store.release(t.id, 1, "old");
+  const next = await store.ticket("admin", "trial", t.id);
+  const fresh = await store.redeem(next.ticket, "new");
+  await store.end(t.id, 1, "old", "CLIENT_STOP");
+  expect((await store.get(t.id))?.relay_until).toBe(fresh.relay_until);
+  expect(next.expiresAt).toBe(t.expiresAt);
 });

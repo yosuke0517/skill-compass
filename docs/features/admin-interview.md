@@ -9,7 +9,7 @@ The isolated implementation includes a ticket-authorized WebSocket relay and Goo
 - Cookie-authenticated start/reconnect returns a random 256-bit ticket, valid for 30 seconds. Only its SHA-256 hash is stored. Tickets are sent in the first WebSocket frame, never URLs or browser persistent storage.
 - The relay authenticates its callback using a Google-signed ID token. The Worker verifies fixed issuer/audience/runtime subject and RS256 against a fixed Google JWKS endpoint. Local test signing keys cannot be selected in production.
 - D1 consumes tickets with a single conditional `UPDATE … RETURNING`; SQL triggers atomically reserve duration/hint allowances and enforce one active session. No allowance is created by migration. Concurrent starts, ticket replay, and stale-session revival are rejected.
-- Five-minute trials reserve 20 hint attempts; 40-minute sessions reserve 80. Allowances are provisioned explicitly; the approved production trial was only five minutes/20 hints, once. Failures, stopping, cleanup, and reconnect do not refund or create quota. Metadata cleanup never resets the separate allowance row. These are operational controls, not a monetary hard cap.
+- Five-minute trials reserve 20 hint attempts; 60-minute sessions reserve 80. Allowances are provisioned explicitly; the approved production trial was only five minutes/20 hints, once. Failures, stopping, cleanup, and reconnect do not refund or create quota. Metadata cleanup never resets the separate allowance row. These are operational controls, not a monetary hard cap.
 - Browser heartbeat starts immediately after ticket allocation and is attempted every ten seconds, with both audio callbacks and a fallback timer. Relay renewal is scheduled before the granted deadline (normally every 15 seconds, earlier for a shortened lease). Each lease is capped by the last browser heartbeat plus 30 seconds and the original session deadline. Stop/transport close cancels audio and in-flight hints immediately; failed lease renewal stops the relay. Reconnect needs a new ticket and either confirmed prior release or prior lease expiry. It preserves the original deadline and remaining attempts; missing audio/history is not reconstructed.
 - PCM is mono 16 kHz, 100-ms chunks with sequence numbers, acknowledgements, a two-second backlog cap, and real-time rate limits. Authorization timeout is five seconds; WebSocket frames are limited to 4 KiB. No provider is constructed before authorization.
 - STT uses V2 gRPC; a four-minute rotation half-closes the old input and drains final results while accepting new audio. A drain failure stops processing rather than silently dropping a seam.
@@ -68,7 +68,7 @@ From the app root, with both local servers running and a freshly initialized **l
 node scripts/interview/verify-relay-local.mjs
 ```
 
-This browser test consumes its 5-minute and 40-minute reservations (without waiting their full real durations). It verifies anonymous/normal/pro denial, authenticated PCM acknowledgement, sample hints, ticket replay rejection, same-deadline reconnect, stop cleanup, logout, and desktop/390px rendering. Screenshots are written under ignored `test-results/`.
+This browser test consumes its 5-minute and 60-minute reservations (without waiting their full real durations). It verifies anonymous/normal/pro denial, authenticated PCM acknowledgement, sample hints, ticket replay rejection, same-deadline reconnect, stop cleanup, logout, and desktop/390px rendering. Screenshots are written under ignored `test-results/`.
 
 ## Cloud configuration
 
@@ -84,7 +84,7 @@ The local relay's health endpoint is `/health`; its container update is pending 
 
 The `developer` option requests a server-authorized testing session. It does not grant access. A separately provisioned `interview_relay_developers` row must match the existing authenticated user's immutable ID and be enabled. Migration grants nobody; no email matching, client role claim, shared admin auto-enrollment, or browser endpoint can create this permission. Fresh active-admin checks remain mandatory for starts and relay callbacks.
 
-Developer sessions do not consume the normal five-minute/20-hint or 40-minute/80-hint reservation pool. Starts and total hint attempts have no fixed count limit, but each connection ends after 40 minutes. The singleton, 30-second ticket, generation/nonce, heartbeat/lease, hint rate limit, manual stop, and no-persistent-conversation rules remain unchanged. Reconnect preserves the original mode/deadline; it cannot upgrade a standard session.
+Developer sessions do not consume the normal five-minute/20-hint or 60-minute/80-hint reservation pool. Starts and total hint attempts have no fixed count limit, but each session ends after 60 minutes. The singleton, 30-second ticket, generation/nonce, heartbeat/lease, hint rate limit, manual stop, and no-persistent-conversation rules remain unchanged. Reconnect preserves the original mode/deadline; it cannot upgrade a standard session.
 
 A separate persistent estimate budget bounds paid testing. SQL triggers atomically reserve $0.03 per minute of authorized audio/relay time and $0.002 per hint attempt **before** provider processing. Time is prepaid through each lease deadline; paused/reconnected intervals can be conservatively counted, and stopping does not refund prepaid time. Failed hint attempts count. Exhaustion or disabling the owner row denies subsequent grants; outstanding processing stops by its already reserved lease deadline. Session cleanup cannot refill this budget. This accounting is deliberately conservative, not Google's invoice or an absolute cloud billing cap; image storage, unrelated requests, taxes, and future price changes are separate. No actual calls above the approved operational spending scope are authorized by choosing this option.
 
@@ -156,3 +156,9 @@ permission have distinct end reasons. Ending clears the processing lease before
 recording its first-wins reason, so revocation cannot prevent the terminal record.
 The stopped elapsed-time display freezes. No duration, budget or authorization
 allowance is increased by these changes.
+
+### Sixty-minute sessions and consented reconnect context
+
+Full and developer sessions use a server-authoritative 60-minute deadline; reconnect never extends it. Normal sessions still reserve 80 hints. The relay deployment requires Cloud Run timeout 3600 seconds. Four-minute STT rotation is unchanged. The screen reports rotation count, connection generation and restored turn count. Real-time 20-minute and 60-minute acceptance remains pending.
+
+After the old relay releases its generation, a reconnect can restore only the last six saved turns (500 characters each) of the same consenting owner/session. Restoration itself neither generates hints nor replays audio. Unsaved sessions restore no context; missing audio during interruption cannot be recovered. Idempotent text-record callbacks retry transient failures at most three times. Generation fencing prevents old callbacks from modifying a newly redeemed connection.
