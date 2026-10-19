@@ -17,7 +17,7 @@ test("trace records exact outgoing JSON without credentials or thought text", as
         candidates: [
           {
             content: {
-              parts: [{ thought: true, text: "private thought" }, { text: "確認する\n構成する" }],
+              parts: [{ thought: true, text: "private thought" }, { text: JSON.stringify({ lines: ["確認する", "構成する"] }) }],
             },
           },
         ],
@@ -35,8 +35,8 @@ test("trace records exact outgoing JSON without credentials or thought text", as
     ["確認する", "構成する"],
   );
   assert.deepEqual(traces[0].request?.body, body);
-  assert.equal(traces[0].request?.promptVersion, "interview-cues-v1");
-  assert.equal(traces[1].output, "確認する\n構成する");
+  assert.equal(traces[0].request?.promptVersion, "interview-cues-v2-latest");
+  assert.equal(traces[1].output, JSON.stringify({ lines: ["確認する", "構成する"] }));
   assert.ok(!JSON.stringify(traces).includes("secret-token"));
   assert.ok(!JSON.stringify(traces).includes("private thought"));
 });

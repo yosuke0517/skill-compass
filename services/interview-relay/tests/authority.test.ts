@@ -66,7 +66,7 @@ test("Vertex request bounds context, disables tool use and ignores thought outpu
             content: {
               parts: [
                 { thought: true, text: "private reasoning" },
-                { text: "観点を確認\n実体験を選ぶ" },
+                { text: JSON.stringify({ lines: ["観点を確認", "実体験を選ぶ"] }) },
               ],
             },
           },

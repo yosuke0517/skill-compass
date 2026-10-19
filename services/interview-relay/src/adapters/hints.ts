@@ -18,7 +18,7 @@ export class MockHints implements HintAdapter {
           body: {
             systemInstruction: { parts: [{ text: hintInstruction }] },
             contents: [{ role: "user", parts: [{ text: JSON.stringify(boundedContext(turns)) }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+            generationConfig: hintGenerationConfig,
           },
         },
       });
@@ -27,19 +27,31 @@ export class MockHints implements HintAdapter {
       "自分が実際に経験した例を選ぶ",
       "結論・行動・結果の順で話す",
     ];
-    if (trace) await trace({ output: lines.join("\n") });
+    if (trace) await trace({ output: JSON.stringify({ lines }) });
     signal.throwIfAborted();
     return lines;
   }
 }
+export const hintGenerationConfig = {
+  temperature: 0.2,
+  maxOutputTokens: 512,
+  responseMimeType: "application/json",
+  responseSchema: {
+    type: "OBJECT",
+    properties: { lines: { type: "ARRAY", minItems: 2, maxItems: 3,
+      items: { type: "STRING", description: "最新の質問だけへの確認観点。60文字以内、改行なし。" } } },
+    required: ["lines"],
+  },
+};
 // Conservatively bound the entire prompt in UTF-8 bytes, not only character count.
 export function boundedContext(turns: Turn[]) {
   const copy = turns.slice(-6).map((t) => ({ ...t, text: t.text.slice(-500) }));
-  while (Buffer.byteLength(hintInstruction + JSON.stringify(copy), "utf8") > 1800 && copy.length) {
+  const input = () => ({ latestUtterance: copy.at(-1) ?? null, precedingContext: copy.slice(0, -1) });
+  while (Buffer.byteLength(hintInstruction + JSON.stringify(input()), "utf8") > 1800 && copy.length) {
     if (copy.length > 1) copy.shift();
     else copy[0].text = copy[0].text.slice(20);
   }
-  return copy;
+  return input();
 }
 const auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
 export class VertexHints implements HintAdapter {
@@ -58,7 +70,7 @@ export class VertexHints implements HintAdapter {
     const body = {
       systemInstruction: { parts: [{ text: hintInstruction }] },
       contents: [{ role: "user", parts: [{ text: JSON.stringify(boundedContext(turns)) }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+      generationConfig: hintGenerationConfig,
     };
     if (trace) await trace({ request: { model: this.model, promptVersion, body } });
     signal.throwIfAborted();
