@@ -242,8 +242,21 @@ export class RelayConnection {
         }
         throw new Error("対応していない操作です。");
       }
-    } catch {
-      this.fail("接続・音声処理を継続できません。再接続または設定を確認してください。");
+    } catch (error) {
+      // Fixed codes and counters only: never log audio, tickets, transcript or provider errors.
+      const codes: Record<string, string> = {
+        "送信頻度が高すぎます。": "MESSAGE_RATE",
+        "接続が有効ではありません。": "GRANT_EXPIRED",
+        "音声の順序・長さが不正です。": "AUDIO_SEQUENCE",
+        "音声が実時間より速く送信されています。": "AUDIO_RATE",
+        "音声送信が追いつきません。再接続してください。": "SPEECH_BACKPRESSURE",
+        "音声チャンクの形式が不正です。": "AUDIO_FORMAT",
+      };
+      const code = error instanceof Error ? codes[error.message] ?? "UNCLASSIFIED" : "UNCLASSIFIED";
+      console.warn(JSON.stringify({ event: "relay_processing_error", code,
+        sessionId: this.grant?.id, sequence: this.sequence, messages: this.messages,
+        windowBytes: this.bytes, totalBytes: this.totalBytes, elapsedMs: this.now() - this.startedAt }));
+      this.fail(`接続・音声処理を継続できません。[${code}] 再接続または設定を確認してください。`);
     }
   }
   private event(event: Event) {

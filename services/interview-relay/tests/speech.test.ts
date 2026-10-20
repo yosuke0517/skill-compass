@@ -98,3 +98,56 @@ test("Google graceful finish retains final response and deduplicates only identi
   stream.close();
   assert.equal(cancelled, true);
 });
+
+test("temporary writable backpressure drains once in order, including graceful finish", async () => {
+  const audioWrites: number[] = [];
+  let blocked = false, ended = 0;
+  const transport = Object.assign(new EventEmitter(), {
+    write(value: { audio?: Buffer }) {
+      if (value.audio) audioWrites.push(value.audio[0]);
+      return !blocked;
+    },
+    end() { ended++; transport.emit("end"); },
+    cancel() {}, destroy() {},
+  });
+  const stream = new GoogleSpeech("test-project", "us", "chirp_3", {
+    _streamingRecognize: () => transport,
+  } as unknown as NonNullable<ConstructorParameters<typeof GoogleSpeech>[3]>).open("interviewer", () => {});
+  blocked = true;
+  assert.doesNotThrow(() => stream.write(Buffer.alloc(3200, 1)));
+  stream.write(Buffer.alloc(3200, 2));
+  stream.write(Buffer.alloc(3200, 3));
+  const finished = stream.finish();
+  assert.equal(ended, 0);
+  assert.deepEqual(audioWrites, [1]);
+  blocked = false;
+  transport.emit("drain");
+  await finished;
+  assert.deepEqual(audioWrites, [1, 2, 3]);
+  assert.equal(ended, 1);
+  stream.close();
+});
+
+test("persistent speech backpressure is bounded and close cancels its deadline", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const events: Event[] = [];
+  const transport = Object.assign(new EventEmitter(), {
+    write: (value: { audio?: Buffer }) => !value.audio,
+    end() {}, cancel() {}, destroy() {},
+  });
+  const stream = new GoogleSpeech("test-project", "us", "chirp_3", {
+    _streamingRecognize: () => transport,
+  } as unknown as NonNullable<ConstructorParameters<typeof GoogleSpeech>[3]>).open("interviewer", e => events.push(e));
+  stream.write(Buffer.alloc(3200));
+  for (let i = 0; i < 20; i++) stream.write(Buffer.alloc(3200));
+  assert.throws(() => stream.write(Buffer.alloc(3200)), /追いつきません/);
+  t.mock.timers.tick(1999);
+  assert.equal(events.length, 0);
+  t.mock.timers.tick(1);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, "error");
+  stream.close();
+  transport.emit("drain");
+  t.mock.timers.tick(2000);
+  assert.equal(events.length, 1);
+});
