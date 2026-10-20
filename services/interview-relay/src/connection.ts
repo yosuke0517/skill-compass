@@ -303,6 +303,7 @@ export class RelayConnection {
     const started = this.now();
     let output: string | undefined;
     let requested = false;
+    let stage = "authority";
     const controller = new AbortController();
     this.pendingHint = controller;
     const timeout = setTimeout(() => {
@@ -318,6 +319,7 @@ export class RelayConnection {
       signal.throwIfAborted();
       if (!this.alive()) return;
       this.lastHint = this.now();
+      stage = "generation";
       const lines = await this.hints!.generate(
         turns,
         signal,
@@ -339,6 +341,7 @@ export class RelayConnection {
       // The provider deadline must not include result/sent persistence latency.
       clearTimeout(timeout);
       signal.throwIfAborted();
+      stage = "result_record";
       if (requested)
         await this.record({
           kind: "result",
@@ -354,6 +357,10 @@ export class RelayConnection {
         if (requested) await this.record({ kind: "sent", eventId: generationId });
       }
     } catch {
+      console.warn(JSON.stringify({ event: "relay_hint_failed", stage,
+        sessionId: this.grant?.id, generationId, requested,
+        aborted: signal.aborted, sessionEnded: this.abort.signal.aborted,
+        elapsedMs: Math.max(0, this.now() - started) }));
       if (requested)
         await this.record({
           kind: "result",
