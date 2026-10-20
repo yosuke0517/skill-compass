@@ -98,3 +98,37 @@ for (const saveLearning of [false, true])
     );
     if (saveLearning) assert.equal(events.at(-1)?.status, "aborted");
   });
+
+test("completed generation does not time out while its result record drains", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const sent: Record<string, unknown>[] = [];
+  let finishRecord!: () => void;
+  const resultPending = new Promise<void>((resolve) => { finishRecord = resolve; });
+  let grant: Grant;
+  const authority: Authority = {
+    async call(op, input) {
+      if (op === "redeem") grant = { id: "s", owner: "o", nonce: (input as {nonce: string}).nonce,
+        generation: 1, expiresAt: Date.now()+3600000, leaseUntil: Date.now()+30000,
+        mode: "mock", saveLearning: true };
+      if (op === "record" && (input as {event: {kind: string}}).event.kind === "result") await resultPending;
+      return grant;
+    },
+  };
+  const c = new RelayConnection({send(event) { sent.push(event as Record<string, unknown>); },close() {}}, authority, "mock", () => ({
+    speech: {open() {return {write() {},close() {}};}},
+    hints: {async generate(_turns, _signal, trace) {
+      await trace?.({request: {model:"mock",promptVersion:"test",body:{}}});
+      return ["確認", "構成"];
+    }},
+  }));
+  await c.message(Buffer.from(JSON.stringify({type:"authorize",ticket:"a".repeat(64)})), false);
+  await c.message(Buffer.from(JSON.stringify({type:"sample",text:"質問"})),false);
+  t.mock.timers.tick(300);
+  for(let i=0;i<30;i++) await Promise.resolve();
+  t.mock.timers.tick(8001);
+  finishRecord();
+  for(let i=0;i<30;i++) await Promise.resolve();
+  c.close();
+  assert.equal(sent.filter(e=>e.type==="warning").length,0);
+  assert.equal(sent.filter(e=>e.type==="hints").length,1);
+});

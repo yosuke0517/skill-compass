@@ -323,6 +323,9 @@ export class RelayConnection {
             }
           : undefined,
       );
+      // The provider deadline must not include result/sent persistence latency.
+      clearTimeout(timeout);
+      signal.throwIfAborted();
       if (requested)
         await this.record({
           kind: "result",
