@@ -2,7 +2,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { LearningStore, purgeInterviewLearning } from "@/lib/interview/learning-store";
 import { RelayStore, type SqlDatabase } from "@/lib/interview/relay-store";
 import { InterviewRelayService } from "@/lib/interview/relay-service";
@@ -262,4 +262,28 @@ it("never restores context for a session without text-saving consent", async () 
   );
   const restored = await service.relay("redeem", { ticket: reconnect.ticket, nonce: "new" });
   expect(restored).not.toHaveProperty("resumeContext");
+});
+
+
+it("finalizes only aborted existing requests for 30 seconds after the original session deadline", async () => {
+  const { relay, learning, sql } = setup();
+  const ticket = await relay.ticket("owner", "trial", undefined, true);
+  const grant = await relay.redeem(ticket.ticket, "deadline-nonce");
+  const eventId = randomUUID();
+  await learning.record(ticket.id, "owner", { kind: "request", eventId, turnIds: [], request });
+  const service = new InterviewRelayService(relay, { mode: "mock", url: "wss://relay.example", learningEnabled: true },
+    async () => ({ id: "owner", role: "admin", entitlements: new Set(["access.manage"]) }), learning);
+  const claim = { id: ticket.id, generation: grant.generation, nonce: grant.nonce! };
+  const event = { kind: "result", eventId, status: "aborted", lines: [], errorCode: "ABORTED", latencyMs: 1000 };
+  const clock = vi.spyOn(Date, "now").mockReturnValue(grant.expires_at + 1);
+  try {
+    await expect(service.relay("record", { ...claim, event: { kind: "request", eventId: randomUUID(), turnIds: [], request } })).rejects.toMatchObject({ status: 403 });
+    await expect(service.relay("record", { ...claim, event: { ...event, status: "success" } })).rejects.toMatchObject({ status: 403 });
+    await expect(service.relay("record", { ...claim, generation: grant.generation + 1, event })).rejects.toMatchObject({ status: 403 });
+    await expect(service.relay("record", { ...claim, event })).resolves.toEqual({ saved: true });
+    expect(sql.prepare("SELECT status FROM interview_learning_generations WHERE id=?").get(eventId)).toMatchObject({ status: "aborted" });
+    expect((await relay.get(ticket.id))?.expires_at).toBe(grant.expires_at);
+    clock.mockReturnValue(grant.expires_at + 30001);
+    await expect(service.relay("record", { ...claim, event })).rejects.toMatchObject({ status: 403 });
+  } finally { clock.mockRestore(); }
 });

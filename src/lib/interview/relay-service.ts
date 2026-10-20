@@ -97,11 +97,19 @@ export class InterviewRelayService {
     }
     if (operation === "record") {
       const row = await this.store.get(id);
+      const event = input.event as Record<string, unknown> | null;
+      // A deadline cancels in-flight hints. Allow only their terminal abort update,
+      // never new audio, turns, requests, successful results or processing grants.
+      // LearningStore updates existing pending rows only; deleted history stays deleted.
+      const terminalAbort = event?.kind === "result" && event.status === "aborted" &&
+        event.errorCode === "ABORTED" && Array.isArray(event.lines) && event.lines.length === 0 &&
+        event.output === undefined;
+      const now = Date.now();
       if (
         !row ||
         row.generation !== generation ||
         row.nonce !== nonce ||
-        row.expires_at <= Date.now() ||
+        (row.expires_at <= now && !(terminalAbort && now <= row.expires_at + 30000)) ||
         row.save_learning !== 1 ||
         !this.learning
       )
