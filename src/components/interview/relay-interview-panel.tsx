@@ -27,6 +27,7 @@ export function RelayInterviewPanel({
   const [saveLearning, setSaveLearning] = useState(false);
   const [displayedGeneration, setDisplayedGeneration] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const [hintWarning, setHintWarning] = useState("");
   const [leaseSession, setLeaseSession] = useState<Session | null>(null);
   const pulseFromAudio = useRef<() => void>(() => {});
   const [capturing, setCapturing] = useState(false),
@@ -77,6 +78,7 @@ export function RelayInterviewPanel({
   }
   const release = useCallback((reason: ClientEndReason = "CLIENT_STOP") => {
     setLeaseSession(null);
+    setHintWarning("");
     socket.current?.close(reason);
     control.current?.abort();
     control.current = null;
@@ -196,11 +198,16 @@ export function RelayInterviewPanel({
             } else setInterim(event.text);
           }
           if (event.type === "hints") {
+            setHintWarning("");
             setLines(event.lines);
             setDisplayedGeneration(event.generationId);
             setGenerated((n) => n + 1);
           }
-          if (event.type === "warning") setError(event.message);
+          if (event.type === "warning") {
+            if (event.message === "ヒント生成がタイムアウトしました。")
+              setHintWarning("ヒント生成がタイムアウトしました。音声認識は継続中です。次の発話で再度生成します。");
+            else setError(event.message);
+          }
         },
         (message) => pause(message, current),
       );
@@ -427,6 +434,11 @@ export function RelayInterviewPanel({
       {error && (
         <p role="alert" className={styles.error}>
           {error}
+        </p>
+      )}
+      {hintWarning && (
+        <p role="status" className={styles.error}>
+          {hintWarning}
         </p>
       )}
       <div className={styles.workspace}>

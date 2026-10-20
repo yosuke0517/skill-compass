@@ -29,6 +29,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("relay panel", () => {
+  it("clears a recovered hint timeout without hiding a separate persistence warning", async () => {
+    render(<RelayInterviewPanel providerMode="mock" />);
+    fireEvent.click(screen.getByText("開始", { exact: true }));
+    await screen.findByText("実行中", { exact: true });
+    const events = vi.mocked(connectRelay).mock.calls[0][4];
+    const { act } = await import("@testing-library/react");
+    act(() => events({ type: "warning", message: "ヒント生成がタイムアウトしました。" }));
+    expect(screen.getByText(/次の発話で再度生成/)).toBeTruthy();
+    expect(transport.close).not.toHaveBeenCalled();
+    act(() => events({ type: "warning", message: "学習ログを保存できませんでした。" }));
+    act(() => events({ type: "hints", lines: ["最新の問いを整理", "具体例を振り返る"] }));
+    expect(screen.queryByText(/次の発話で再度生成/)).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("学習ログを保存できませんでした。");
+    expect(screen.getByText("最新の問いを整理")).toBeTruthy();
+  });
+
   it("renews the browser heartbeat while the relay is still cold-starting", async () => {
     vi.mocked(connectRelay).mockReturnValueOnce(new Promise(() => {}));
     render(<RelayInterviewPanel providerMode="mock" />);
