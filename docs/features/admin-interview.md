@@ -135,7 +135,7 @@ The lease regression test simulates two minutes of differently phased browser an
 
 ## Latest-question hint targeting
 
-Relay prompt `interview-cues-v2-latest` labels the latest utterance separately from chronological preceding context. A split recognition fragment is interpreted using its preceding fragment; older questions are context, not additional requests to answer. The full prompt retains its 1,800-byte bound. Vertex returns a structured `lines` array of two or three short lines. The relay rejects extra lines, embedded newlines, and lines longer than 60 characters instead of silently truncating away current-question advice. Saved input/output remains the exact provider trace; successful UI lines and raw output are retained separately. Clock-controlled lease/deadline tests do not establish 40-minute real-device endurance.
+Relay prompt `interview-cues-v3-adjacent` labels the latest utterance and its immediately preceding recognition fragment separately from older chronological context. A split recognition fragment is interpreted using its preceding fragment; older questions are context, not additional requests to answer. The full prompt retains its 1,800-byte bound. Vertex returns a structured `lines` array of two or three short lines. The relay rejects extra lines, embedded newlines, and lines longer than 60 characters instead of silently truncating away current-question advice. Saved input/output remains the exact provider trace; successful UI lines and raw output are retained separately. Clock-controlled lease/deadline tests do not establish 40-minute real-device endurance.
 
 ### Transient confirmation failures
 
@@ -159,6 +159,27 @@ allowance is increased by these changes.
 
 ### Sixty-minute sessions and consented reconnect context
 
-Full and developer sessions use a server-authoritative 60-minute deadline; reconnect never extends it. Normal sessions still reserve 80 hints. The relay deployment requires Cloud Run timeout 3600 seconds. Four-minute STT rotation is unchanged. The screen reports rotation count, connection generation and restored turn count. Real-time 20-minute and 60-minute acceptance remains pending.
+Full and developer sessions use a server-authoritative 60-minute deadline; reconnect never extends it. Normal sessions still reserve 80 hints. The relay deployment requires Cloud Run timeout 3600 seconds. Four-minute STT rotation is unchanged. The screen reports rotation count, connection generation and restored turn count. A production practice-audio session completed 60 minutes with 14 STT rotations on 2026-10-20. That establishes connection endurance only: subsequent quality review found wrong-question hints and a pending result at expiry. Real-device acceptance of later corrections remains separate.
 
 After the old relay releases its generation, a reconnect can restore only the last six saved turns (500 characters each) of the same consenting owner/session. Restoration itself neither generates hints nor replays audio. Unsaved sessions restore no context; missing audio during interruption cannot be recovered. Idempotent text-record callbacks retry transient failures at most three times. Generation fencing prevents old callbacks from modifying a newly redeemed connection.
+
+### Expiry finalization and quality diagnostics
+
+For an opted-in, matching owner/generation/nonce, an already pending generation
+may receive an output-free `aborted` / `ABORTED` result for up to 30 seconds after
+the original processing deadline. New requests, transcripts and successful results
+remain forbidden after expiry. This does not extend the audio session or revive
+deleted history. A session ending while result persistence is pending triggers the
+same abort finalization; completed results remain idempotent.
+
+A hint timeout does not stop audio. The next finalized utterance can request a new
+hint; there is no unbounded retry of the same failed question. The UI clears the
+transient timeout notice when a later hint arrives, while separate persistence
+warnings remain visible. Relay failure diagnostics contain only fixed stage names,
+identifiers, elapsed time and abort flags, not audio, transcripts, outputs, tokens
+or arbitrary provider error messages. The `generation` stage includes token and
+request-record preparation, so it does not by itself identify a provider failure.
+
+The adjacent-fragment prompt instructs the model to wait for incomplete questions
+and respond to introductions/closing notices without recycling an older question.
+Mocked request-shape tests verify the input contract, not model semantic quality.
