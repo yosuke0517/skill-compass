@@ -352,7 +352,8 @@ export class RelayConnection {
           errorCode: null,
           latencyMs: Math.max(0, this.now() - started),
         });
-      if (this.alive() && !signal.aborted && version === this.hintVersion) {
+      signal.throwIfAborted();
+      if (this.alive() && version === this.hintVersion) {
         this.wire.send({ type: "hints", lines, ...(requested ? { generationId } : {}) });
         if (requested) await this.record({ kind: "sent", eventId: generationId });
       }
@@ -367,7 +368,7 @@ export class RelayConnection {
           eventId: generationId,
           status: signal.aborted ? "aborted" : "error",
           lines: [],
-          output,
+          output: signal.aborted ? undefined : output,
           errorCode: signal.aborted ? "ABORTED" : "GENERATION_FAILED",
           latencyMs: Math.max(0, this.now() - started),
         });
