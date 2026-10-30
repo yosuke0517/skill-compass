@@ -30,11 +30,12 @@ export function AdminShell({
         <aside className="admin-sidebar">
           <nav aria-label="管理メニュー">
             <p className="admin-nav-label">Workspace</p>
-            <a href="#access" aria-current="page"><LockKeyhole size={17} aria-hidden="true" />Access</a>
-            <a href="#plans">Plans</a>
-            <a href="#users">Users</a>
-            <a href="#integrations">Integrations</a>
-            <a href="#audit">Audit</a>
+            <Link href="/admin/access"><LockKeyhole size={17} aria-hidden="true" />Access</Link>
+            <Link href="/admin/interview">面接サポート</Link>
+            <a href="/admin/access#plans">Plans</a>
+            <a href="/admin/access#users">Users</a>
+            <a href="/admin/access#integrations">Integrations</a>
+            <a href="/admin/access#audit">Audit</a>
           </nav>
           <Link href="/settings" className="admin-back"><ArrowLeft size={16} aria-hidden="true" />Settingsへ戻る</Link>
         </aside>

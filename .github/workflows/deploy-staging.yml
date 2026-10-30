@@ -33,6 +33,7 @@ jobs:
       MCP_RESOURCE_URL: ${{ vars.STAGING_BASE_URL }}/mcp
       MCP_ARCHITECTURE_RESOURCE_URL: ${{ vars.STAGING_BASE_URL }}/mcp/architecture
       MCP_ALLOWED_USER_ID: user_staging
+      INTERVIEW_RELAY_CONFIG: ${{ vars.INTERVIEW_RELAY_CONFIG }}
       STAGING_LOGIN_EMAIL: ${{ secrets.STAGING_LOGIN_EMAIL }}
       STAGING_LOGIN_PASSWORD: ${{ secrets.STAGING_LOGIN_PASSWORD }}
     steps:
@@ -55,6 +56,9 @@ jobs:
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm lint
+      - name: Verify interview relay
+        working-directory: services/interview-relay
+        run: npm ci && npm run typecheck && npm test
       - run: terraform -chdir=infra/cloudflare init -input=false
       - run: terraform -chdir=infra/cloudflare plan -input=false -var-file=environments/staging.tfvars -out=/tmp/staging.tfplan
       - run: terraform -chdir=infra/cloudflare show -json /tmp/staging.tfplan > /tmp/staging-plan.json
@@ -64,6 +68,8 @@ jobs:
       - run: pnpm build:cloudflare
       - name: Apply additive notification schema
         run: pnpm exec wrangler d1 execute DB --remote --config .cloudflare/deploy-values.json --env staging --file drizzle-d1/0001_today_notifications.sql
+      - name: Apply and verify interview schema without resetting allowances
+        run: pnpm exec tsx scripts/interview/migrations.ts .cloudflare/deploy-values.json staging
       - name: Update notification signing keys when configured
         if: ${{ env.VAPID_CONFIG != '' }}
         run: |

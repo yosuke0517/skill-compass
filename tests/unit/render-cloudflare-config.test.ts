@@ -36,7 +36,7 @@ function validTerraformOutputs(): Record<string, TerraformOutput> {
   };
 }
 
-function runRenderer(outputs: Record<string, TerraformOutput>, environment = "staging") {
+function runRenderer(outputs: Record<string, TerraformOutput>, environment = "staging", interviewConfig = "") {
   const directory = mkdtempSync(path.join(tmpdir(), "skill-compass-render-cloudflare-"));
   temporaryDirectories.push(directory);
   const outputPath = path.join(directory, "deploy-values.json");
@@ -58,6 +58,7 @@ function runRenderer(outputs: Record<string, TerraformOutput>, environment = "st
       cwd: repositoryRoot,
       encoding: "utf8",
       input: JSON.stringify(outputs),
+      env: { ...process.env, INTERVIEW_RELAY_CONFIG: interviewConfig },
     },
   );
 
@@ -71,6 +72,17 @@ afterEach(() => {
 });
 
 describe("Cloudflare deploy-config renderer", () => {
+  test("includes only validated interview settings and rejects credential injection", () => {
+    const config = { mode: "openai", url: "wss://relay.example/audio", audience: "https://app.example/api/interview/relay/redeem", subject: "123456789", learningEnabled: true };
+    const { outputPath, result } = runRenderer(validTerraformOutputs(), "staging", JSON.stringify(config));
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(readFileSync(outputPath, "utf8")).env.staging.vars).toMatchObject({
+      INTERVIEW_RELAY_MODE: "openai", INTERVIEW_RELAY_URL: config.url, INTERVIEW_RELAY_SUBJECT: config.subject, INTERVIEW_LEARNING_ENABLED: "1",
+    });
+    for (const invalid of [{ ...config, apiKey: "secret" }, { ...config, url: "ws://relay.example/audio" }, { ...config, mode: "mock" }]) {
+      expect(runRenderer(validTerraformOutputs(), "staging", JSON.stringify(invalid)).result.status).not.toBe(0);
+    }
+  });
   test("renders non-secret staging Terraform outputs into the Wrangler staging bindings", () => {
     const { outputPath, result } = runRenderer(validTerraformOutputs());
 

@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 type TerraformOutput = {
   sensitive: boolean;
@@ -138,6 +139,24 @@ function main(): void {
   const selected = config.env[environment];
   if (!selected) throw new Error(`Wrangler environment "${environment}" is missing`);
   config.env = { [environment]: selected };
+
+  if (process.env.INTERVIEW_RELAY_CONFIG) {
+    const secureUrl = (protocol: string) => z.string().url().refine(value => {
+      const url = new URL(value);
+      return url.protocol === protocol && !url.username && !url.password && !url.search && !url.hash;
+    });
+    const interview = z.strictObject({
+      mode: z.enum(["google", "openai"]), url: secureUrl("wss:"),
+      audience: secureUrl("https:").refine(value => new URL(value).pathname.endsWith("/api/interview/relay/redeem")),
+      subject: z.string().regex(/^\d{6,30}$/), learningEnabled: z.boolean(),
+    }).parse(JSON.parse(process.env.INTERVIEW_RELAY_CONFIG));
+    selected.vars = {
+      ...(selected.vars as Record<string, string> | undefined),
+      INTERVIEW_RELAY_MODE: interview.mode, INTERVIEW_RELAY_URL: interview.url,
+      INTERVIEW_RELAY_AUDIENCE: interview.audience, INTERVIEW_RELAY_SUBJECT: interview.subject,
+      INTERVIEW_LEARNING_ENABLED: interview.learningEnabled ? "1" : "0",
+    };
+  }
 
   selected.name = environmentResourceName(outputs, "worker_name", environment);
   selected.d1_databases = [

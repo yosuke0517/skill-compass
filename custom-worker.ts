@@ -3,6 +3,7 @@
 // @ts-ignore -- generated module is absent before the build
 import handler from "./.open-next/worker.js";
 import { dispatchNotifications } from "./src/lib/notifications/dispatch";
+import { purgeInterviewLearning } from "./src/lib/interview/learning-store";
 import {
   createPushSender,
   pushConfiguration,
@@ -14,6 +15,7 @@ const worker = {
   fetch: handler.fetch,
   async scheduled(_controller: unknown, env: Env) {
     if (env.MAINTENANCE_MODE === "read_only") return;
+    await purgeInterviewLearning(env.DB);
     const config = pushConfiguration(env);
     if (!config) return;
     const result = await dispatchNotifications(env.DB, createPushSender(config), new Date());
