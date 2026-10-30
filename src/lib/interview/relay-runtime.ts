@@ -6,7 +6,7 @@ import { createRelayIdentityVerifier } from "./identity";
 import { LearningStore } from "./learning-store";
 export function relaySettings() {
   const mode = process.env.INTERVIEW_RELAY_MODE;
-  if (mode !== "mock" && mode !== "google") return null;
+  if (mode !== "mock" && mode !== "google" && mode !== "openai") return null;
   const local = process.env.NODE_ENV === "development" && mode === "mock";
   if (mode === "mock" && !local) throw new Error("Mock relay is development-only");
   const url = new URL(process.env.INTERVIEW_RELAY_URL ?? "");
@@ -29,7 +29,7 @@ export function relaySettings() {
   if (local && !keys) throw new Error("Local identity keys required");
   return {
     learningEnabled: process.env.INTERVIEW_LEARNING_ENABLED === "1",
-    mode: mode as "mock" | "google",
+    mode: mode as "mock" | "google" | "openai",
     url: url.href,
     audience: audience.href,
     subject,

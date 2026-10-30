@@ -5,8 +5,11 @@ import { MockHints, VertexHints } from "./adapters/hints.js";
 import { GoogleSpeech } from "./adapters/speech.js";
 import { RotatingSpeech } from "./adapters/rotating.js";
 import { MockSpeech } from "./adapters/mock-speech.js";
+import { OpenAIHints } from "./adapters/openai-hints.js";
+import { OpenAISpeech } from "./adapters/openai-speech.js";
+import type { HintAdapter } from "./shared.js";
 const mode = process.env.INTERVIEW_RELAY_MODE ?? "mock";
-if (mode !== "mock" && mode !== "google") throw new Error("Invalid mode");
+if (mode !== "mock" && mode !== "google" && mode !== "openai") throw new Error("Invalid mode");
 const audience = process.env.INTERVIEW_RELAY_AUDIENCE ?? "";
 const origin = process.env.INTERVIEW_BROWSER_ORIGIN ?? "";
 const url = new URL(audience),
@@ -34,8 +37,11 @@ if (
     browser.protocol !== "https:")
 )
   throw new Error("Explicit Google enablement required");
+if (mode === "openai" && (process.env.INTERVIEW_OPENAI_ENABLED !== "1" ||
+    !process.env.OPENAI_API_KEY?.trim() || url.protocol !== "https:" || browser.protocol !== "https:"))
+  throw new Error("Explicit OpenAI enablement and server API key required");
 const token =
-  mode === "google"
+  mode !== "mock"
     ? googleTokens(audience)
     : localTokens(
         audience,
@@ -44,7 +50,7 @@ const token =
       );
 const mockSpeech = new MockSpeech();
 let speech: RotatingSpeech | undefined;
-let hints: VertexHints | undefined;
+let hints: HintAdapter | undefined;
 const server = relayServer({
   mode,
   origin,
@@ -52,6 +58,10 @@ const server = relayServer({
   providers: () =>
     mode === "mock"
       ? { speech: mockSpeech, hints: new MockHints() }
+      : mode === "openai" ? {
+          speech: (speech ??= new RotatingSpeech(new OpenAISpeech(process.env.OPENAI_API_KEY!))),
+          hints: (hints ??= new OpenAIHints(process.env.OPENAI_API_KEY!, process.env.INTERVIEW_OPENAI_HINT_MODEL ?? "gpt-4.1-mini")),
+        }
       : {
           speech: (speech ??= new RotatingSpeech(
             new GoogleSpeech(process.env.GOOGLE_CLOUD_PROJECT ?? "", "us", "chirp_3"),

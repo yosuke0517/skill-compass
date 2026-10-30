@@ -100,6 +100,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       VAPID_CONFIG: ${{ secrets.VAPID_CONFIG }}
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
+      INTERVIEW_RELAY_CONFIG: ${{ vars.INTERVIEW_RELAY_CONFIG }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -128,6 +129,11 @@ jobs:
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm lint
+      - name: Verify interview relay
+        working-directory: services/interview-relay
+        run: npm ci && npm run typecheck && npm test
+      - name: Require explicit interview settings for production
+        run: test -n "$INTERVIEW_RELAY_CONFIG"
       - run: terraform -chdir=infra/cloudflare init -input=false
       - name: Import existing Podcast R2 bucket
         if: ${{ inputs.bootstrap_existing_r2 }}
@@ -140,6 +146,8 @@ jobs:
       - run: pnpm build:cloudflare
       - name: Apply additive notification schema
         run: pnpm exec wrangler d1 execute DB --remote --config .cloudflare/deploy-values.json --env production --file drizzle-d1/0001_today_notifications.sql
+      - name: Apply and verify interview schema without resetting allowances
+        run: pnpm exec tsx scripts/interview/migrations.ts .cloudflare/deploy-values.json production
       - name: Update notification signing keys when configured
         if: ${{ env.VAPID_CONFIG != '' }}
         run: |

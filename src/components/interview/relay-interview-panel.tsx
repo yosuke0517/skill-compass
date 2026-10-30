@@ -20,7 +20,7 @@ export function RelayInterviewPanel({
   learningEnabled = false,
   initialDuration = "trial",
 }: {
-  providerMode: "mock" | "google";
+  providerMode: "mock" | "google" | "openai";
   learningEnabled?: boolean;
   initialDuration?: "trial" | "developer";
 }) {
@@ -315,8 +315,8 @@ export function RelayInterviewPanel({
       </header>
       <div className={styles.notice}>
         {providerMode === "mock"
-          ? "中継のローカル結合テスト。認証・チケット・音声送信は実経路、文字起こしとヒントはサンプルです。Google APIは呼びません。"
-          : "Google音声認識・ヒント生成。開始すると選択した相手音声が送信されます。"}
+          ? "中継のローカル結合テスト。認証・チケット・音声送信は実経路、文字起こしとヒントはサンプルです。AI APIは呼びません。"
+          : `${providerMode === "openai" ? "OpenAI" : "Google"}音声認識・ヒント生成。開始すると選択した相手音声が送信されます。`}
       </div>
       <div className={styles.status} role="status">
         <strong>

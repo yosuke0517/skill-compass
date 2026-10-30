@@ -1,5 +1,5 @@
 export type Source = "interviewer" | "self";
-export type Mode = "mock" | "capture" | "google";
+export type Mode = "mock" | "capture" | "google" | "openai";
 export type Turn = { source: Source; text: string };
 export type Event =
   | { type: "transcript"; source: Source; text: string; final: boolean }

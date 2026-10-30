@@ -50,6 +50,31 @@ const request = {
   },
 };
 describe("opt-in learning history", () => {
+  it("resumes without context after deleting saved history and never recreates it", async () => {
+    const { relay, learning } = setup();
+    const ticket = await relay.ticket("owner", "developer", undefined, true);
+    await learning.run("delete", "owner", { sessionId: ticket.id });
+    expect(await learning.resumeContext(ticket.id, "owner")).toEqual([]);
+    await expect(learning.run("detail", "owner", { sessionId: ticket.id })).rejects.toThrow();
+  });
+  it("accepts and retains OpenAI request traces without accepting credentials", async () => {
+    const { relay, learning } = setup();
+    const ticket = await relay.ticket("owner", "developer", undefined, true);
+    const body = {
+      model: "gpt-4.1-mini", store: false, instructions: "確認観点のみ", input: "質問",
+      max_output_tokens: 512,
+      text: { format: { type: "json_schema", name: "interview_hints", strict: true,
+        schema: { type: "object", additionalProperties: false, required: ["lines"],
+          properties: { lines: { type: "array", minItems: 2, maxItems: 3, items: { type: "string", maxLength: 60 } } } } } },
+    };
+    await learning.record(ticket.id, "owner", { kind: "request", eventId: randomUUID(), turnIds: [],
+      request: { model: "gpt-4.1-mini", promptVersion: "v3", body } });
+    const result = JSON.stringify(await learning.run("detail", "owner", { sessionId: ticket.id }));
+    expect(result).toContain("gpt-4.1-mini");
+    expect(result).toContain("確認観点のみ");
+    await expect(learning.record(ticket.id, "owner", { kind: "request", eventId: randomUUID(), turnIds: [],
+      request: { model: "gpt-4.1-mini", promptVersion: "v3", body: { ...body, api_key: "secret" } } })).rejects.toThrow();
+  });
   it("keeps old relays compatible when they release without an end callback", async () => {
     const { relay, learning } = setup();
     const ticket = await relay.ticket("owner", "developer", undefined, true);

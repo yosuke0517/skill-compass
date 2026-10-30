@@ -78,7 +78,7 @@ export class RelayConnection {
   constructor(
     private wire: Wire,
     private authority: Authority,
-    private mode: "mock" | "google",
+    private mode: "mock" | "google" | "openai",
     private providers: () => { speech: SpeechAdapter; hints: HintAdapter },
     private now = Date.now,
     private leaseInterval = 15_000,

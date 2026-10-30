@@ -29,7 +29,7 @@ export type Grant = {
   nonce: string;
   expiresAt: number;
   leaseUntil: number;
-  mode: "mock" | "google";
+  mode: "mock" | "google" | "openai";
   saveLearning?: boolean;
   resumeContext?: { id: string; source: "interviewer" | "self"; text: string }[];
 };

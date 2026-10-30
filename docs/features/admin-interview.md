@@ -1,5 +1,8 @@
 # Admin interview support — local implementation
 
+For the optional OpenAI speech/hint provider and user-managed API key setup, see
+[OpenAI migration](admin-interview-openai.md). Google remains available for rollback.
+
 The isolated implementation includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. The explicitly approved, bounded cloud trial has completed one real Chrome tab-audio → Google STT → Vertex hint flow. Private deployment identifiers and approval evidence are kept in the ignored operator record. Broad model quality, other OS/audio sources, and real-time endurance remain unverified.
 
 ## Implemented behavior

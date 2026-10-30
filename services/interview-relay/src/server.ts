@@ -5,14 +5,15 @@ import type { Authority } from "./authority.js";
 import type { SpeechAdapter, HintAdapter } from "./shared.js";
 export function relayServer(config: {
   origin: string;
-  mode: "mock" | "google";
+  mode: "mock" | "google" | "openai";
   authority: Authority;
   providers: () => { speech: SpeechAdapter; hints: HintAdapter };
 }) {
   const http = createServer((req, res) => {
     res.setHeader("cache-control", "no-store");
     res.writeHead(req.url === "/health" ? 200 : 404);
-    res.end(req.url === "/health" ? JSON.stringify({ ok: true, learningVersion: 1 }) : "not found");
+    res.end(req.url === "/health" ? JSON.stringify({ ok: true, learningVersion: 1, mode: config.mode,
+      release: /^[a-f0-9]{40}$/.test(process.env.RELEASE_SHA ?? "") ? process.env.RELEASE_SHA : null }) : "not found");
   });
   http.headersTimeout = 5_000;
   http.requestTimeout = 5_000;

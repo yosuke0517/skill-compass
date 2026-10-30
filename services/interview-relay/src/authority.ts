@@ -7,7 +7,7 @@ export type Grant = {
   nonce: string;
   expiresAt: number;
   leaseUntil: number;
-  mode: "mock" | "google";
+  mode: "mock" | "google" | "openai";
   saveLearning?: boolean;
   resumeContext?: { id: string; source: "interviewer" | "self"; text: string }[];
 };
@@ -109,7 +109,7 @@ export class WorkerAuthority implements Authority {
       typeof value.nonce !== "string" ||
       !Number.isFinite(value.expiresAt) ||
       !Number.isFinite(value.leaseUntil) ||
-      !["mock", "google"].includes(value.mode)
+      !["mock", "google", "openai"].includes(value.mode)
     )
       throw new Error("Invalid authority reply");
     if (

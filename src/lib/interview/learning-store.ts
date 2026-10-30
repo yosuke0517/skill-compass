@@ -3,6 +3,21 @@ import { InterviewError } from "./mock-service";
 import type { SqlDatabase } from "./relay-store";
 const id = z.string().uuid();
 const text = z.string().max(32000);
+const openaiRequestBody = z.strictObject({
+  model: z.string().max(100), store: z.literal(false),
+  instructions: z.string().max(4096), input: z.string().max(4096),
+  max_output_tokens: z.number().int().min(1).max(1024),
+  text: z.strictObject({ format: z.strictObject({
+    type: z.literal("json_schema"), name: z.literal("interview_hints"), strict: z.literal(true),
+    schema: z.strictObject({ type: z.literal("object"), additionalProperties: z.literal(false),
+      required: z.tuple([z.literal("lines")]),
+      properties: z.strictObject({ lines: z.strictObject({ type: z.literal("array"),
+        minItems: z.literal(2), maxItems: z.literal(3),
+        items: z.strictObject({ type: z.literal("string"), maxLength: z.literal(60) }),
+      }) }),
+    }),
+  }) }),
+});
 const recordSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("turn"), eventId: id, source: z.enum(["interviewer", "self"]), text }),
   z.object({
@@ -12,7 +27,7 @@ const recordSchema = z.discriminatedUnion("kind", [
     request: z.object({
       model: z.string().max(100),
       promptVersion: z.string().max(100),
-      body: z.object({
+      body: z.union([openaiRequestBody, z.object({
         systemInstruction: z.object({
           parts: z.array(z.object({ text: z.string().max(4096) })).max(1),
         }),
@@ -28,7 +43,7 @@ const recordSchema = z.discriminatedUnion("kind", [
           temperature: z.number().min(0).max(2),
           maxOutputTokens: z.number().int().min(1).max(1024),
         }),
-      }),
+      })]),
     }),
   }),
   z.object({
@@ -67,7 +82,14 @@ export class LearningStore {
     return row;
   }
   async resumeContext(sessionId: string, owner: string) {
-    await this.owned(sessionId, owner);
+    try {
+      await this.owned(sessionId, owner);
+    } catch (error) {
+      // A deleted/expired record must not prevent an otherwise authorized reconnect.
+      // It stays deleted; the caller receives no other owner's data.
+      if (error instanceof InterviewError && error.status === 404) return [];
+      throw error;
+    }
     const row = await this.db
       .prepare(
         "SELECT json_group_array(json_object('id',id,'source',source,'text',substr(text,-500))) AS data FROM (SELECT id,source,text FROM interview_learning_turns WHERE session_id=? ORDER BY created_at DESC,rowid DESC LIMIT 6)",

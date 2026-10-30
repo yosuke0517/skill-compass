@@ -1,7 +1,7 @@
 import { assertInterviewAdmin, InterviewError, type InterviewUser } from "./mock-service";
 import { RelayStore, type Grant, type RelayRow } from "./relay-store";
 import type { LearningStore } from "./learning-store";
-export type RelayConfig = { mode: "mock" | "google"; url: string; learningEnabled?: boolean };
+export type RelayConfig = { mode: "mock" | "google" | "openai"; url: string; learningEnabled?: boolean };
 export class InterviewRelayService {
   constructor(
     private store: RelayStore,
