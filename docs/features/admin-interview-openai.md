@@ -1,5 +1,8 @@
 # 面接サポートのOpenAI移行とキー設定
 
+現在の運用方針は[Cloudflareへの音声中継統合](admin-interview-cloudflare.md)。
+以下は外部Cloud Run中継を維持する場合の手順であり、Cloudflare移行時にGoogle側へのキー設定は不要。
+
 対象は既存の `/admin/interview`。面接画面、Workerの認証・履歴API、中継サービスを
 同じSkill Compassリポジトリで管理する。リリース元は統合済みmainのコミットSHAに固定する。
 

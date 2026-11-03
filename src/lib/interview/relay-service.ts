@@ -1,7 +1,12 @@
 import { assertInterviewAdmin, InterviewError, type InterviewUser } from "./mock-service";
 import { RelayStore, type Grant, type RelayRow } from "./relay-store";
 import type { LearningStore } from "./learning-store";
-export type RelayConfig = { mode: "mock" | "google" | "openai"; url: string; learningEnabled?: boolean };
+export type RelayConfig = {
+  mode: "mock" | "google" | "openai";
+  url: string;
+  learningEnabled?: boolean;
+  beforeConnect?: () => void;
+};
 export class InterviewRelayService {
   constructor(
     private store: RelayStore,
@@ -11,6 +16,7 @@ export class InterviewRelayService {
   ) {}
   async run(operation: string, user: InterviewUser | null, input: Record<string, unknown>) {
     assertInterviewAdmin(user);
+    if (operation === "start" || operation === "reconnect") this.config.beforeConnect?.();
     if (operation === "status") return this.store.availability(user.id);
     if (operation === "start" && input.saveLearning === true && !this.config.learningEnabled)
       throw new InterviewError(503, "履歴保存はまだ利用できません。");

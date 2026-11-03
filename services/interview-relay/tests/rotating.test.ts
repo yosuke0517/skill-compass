@@ -48,10 +48,16 @@ test("60-minute equivalent graceful rotation: every chunk once, final order, clo
     chunk.writeUInt16LE(index++);
     stream.write(chunk);
   }, 1);
-  await sleep(165);
-  clearInterval(writer);
-  await sleep(6);
-  stream.close();
+  // Wall-clock timers can be delayed when the full build/test suite is busy.
+  // Require the same number of rotations instead of assuming 165 ms is enough.
+  const deadline = Date.now() + 2000;
+  try {
+    while (opens < 16 && Date.now() < deadline) await sleep(10);
+    await sleep(6);
+  } finally {
+    clearInterval(writer);
+    stream.close();
+  }
   const count = opens;
   await sleep(20);
   assert.ok(count >= 16);
