@@ -4,6 +4,31 @@ import { RelayConnection } from "../src/connection.js";
 import { AuthorityError, type Grant, type Authority } from "../src/authority.js";
 import type { Event } from "../src/shared.js";
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+test("closing a Workers connection retains end/release cleanup until the authority finishes", async () => {
+  const background: Promise<unknown>[] = [], calls: string[] = [];
+  let end!: () => void;
+  const barrier = new Promise<void>(resolve => { end = resolve; });
+  const authority: Authority = {
+    async call(operation, input) {
+      calls.push(operation);
+      if (operation === "end") await barrier;
+      return { id: "session", owner: "owner", generation: 1,
+        nonce: (input as { nonce: string }).nonce, mode: "mock",
+        expiresAt: Date.now() + 60000, leaseUntil: Date.now() + 30000 };
+    },
+  };
+  const connection = new RelayConnection({ send() {}, close() {} }, authority, "mock", () => ({
+    speech: { open: () => ({ write() {}, close() {} }) }, hints: { generate: async () => [] },
+  }), Date.now, 15000, task => { background.push(task); });
+  await connection.message(Buffer.from(JSON.stringify({ type: "authorize", ticket: "a".repeat(64) })), false);
+  connection.close();
+  assert.equal(background.length, 1);
+  assert.equal(calls.includes("release"), false);
+  end();
+  await Promise.all(background);
+  assert.equal(calls.at(-1), "release");
+});
 function setup(
   options: {
     reject?: boolean;

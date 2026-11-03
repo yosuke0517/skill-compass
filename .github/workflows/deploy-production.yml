@@ -127,6 +127,7 @@ jobs:
           terraform_version: 1.13.5
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      - run: node tests/cloudflare/interview-relay-smoke.mjs
       - run: pnpm typecheck
       - run: pnpm lint
       - name: Verify interview relay

@@ -1,4 +1,5 @@
-import { boundedContext } from "./hints.js";
+import { Buffer } from "node:buffer";
+import { boundedContext } from "./hint-context.js";
 import { hintInstruction, hintLines, promptVersion, type HintAdapter, type HintTrace, type Turn } from "../shared.js";
 
 export class OpenAIHints implements HintAdapter {

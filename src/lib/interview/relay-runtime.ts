@@ -4,42 +4,21 @@ import { InterviewRelayService } from "./relay-service";
 import { RelayStore } from "./relay-store";
 import { createRelayIdentityVerifier } from "./identity";
 import { LearningStore } from "./learning-store";
-export function relaySettings() {
-  const mode = process.env.INTERVIEW_RELAY_MODE;
-  if (mode !== "mock" && mode !== "google" && mode !== "openai") return null;
-  const local = process.env.NODE_ENV === "development" && mode === "mock";
-  if (mode === "mock" && !local) throw new Error("Mock relay is development-only");
-  const url = new URL(process.env.INTERVIEW_RELAY_URL ?? "");
-  const audience = new URL(process.env.INTERVIEW_RELAY_AUDIENCE ?? "");
-  const subject = process.env.INTERVIEW_RELAY_SUBJECT ?? "";
-  if (!/^\d{6,30}$/.test(subject)) throw new Error("Runtime subject is required");
-  const valid = (u: URL, secure: string, plain: string) =>
-    !u.username &&
-    !u.password &&
-    !u.search &&
-    !u.hash &&
-    (u.protocol === secure || (local && u.protocol === plain && u.hostname === "127.0.0.1"));
-  if (
-    !valid(url, "wss:", "ws:") ||
-    !valid(audience, "https:", "http:") ||
-    !audience.pathname.endsWith("/api/interview/relay/redeem")
-  )
-    throw new Error("Invalid relay endpoints");
-  const keys = local ? JSON.parse(process.env.INTERVIEW_LOCAL_JWKS ?? "null") : undefined;
-  if (local && !keys) throw new Error("Local identity keys required");
-  return {
-    learningEnabled: process.env.INTERVIEW_LEARNING_ENABLED === "1",
-    mode: mode as "mock" | "google" | "openai",
-    url: url.href,
-    audience: audience.href,
-    subject,
-    localKeys: keys,
-  };
-}
+import { relaySettings } from "./relay-settings";
+import { createCloudflareRelayService } from "./cloudflare-service";
+import { InterviewError } from "./mock-service";
+export { relaySettings } from "./relay-settings";
 export async function relayRuntime() {
   const config = relaySettings();
   if (!config) return null;
   const { env } = await getCloudflareContext({ async: true });
+  if (config.transport === "cloudflare") return {
+    service: createCloudflareRelayService({ ...process.env, ...env }),
+    verify: async (_request: Request) => {
+      void _request;
+      throw new InterviewError(401, "外部中継からのコールバックは無効です。");
+    },
+  };
   return {
     service: new InterviewRelayService(
       new RelayStore(env.DB),

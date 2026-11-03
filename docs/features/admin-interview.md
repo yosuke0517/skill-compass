@@ -1,7 +1,9 @@
-# Admin interview support — local implementation
+# Admin interview support
 
-For the optional OpenAI speech/hint provider and user-managed API key setup, see
-[OpenAI migration](admin-interview-openai.md). Google remains available for rollback.
+For the current Cloudflare relay and user-managed OpenAI key setup, see
+[Cloudflare operations](admin-interview-cloudflare.md). The
+[external-relay OpenAI guide](admin-interview-openai.md) is retained for legacy deployments.
+The implementation history below describes the original Google relay and subsequent fixes.
 
 The isolated implementation includes a ticket-authorized WebSocket relay and Google STT/Vertex adapters. Local end-to-end tests use a development-only signing key and mock providers. The explicitly approved, bounded cloud trial has completed one real Chrome tab-audio → Google STT → Vertex hint flow. Private deployment identifiers and approval evidence are kept in the ignored operator record. Broad model quality, other OS/audio sources, and real-time endurance remain unverified.
 

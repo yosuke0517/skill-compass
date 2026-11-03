@@ -145,15 +145,24 @@ function main(): void {
       const url = new URL(value);
       return url.protocol === protocol && !url.username && !url.password && !url.search && !url.hash;
     });
-    const interview = z.strictObject({
+    const interview = z.union([z.strictObject({
+      transport: z.literal("cloudflare"), mode: z.literal("openai"), learningEnabled: z.boolean(),
+    }), z.strictObject({
       mode: z.enum(["google", "openai"]), url: secureUrl("wss:"),
       audience: secureUrl("https:").refine(value => new URL(value).pathname.endsWith("/api/interview/relay/redeem")),
       subject: z.string().regex(/^\d{6,30}$/), learningEnabled: z.boolean(),
-    }).parse(JSON.parse(process.env.INTERVIEW_RELAY_CONFIG));
+    })]).parse(JSON.parse(process.env.INTERVIEW_RELAY_CONFIG));
+    const providerVars = "transport" in interview ? {
+      INTERVIEW_RELAY_TRANSPORT: "cloudflare",
+    } : {
+      INTERVIEW_RELAY_TRANSPORT: "external",
+      INTERVIEW_RELAY_URL: interview.url,
+      INTERVIEW_RELAY_AUDIENCE: interview.audience, INTERVIEW_RELAY_SUBJECT: interview.subject,
+    };
     selected.vars = {
       ...(selected.vars as Record<string, string> | undefined),
-      INTERVIEW_RELAY_MODE: interview.mode, INTERVIEW_RELAY_URL: interview.url,
-      INTERVIEW_RELAY_AUDIENCE: interview.audience, INTERVIEW_RELAY_SUBJECT: interview.subject,
+      ...providerVars,
+      INTERVIEW_RELAY_MODE: interview.mode,
       INTERVIEW_LEARNING_ENABLED: interview.learningEnabled ? "1" : "0",
     };
   }

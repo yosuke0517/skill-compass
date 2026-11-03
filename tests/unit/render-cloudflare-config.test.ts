@@ -72,6 +72,19 @@ afterEach(() => {
 });
 
 describe("Cloudflare deploy-config renderer", () => {
+  test("configures same-Worker Cloudflare relay without Google identity or credentials", () => {
+    const config = { transport: "cloudflare", mode: "openai", learningEnabled: true };
+    const { outputPath, result } = runRenderer(validTerraformOutputs(), "staging", JSON.stringify(config));
+    expect(result.status, result.stderr).toBe(0);
+    const rendered = JSON.parse(readFileSync(outputPath, "utf8"));
+    expect(rendered.env.staging.vars).toMatchObject({ INTERVIEW_RELAY_TRANSPORT: "cloudflare", INTERVIEW_RELAY_MODE: "openai", INTERVIEW_LEARNING_ENABLED: "1" });
+    expect(rendered.env.staging.vars).not.toHaveProperty("INTERVIEW_RELAY_SUBJECT");
+    expect(rendered.env.staging.durable_objects.bindings).toContainEqual({ name: "INTERVIEW_RELAY", class_name: "InterviewRelay" });
+    expect(rendered.migrations).toContainEqual({ tag: "interview-relay-v1", new_sqlite_classes: ["InterviewRelay"] });
+    for (const bad of [{ ...config, mode: "google" }, { ...config, apiKey: "not-a-real-key" }, { ...config, url: "wss://external.example/audio" }]) {
+      expect(runRenderer(validTerraformOutputs(), "staging", JSON.stringify(bad)).result.status).not.toBe(0);
+    }
+  });
   test("includes only validated interview settings and rejects credential injection", () => {
     const config = { mode: "openai", url: "wss://relay.example/audio", audience: "https://app.example/api/interview/relay/redeem", subject: "123456789", learningEnabled: true };
     const { outputPath, result } = runRenderer(validTerraformOutputs(), "staging", JSON.stringify(config));

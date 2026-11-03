@@ -1,23 +1,7 @@
 import { GoogleAuth } from "google-auth-library";
 import { createSign } from "node:crypto";
-export type Grant = {
-  id: string;
-  owner: string;
-  generation: number;
-  nonce: string;
-  expiresAt: number;
-  leaseUntil: number;
-  mode: "mock" | "google" | "openai";
-  saveLearning?: boolean;
-  resumeContext?: { id: string; source: "interviewer" | "self"; text: string }[];
-};
-export interface Authority {
-  call(
-    operation: "redeem" | "lease" | "hint" | "release" | "record" | "end",
-    input: object,
-    signal: AbortSignal,
-  ): Promise<Grant>;
-}
+import { AuthorityError, type Authority, type Grant } from "./authority-core.js";
+export { AuthorityError, retryableAuthority, type Authority, type Grant } from "./authority-core.js";
 export class IdTokens {
   private cached?: { token: string; expires: number };
   private pending?: Promise<string>;
@@ -68,16 +52,6 @@ export function localTokens(audience: string, subject: string, key: string) {
     const value = header + "." + body;
     return value + "." + createSign("RSA-SHA256").update(value).sign(key, "base64url");
   });
-}
-export class AuthorityError extends Error {
-  constructor(public status: number) {
-    super(`Authority HTTP ${status}`);
-  }
-}
-export function retryableAuthority(error: unknown) {
-  return error instanceof AuthorityError
-    ? [502, 503, 504].includes(error.status)
-    : error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError");
 }
 export class WorkerAuthority implements Authority {
   constructor(

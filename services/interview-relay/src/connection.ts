@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { retryableAuthority, type Authority, type Grant } from "./authority.js";
+import { Buffer } from "node:buffer";
+import { retryableAuthority, type Authority, type Grant } from "./authority-core.js";
 import type { SpeechAdapter, SpeechStream, HintAdapter, Turn, Event } from "./shared.js";
 type EndReason =
   | "CLIENT_STOP"
@@ -82,6 +83,7 @@ export class RelayConnection {
     private providers: () => { speech: SpeechAdapter; hints: HintAdapter },
     private now = Date.now,
     private leaseInterval = 15_000,
+    private background: (task: Promise<unknown>) => void = () => {},
   ) {
     this.deadline = setTimeout(() => this.fail("接続認証がタイムアウトしました。"), 5_000);
   }
@@ -151,13 +153,13 @@ export class RelayConnection {
           this.abort.signal,
         );
         if (this.abort.signal.aborted) {
-          void this.authority
+          this.background(this.authority
             .call(
               "release",
               { id: grant.id, generation: grant.generation, nonce: grant.nonce },
               AbortSignal.timeout(4_000),
             )
-            .catch(() => {});
+            .catch(() => {}));
           return;
         }
         this.grant = grant;
@@ -459,12 +461,12 @@ export class RelayConnection {
       const release = () =>
         this.authority.call("release", this.claim(), AbortSignal.timeout(4_000));
       if (this.grant.saveLearning)
-        void Promise.resolve(this.hintTask)
+        this.background(Promise.resolve(this.hintTask)
           .then(() => this.records)
           .then(() => end)
           .then(release)
-          .catch(() => {});
-      else void end.then(release).catch(() => {});
+          .catch(() => {}));
+      else this.background(end.then(release).catch(() => {}));
     }
   }
 }
