@@ -224,6 +224,21 @@ describe("oauth reencrypt", () => {
     expect(store.batches).toHaveLength(1);
     expect(store.rows()[0]?.accessTokenCiphertext).toBe(afterApply);
     expect(openOAuthToken(store.rows()[0]!.accessTokenCiphertext, newOAuth)).toBe(access);
+
+    const sessionPutWithoutNewKey = await runOAuthReencrypt(store, {
+      mode: "restore",
+      ...production,
+      backup: sink,
+      maintenanceReadOnly: true,
+      currentSessionSecret: newSession,
+      newOAuthSecret: "short",
+      nonce: "nonce-0002",
+    });
+    expect(sessionPutWithoutNewKey).toMatchObject({ ok: false, restored: 0, written: 0 });
+    expect(store.rows()[0]?.accessTokenCiphertext).toBe(afterApply);
+    expect(() => openOAuthToken(afterApply!, newSession)).toThrow();
+    expect(JSON.stringify(sessionPutWithoutNewKey)).not.toContain(currentSession);
+    expect(JSON.stringify(sessionPutWithoutNewKey)).not.toContain(newOAuth);
   });
 
   it("restores from an independent sink after the production batch is lost", async () => {
