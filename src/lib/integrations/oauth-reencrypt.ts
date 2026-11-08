@@ -259,6 +259,10 @@ async function listRows(db: ReencryptDatabase): Promise<OAuthCipherRow[]> {
   }));
 }
 
+export function oauthReencryptWriteStatements(next: OAuthCipherRow, previous: OAuthCipherRow) {
+  return updateSql(next, previous);
+}
+
 function updateSql(next: OAuthCipherRow, previous: OAuthCipherRow): SqlStatement[] {
   return [
     {
