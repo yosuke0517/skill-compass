@@ -11,13 +11,17 @@ import {
   pushConfiguration,
   type PushEnvironment,
 } from "./src/lib/notifications/sender";
+import { reencryptHoldResponse, runScheduledReencrypt } from "./src/lib/integrations/oauth-reencrypt-worker";
 
 type Env = CloudflareEnv & PushEnvironment & InterviewRelayEnvironment;
 const worker = {
   fetch(request: Request, env: Env, context: unknown) {
-    return routeInterviewRelay(request, env) ?? handler.fetch(request, env, context);
+    return reencryptHoldResponse(env)
+      ?? routeInterviewRelay(request, env)
+      ?? handler.fetch(request, env, context);
   },
   async scheduled(_controller: unknown, env: Env) {
+    if (await runScheduledReencrypt(env)) return;
     if (env.MAINTENANCE_MODE === "read_only") return;
     await purgeInterviewLearning(env.DB);
     const config = pushConfiguration(env);

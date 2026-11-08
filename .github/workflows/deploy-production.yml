@@ -154,7 +154,22 @@ jobs:
         run: |
           printf %s "$VAPID_CONFIG" | pnpm exec wrangler secret bulk --config .cloudflare/deploy-values.json --env production
       - name: Update required production Worker secrets
-        run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
+        env:
+          SESSION_SECRET_WRITE: ${{ vars.SESSION_SECRET_WRITE }}
+          OAUTH_TOKEN_ENCRYPTION_SECRET: ${{ secrets.OAUTH_TOKEN_ENCRYPTION_SECRET }}
+        run: |
+          if [ "$SESSION_SECRET_WRITE" = "hold" ]; then
+            echo "session_secret_put=skipped"
+          else
+            printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
+            echo "session_secret_put=updated"
+          fi
+          if [ -n "$OAUTH_TOKEN_ENCRYPTION_SECRET" ]; then
+            printf %s "$OAUTH_TOKEN_ENCRYPTION_SECRET" | pnpm exec wrangler secret put OAUTH_TOKEN_ENCRYPTION_SECRET --config .cloudflare/deploy-values.json --env production
+            echo "oauth_token_encryption_secret_put=updated"
+          else
+            echo "oauth_token_encryption_secret_put=absent"
+          fi
       - run: printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
       - run: printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
       - run: printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env production
