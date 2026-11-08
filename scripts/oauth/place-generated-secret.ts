@@ -5,9 +5,15 @@ export const placementNames = ["OAUTH_TOKEN_ENCRYPTION_SECRET", "SESSION_SECRET"
 export type PlacementName = (typeof placementNames)[number];
 export type CommandResult = { status: number | null; stdout: string; stderr: string };
 export type CommandRunner = (command: string[], stdin: Buffer) => Promise<CommandResult> | CommandResult;
+export type VersionBase = {
+  deployedId: string;
+  latestUploadId: string;
+  expectedBaseId: string;
+};
+
 export type PlacementResult =
   | { ok: true; bytes: number }
-  | { ok: false; reason: "github_failed" | "worker_failed" | "destination_echoed" | "placement_refused" };
+  | { ok: false; reason: "github_failed" | "worker_failed" | "destination_echoed" | "placement_refused" | "version_base_mismatch" };
 
 const immediateSecretPut = /(^|\s)secret\s+put(\s|$)/;
 const versionedSecretPut = /(^|\s)versions\s+secret\s+put(\s|$)/;
@@ -19,31 +25,59 @@ export function assertPlacementCommand(command: string[]) {
   }
 }
 
+export function assertVersionBase(input: VersionBase) {
+  const ids = [input.deployedId, input.latestUploadId, input.expectedBaseId];
+  return ids.every((id) => id.length > 0) && input.deployedId === input.latestUploadId && input.deployedId === input.expectedBaseId;
+}
+
+export function encodePlacementSecret(entropy: Buffer) {
+  if (entropy.length < 32) throw new Error("placement_refused");
+  const encoded = Buffer.from(entropy.toString("base64url"), "ascii");
+  const lossless = !encoded.includes(0)
+    && encoded.every((byte) => byte > 32 && byte < 127)
+    && Buffer.from(encoded.toString("ascii"), "base64url").equals(entropy);
+  if (!lossless) throw new Error("placement_refused");
+  return encoded;
+}
+
 export async function placeGeneratedSecret(input: {
   name: PlacementName;
   run: CommandRunner;
   githubCommand: string[];
   workerCommand: string[];
+  versionBase: VersionBase;
   generate?: () => Buffer;
 }): Promise<PlacementResult> {
   if (!placementNames.includes(input.name)) return { ok: false, reason: "placement_refused" };
+  if (!assertVersionBase(input.versionBase)) return { ok: false, reason: "version_base_mismatch" };
   try {
     assertPlacementCommand(input.githubCommand);
     assertPlacementCommand(input.workerCommand);
   } catch {
     return { ok: false, reason: "placement_refused" };
   }
-  const secret = Buffer.from(input.generate?.() ?? randomBytes(32));
+  const entropy = Buffer.from(input.generate?.() ?? randomBytes(32));
+  let secret: Buffer;
+  try {
+    secret = encodePlacementSecret(entropy);
+  } catch {
+    entropy.fill(0);
+    return { ok: false, reason: "placement_refused" };
+  }
   const bytes = secret.length;
-  if (bytes < 32) return { ok: false, reason: "placement_refused" };
   const github = await input.run(input.githubCommand, secret);
-  if (echoes(github, secret)) return { ok: false, reason: "destination_echoed" };
-  if (github.status !== 0) return { ok: false, reason: "github_failed" };
+  if (echoes(github, secret)) return finish(entropy, secret, { ok: false, reason: "destination_echoed" });
+  if (github.status !== 0) return finish(entropy, secret, { ok: false, reason: "github_failed" });
   const worker = await input.run(input.workerCommand, secret);
-  if (echoes(worker, secret)) return { ok: false, reason: "destination_echoed" };
-  if (worker.status !== 0) return { ok: false, reason: "worker_failed" };
+  if (echoes(worker, secret)) return finish(entropy, secret, { ok: false, reason: "destination_echoed" });
+  if (worker.status !== 0) return finish(entropy, secret, { ok: false, reason: "worker_failed" });
+  return finish(entropy, secret, { ok: true, bytes });
+}
+
+function finish(entropy: Buffer, secret: Buffer, result: PlacementResult) {
+  entropy.fill(0);
   secret.fill(0);
-  return { ok: true, bytes };
+  return result;
 }
 
 export function githubPlacementCommand(name: PlacementName) {
@@ -89,12 +123,20 @@ if (process.argv[1]?.endsWith("place-generated-secret.ts")) {
   } else if (name !== "OAUTH_TOKEN_ENCRYPTION_SECRET" && name !== "SESSION_SECRET") {
     console.error("placement_usage");
     process.exitCode = 2;
+  } else if (!process.argv[3] || !process.argv[4] || !process.argv[5]) {
+    console.error("version_base_mismatch");
+    process.exitCode = 2;
   } else {
     void placeGeneratedSecret({
       name,
       run: captured,
       githubCommand: githubPlacementCommand(name),
       workerCommand: workerPlacementCommand(name),
+      versionBase: {
+        deployedId: process.argv[3],
+        latestUploadId: process.argv[4],
+        expectedBaseId: process.argv[5],
+      },
     }).then((result) => {
       if (!result.ok) {
         console.error(result.reason);

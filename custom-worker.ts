@@ -21,6 +21,7 @@ const worker = {
       ?? handler.fetch(request, env, context);
   },
   async scheduled(_controller: unknown, env: Env) {
+    // Reencrypt modes are only reached from this cron. Drain returns before the jobs below.
     if (await runScheduledReencrypt(env)) return;
     if (env.MAINTENANCE_MODE === "read_only") return;
     await purgeInterviewLearning(env.DB);

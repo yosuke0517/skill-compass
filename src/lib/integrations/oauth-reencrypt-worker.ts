@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { runOAuthReencrypt, type ReencryptDatabase, type ReencryptMode } from "@/lib/integrations/oauth-reencrypt";
 
 export type ReencryptWorkerEnv = {
@@ -6,7 +8,6 @@ export type ReencryptWorkerEnv = {
   OAUTH_REENCRYPT_MODE?: string;
   OAUTH_REENCRYPT_NONCE?: string;
   OAUTH_REENCRYPT_NEW_SECRET?: string;
-  OAUTH_REENCRYPT_NEW_SESSION_SECRET?: string;
   OAUTH_TOKEN_ENCRYPTION_SECRET?: string;
   OAUTH_REENCRYPT_DATABASE?: string;
   OAUTH_REENCRYPT_BACKUP_DB?: D1Like;
@@ -49,7 +50,8 @@ export function d1BackupSink(db: D1Like) {
           created_at INTEGER NOT NULL
         )`).bind(),
         db.prepare(
-          "INSERT INTO oauth_reencrypt_backups (nonce, envelope, created_at) VALUES (?, ?, unixepoch())",
+          `INSERT INTO oauth_reencrypt_backups (nonce, envelope, created_at) VALUES (?, ?, unixepoch())
+           ON CONFLICT(nonce) DO UPDATE SET envelope = excluded.envelope, created_at = excluded.created_at`,
         ).bind(nonce, envelope),
       ]);
     },
@@ -75,6 +77,24 @@ export function d1ReencryptDatabase(db: D1Like): ReencryptDatabase {
   };
 }
 
+export function reencryptSecretsFromBindings(env: ReencryptWorkerEnv) {
+  const dedicated = env.OAUTH_TOKEN_ENCRYPTION_SECRET ?? "";
+  const alias = env.OAUTH_REENCRYPT_NEW_SECRET ?? "";
+  if (dedicated && alias && !sameBinding(dedicated, alias)) return null;
+  const newOAuthSecret = dedicated || alias;
+  if (!newOAuthSecret) return null;
+  return {
+    currentSessionSecret: env.SESSION_SECRET ?? "",
+    newOAuthSecret,
+  };
+}
+
+function sameBinding(left: string, right: string) {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<boolean> {
   if (env.OAUTH_REENCRYPT_MODE === "drain") {
     console.info("oauth_reencrypt_drain", { writing: false });
@@ -82,14 +102,25 @@ export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<bo
   }
   const mode = reencryptMode(env);
   if (!mode) return false;
+  const secrets = reencryptSecretsFromBindings(env);
+  if (!secrets) {
+    console.info("oauth_reencrypt", {
+      ok: false,
+      total: 0,
+      ready: 0,
+      written: 0,
+      restored: 0,
+      already: false,
+    });
+    return true;
+  }
   try {
   const counts = await runOAuthReencrypt(d1ReencryptDatabase(env.DB), {
     mode,
     maintenanceReadOnly: env.MAINTENANCE_MODE === "read_only",
     databaseName: env.OAUTH_REENCRYPT_DATABASE,
-    currentOAuthSecret: env.OAUTH_TOKEN_ENCRYPTION_SECRET,
-    currentSessionSecret: env.SESSION_SECRET ?? "",
-    newOAuthSecret: env.OAUTH_REENCRYPT_NEW_SECRET ?? "",
+    currentSessionSecret: secrets.currentSessionSecret,
+    newOAuthSecret: secrets.newOAuthSecret,
     nonce: env.OAUTH_REENCRYPT_NONCE,
     backup: d1BackupSink(env.OAUTH_REENCRYPT_BACKUP_DB ?? env.DB),
   });

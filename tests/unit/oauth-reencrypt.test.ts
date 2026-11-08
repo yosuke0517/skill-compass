@@ -11,7 +11,7 @@ import {
   type SqlStatement,
 } from "@/lib/integrations/oauth-reencrypt";
 import { openOAuthToken, sealOAuthToken } from "@/lib/integrations/oauth-tokens";
-import { reencryptHoldResponse, runScheduledReencrypt } from "@/lib/integrations/oauth-reencrypt-worker";
+import { reencryptHoldResponse, reencryptSecretsFromBindings, runScheduledReencrypt } from "@/lib/integrations/oauth-reencrypt-worker";
 
 const currentSession = "current-session-secret-32-characters";
 const newOAuth = "new-oauth-encryption-secret-32ch";
@@ -67,6 +67,15 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
 
   function apply(statement: SqlStatement) {
     if (statement.sql.startsWith("CREATE")) return;
+    if (statement.sql.startsWith("DELETE FROM oauth_reencrypt_runs")) {
+      runs.delete(String(statement.params[0]));
+      return;
+    }
+    if (statement.sql.startsWith("DELETE FROM oauth_reencrypt_guards")) {
+      const nonce = String(statement.params[0]);
+      for (const key of [...guards]) if (key.startsWith(`${nonce}:`)) guards.delete(key);
+      return;
+    }
     if (statement.sql.startsWith("INSERT INTO oauth_reencrypt_runs")) {
       const nonce = String(statement.params[0]);
       if (runs.has(nonce)) throw new Error("constraint");
@@ -377,6 +386,22 @@ describe("oauth reencrypt", () => {
   });
 });
 
+describe("oauth reencrypt bindings", () => {
+  it("uses the dedicated binding as the new key and the session binding as the source", () => {
+    expect(reencryptSecretsFromBindings({
+      DB: {} as never,
+      SESSION_SECRET: currentSession,
+      OAUTH_TOKEN_ENCRYPTION_SECRET: newOAuth,
+    })).toEqual({ currentSessionSecret: currentSession, newOAuthSecret: newOAuth });
+    expect(reencryptSecretsFromBindings({
+      DB: {} as never,
+      SESSION_SECRET: currentSession,
+      OAUTH_TOKEN_ENCRYPTION_SECRET: newOAuth,
+      OAUTH_REENCRYPT_NEW_SECRET: "another-oauth-secret-32-characters",
+    })).toBeNull();
+  });
+});
+
 describe("oauth reencrypt worker gate", () => {
   it("closes HTTP while a one-shot mode is armed and stays silent otherwise", async () => {
     const held = reencryptHoldResponse({ OAUTH_REENCRYPT_MODE: "plan" });
@@ -451,17 +476,28 @@ describe("oauth reencrypt worker gate", () => {
 describe("production secret deploy guard", () => {
   it("can hold SESSION_SECRET writes and install the dedicated key without printing it", () => {
     const workflow = readFileSync(".github/workflows/deploy-production.yml", "utf8");
-    expect(workflow).toContain('if [ "$SESSION_SECRET_WRITE" = "hold" ]; then');
-    expect(workflow).toContain("session_secret_put=skipped");
-    expect(workflow).toContain("oauth_token_encryption_secret_put=absent");
+    expect(workflow).toContain("worker_secret_put=skipped");
     expect(workflow).toContain("secret_release=blocked");
+    expect(workflow).toContain("vars.SESSION_SECRET_WRITE == 'release'");
+    expect(workflow).not.toContain("session_secret_put=updated");
+    expect(workflow).not.toContain("oauth_token_encryption_secret_put=updated");
     expect(workflow).not.toContain("echo \"$SESSION_SECRET\"");
     expect(workflow).not.toContain("echo \"$OAUTH_TOKEN_ENCRYPTION_SECRET\"");
     expect(workflow).toContain("vars.PRODUCTION_ROTATION_FREEZE == 'hold'");
     expect(workflow).toContain("terraform_apply=skipped");
     expect(workflow).toContain("wrangler_deploy=skipped");
-    expect(workflow.indexOf("production_rotation_freeze=hold")).toBeLessThan(
-      workflow.indexOf("terraform -chdir=infra/cloudflare apply"),
-    );
+    expect(workflow).not.toContain("\n  push:");
+    const freezeAt = workflow.indexOf("production_rotation_freeze=hold");
+    for (const marker of [
+      "terraform -chdir=infra/cloudflare apply",
+      "wrangler d1 execute",
+      "scripts/interview/migrations.ts",
+      "wrangler secret put",
+      "wrangler secret bulk",
+      "wrangler deploy",
+    ]) {
+      expect(freezeAt).toBeGreaterThan(0);
+      expect(freezeAt).toBeLessThan(workflow.indexOf(marker));
+    }
   });
 });

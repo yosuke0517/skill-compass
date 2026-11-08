@@ -145,11 +145,15 @@ export async function runOAuthReencrypt(
   const current = currentOAuthSecret(input);
   const nonce = input.nonce ?? "";
   try {
+    let replaceNonce = false;
     if (input.mode === "apply") {
       const prior = await appliedNonce(db, nonce);
       if (prior) {
-        const existing = await listRows(db);
-        return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, already: true });
+        const recorded = await listRows(db);
+        if (prepareReencrypt(recorded, input.newOAuthSecret, input.newOAuthSecret).ok) {
+          return reencryptCounts({ ok: true, total: recorded.length, ready: recorded.length, already: true });
+        }
+        replaceNonce = true;
       }
     }
     const existing = await listRows(db);
@@ -166,10 +170,11 @@ export async function runOAuthReencrypt(
     await input.backup.put(nonce, envelope);
     try {
       await db.batch([
+        ...(replaceNonce ? clearNonceSql(nonce) : []),
         { sql: createRunsSql, params: [] },
         { sql: createGuardsSql, params: [] },
         { sql: "INSERT INTO oauth_reencrypt_runs (nonce, mode, created_at) VALUES (?, 'applied', unixepoch())", params: [nonce] },
-        ...prepared.rows.flatMap((row, index) => updateSql(row, existing[index]!)),
+        ...prepared.rows.flatMap((row, index) => updateSql(row, existing[index]!, nonce)),
       ]);
     } catch {
       return reencryptCounts({ total: existing.length, ready: existing.length });
@@ -216,10 +221,13 @@ async function restoreRows(
     return reencryptCounts({ total: currentRows.length });
   }
   try {
-    await db.batch(previous.map((row) => ({
-      sql: "UPDATE oauth_connections SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, updated_at = unixepoch() WHERE id = ?",
-      params: [row.accessTokenCiphertext, row.refreshTokenCiphertext, row.id],
-    })));
+    await db.batch([
+      ...previous.map((row) => ({
+        sql: "UPDATE oauth_connections SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, updated_at = unixepoch() WHERE id = ?",
+        params: [row.accessTokenCiphertext, row.refreshTokenCiphertext, row.id],
+      })),
+      ...clearNonceSql(nonce),
+    ]);
   } catch {
     return reencryptCounts({ total: currentRows.length });
   }
@@ -250,7 +258,7 @@ async function listRows(db: ReencryptDatabase): Promise<OAuthCipherRow[]> {
     id: string;
     access_token_ciphertext: string;
     refresh_token_ciphertext: string | null;
-  }>("SELECT id, access_token_ciphertext, refresh_token_ciphertext FROM oauth_connections");
+  }>("SELECT id, access_token_ciphertext, refresh_token_ciphertext FROM oauth_connections ORDER BY id");
   return rows.map((row) => ({
     id: row.id,
     accessTokenCiphertext: row.access_token_ciphertext,
@@ -258,15 +266,22 @@ async function listRows(db: ReencryptDatabase): Promise<OAuthCipherRow[]> {
   }));
 }
 
-export function oauthReencryptWriteStatements(next: OAuthCipherRow, previous: OAuthCipherRow) {
-  return updateSql(next, previous);
+export function oauthReencryptWriteStatements(next: OAuthCipherRow, previous: OAuthCipherRow, nonce: string) {
+  return updateSql(next, previous, nonce);
 }
 
-function updateSql(next: OAuthCipherRow, previous: OAuthCipherRow): SqlStatement[] {
+function clearNonceSql(nonce: string): SqlStatement[] {
+  return [
+    { sql: "DELETE FROM oauth_reencrypt_runs WHERE nonce = ?", params: [nonce] },
+    { sql: "DELETE FROM oauth_reencrypt_guards WHERE nonce = ?", params: [nonce] },
+  ];
+}
+
+function updateSql(next: OAuthCipherRow, previous: OAuthCipherRow, nonce: string): SqlStatement[] {
   return [
     {
       sql: "INSERT INTO oauth_reencrypt_guards (nonce, id) VALUES (?, ?)",
-      params: ["row", next.id],
+      params: [nonce, next.id],
     },
     {
       sql: `UPDATE oauth_connections
@@ -292,7 +307,7 @@ function updateSql(next: OAuthCipherRow, previous: OAuthCipherRow): SqlStatement
             AND ((? IS NULL AND refresh_token_ciphertext IS NULL) OR refresh_token_ciphertext = ?)
         )`,
       params: [
-        "row",
+        nonce,
         next.id,
         next.id,
         next.accessTokenCiphertext,
