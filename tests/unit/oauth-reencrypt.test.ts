@@ -25,7 +25,7 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
   damage: (id: string) => void;
 } {
   let rows = initial.map((row) => ({ ...row }));
-  const runs = new Set<string>();
+  const runs = new Map<string, string>();
   const guards = new Set<string>();
   const batches: SqlStatement[][] = [];
   return {
@@ -37,7 +37,8 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
     },
     async query(sql, params = []) {
       if (sql.includes("oauth_reencrypt_runs")) {
-        return (runs.has(String(params[0])) ? [{ nonce: params[0] }] : []) as never[];
+        const mode = runs.get(String(params[0]));
+        return (mode ? [{ mode }] : []) as never[];
       }
       return rows.map((row) => ({
         id: row.id,
@@ -50,14 +51,14 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
       if (tamperOnBatch && rows[0]) rows[0].accessTokenCiphertext = "in-flight-writer";
       if (failBatch) throw new Error("database rejected the batch");
       const snapshot = rows.map((row) => ({ ...row }));
-      const savedRuns = new Set(runs);
+      const savedRuns = new Map(runs);
       const savedGuards = new Set(guards);
       try {
         for (const statement of statements) apply(statement);
       } catch (error) {
         rows = snapshot;
         runs.clear();
-        for (const run of savedRuns) runs.add(run);
+        for (const [nonce, mode] of savedRuns) runs.set(nonce, mode);
         guards.clear();
         for (const guard of savedGuards) guards.add(guard);
         throw error;
@@ -67,7 +68,13 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
 
   function apply(statement: SqlStatement) {
     if (statement.sql.startsWith("CREATE")) return;
+    if (statement.sql.startsWith("UPDATE oauth_reencrypt_runs")) {
+      const nonce = String(statement.params[0]);
+      if (runs.get(nonce) === "applied") runs.set(nonce, "stopped");
+      return;
+    }
     if (statement.sql.startsWith("DELETE FROM oauth_reencrypt_runs")) {
+      if (runs.get(String(statement.params[0])) === "stopped") return;
       runs.delete(String(statement.params[0]));
       return;
     }
@@ -79,7 +86,7 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
     if (statement.sql.startsWith("INSERT INTO oauth_reencrypt_runs")) {
       const nonce = String(statement.params[0]);
       if (runs.has(nonce)) throw new Error("constraint");
-      runs.add(nonce);
+      runs.set(nonce, "applied");
       return;
     }
     if (statement.sql.startsWith("INSERT INTO oauth_reencrypt_guards (nonce, id) VALUES")) {
@@ -476,6 +483,9 @@ describe("oauth reencrypt worker gate", () => {
 describe("production secret deploy guard", () => {
   it("can hold SESSION_SECRET writes and install the dedicated key without printing it", () => {
     const workflow = readFileSync(".github/workflows/deploy-production.yml", "utf8");
+    expect(readFileSync("src/lib/integrations/oauth-reencrypt.ts", "utf8")).not.toContain(
+      "DELETE FROM oauth_reencrypt_runs",
+    );
     expect(workflow).toContain("worker_secret_put=skipped");
     expect(workflow).toContain("secret_release=blocked");
     expect(workflow).toContain("vars.SESSION_SECRET_WRITE == 'release'");

@@ -111,6 +111,7 @@ export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<bo
       written: 0,
       restored: 0,
       already: false,
+      stopped: false,
     });
     return true;
   }
@@ -133,6 +134,7 @@ export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<bo
       written: 0,
       restored: 0,
       already: false,
+      stopped: false,
     });
   }
   return true;

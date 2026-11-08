@@ -15,6 +15,7 @@ export type ReencryptCounts = {
   written: number;
   restored: number;
   already: boolean;
+  stopped: boolean;
 };
 
 export type ReencryptMode = "plan" | "apply" | "restore";
@@ -51,6 +52,7 @@ export function reencryptCounts(partial: Partial<ReencryptCounts> = {}): Reencry
     written: 0,
     restored: 0,
     already: false,
+    stopped: false,
     ...partial,
   };
 }
@@ -145,16 +147,15 @@ export async function runOAuthReencrypt(
   const current = currentOAuthSecret(input);
   const nonce = input.nonce ?? "";
   try {
-    let replaceNonce = false;
-    if (input.mode === "apply") {
-      const prior = await appliedNonce(db, nonce);
-      if (prior) {
-        const recorded = await listRows(db);
-        if (prepareReencrypt(recorded, input.newOAuthSecret, input.newOAuthSecret).ok) {
-          return reencryptCounts({ ok: true, total: recorded.length, ready: recorded.length, already: true });
-        }
-        replaceNonce = true;
+    // A stopped nonce never reads or writes OAuth rows again. A new attempt needs a different nonce.
+    const state = input.mode === "plan" ? null : await nonceMode(db, nonce);
+    if (state === "stopped") return reencryptCounts({ stopped: true });
+    if (input.mode === "apply" && state === "applied") {
+      const recorded = await listRows(db);
+      if (prepareReencrypt(recorded, input.newOAuthSecret, input.newOAuthSecret).ok) {
+        return reencryptCounts({ ok: true, total: recorded.length, ready: recorded.length, already: true });
       }
+      return reencryptCounts({ ok: false, total: recorded.length });
     }
     const existing = await listRows(db);
     if (input.mode === "restore") {
@@ -170,7 +171,6 @@ export async function runOAuthReencrypt(
     await input.backup.put(nonce, envelope);
     try {
       await db.batch([
-        ...(replaceNonce ? clearNonceSql(nonce) : []),
         { sql: createRunsSql, params: [] },
         { sql: createGuardsSql, params: [] },
         { sql: "INSERT INTO oauth_reencrypt_runs (nonce, mode, created_at) VALUES (?, 'applied', unixepoch())", params: [nonce] },
@@ -190,12 +190,12 @@ export async function runOAuthReencrypt(
   }
 }
 
-async function appliedNonce(db: ReencryptDatabase, nonce: string) {
-  const prior = await db.query<{ nonce: string }>(
-    "SELECT nonce FROM oauth_reencrypt_runs WHERE nonce = ? AND mode = 'applied'",
+async function nonceMode(db: ReencryptDatabase, nonce: string) {
+  const prior = await db.query<{ mode: string }>(
+    "SELECT mode FROM oauth_reencrypt_runs WHERE nonce = ?",
     [nonce],
   ).catch(() => []);
-  return prior.length > 0;
+  return prior[0]?.mode ?? null;
 }
 
 async function restoreRows(
@@ -226,7 +226,11 @@ async function restoreRows(
         sql: "UPDATE oauth_connections SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, updated_at = unixepoch() WHERE id = ?",
         params: [row.accessTokenCiphertext, row.refreshTokenCiphertext, row.id],
       })),
-      ...clearNonceSql(nonce),
+      { sql: "DELETE FROM oauth_reencrypt_guards WHERE nonce = ?", params: [nonce] },
+      {
+        sql: "UPDATE oauth_reencrypt_runs SET mode = 'stopped' WHERE nonce = ? AND mode = 'applied'",
+        params: [nonce],
+      },
     ]);
   } catch {
     return reencryptCounts({ total: currentRows.length });
@@ -268,13 +272,6 @@ async function listRows(db: ReencryptDatabase): Promise<OAuthCipherRow[]> {
 
 export function oauthReencryptWriteStatements(next: OAuthCipherRow, previous: OAuthCipherRow, nonce: string) {
   return updateSql(next, previous, nonce);
-}
-
-function clearNonceSql(nonce: string): SqlStatement[] {
-  return [
-    { sql: "DELETE FROM oauth_reencrypt_runs WHERE nonce = ?", params: [nonce] },
-    { sql: "DELETE FROM oauth_reencrypt_guards WHERE nonce = ?", params: [nonce] },
-  ];
 }
 
 function updateSql(next: OAuthCipherRow, previous: OAuthCipherRow, nonce: string): SqlStatement[] {
