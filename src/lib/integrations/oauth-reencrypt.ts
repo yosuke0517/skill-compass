@@ -36,6 +36,11 @@ export type ReencryptDatabase = {
   batch(statements: SqlStatement[]): Promise<void>;
 };
 
+export type BackupSink = {
+  put(nonce: string, envelope: string): Promise<void>;
+  get(nonce: string): Promise<string | null>;
+};
+
 const noncePattern = /^[A-Za-z0-9_-]{8,64}$/;
 
 export function reencryptCounts(partial: Partial<ReencryptCounts> = {}): ReencryptCounts {
@@ -123,8 +128,15 @@ export function openBackup(envelope: string, secret: string): OAuthCipherRow[] |
 
 export async function runOAuthReencrypt(
   db: ReencryptDatabase,
-  input: ReencryptSecrets & { mode: ReencryptMode; nonce?: string; maintenanceReadOnly: boolean },
+  input: ReencryptSecrets & {
+    mode: ReencryptMode;
+    nonce?: string;
+    maintenanceReadOnly: boolean;
+    databaseName?: string;
+    backup?: BackupSink;
+  },
 ): Promise<ReencryptCounts> {
+  if (input.databaseName !== "skill-compass-production") return reencryptCounts();
   if (!input.maintenanceReadOnly) return reencryptCounts();
   const refused = validateReencryptSecrets(input, input.mode);
   if (refused) return refused;
@@ -132,35 +144,54 @@ export async function runOAuthReencrypt(
     return reencryptCounts();
   }
   const current = currentOAuthSecret(input);
-  const existing = await listRows(db);
-  if (input.mode === "restore") return restoreRows(db, existing, input.nonce ?? "", input.newOAuthSecret, current);
-  const prepared = prepareReencrypt(existing, current, input.newOAuthSecret);
-  if (!prepared.ok || input.mode === "plan") return prepared.counts;
   const nonce = input.nonce ?? "";
+  try {
+    if (input.mode === "apply") {
+      const prior = await appliedNonce(db, nonce);
+      if (prior) {
+        const existing = await listRows(db);
+        return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, already: true });
+      }
+    }
+    const existing = await listRows(db);
+    if (input.mode === "restore") {
+      return restoreRows(db, existing, nonce, input.newOAuthSecret, current, input.backup);
+    }
+    const prepared = prepareReencrypt(existing, current, input.newOAuthSecret);
+    if (!prepared.ok || input.mode === "plan") return prepared.counts;
+    if (!input.backup) return reencryptCounts({ total: existing.length, ready: existing.length });
+    const envelope = sealBackup(existing, input.newOAuthSecret);
+    if (!openBackup(envelope, input.newOAuthSecret)) {
+      return reencryptCounts({ total: existing.length, ready: existing.length });
+    }
+    await input.backup.put(nonce, envelope);
+    try {
+      await db.batch([
+        { sql: createRunsSql, params: [] },
+        { sql: createGuardsSql, params: [] },
+        { sql: "INSERT INTO oauth_reencrypt_runs (nonce, mode, created_at) VALUES (?, 'applied', unixepoch())", params: [nonce] },
+        ...prepared.rows.flatMap((row, index) => updateSql(row, existing[index]!)),
+      ]);
+    } catch {
+      return reencryptCounts({ total: existing.length, ready: existing.length });
+    }
+    const written = await listRows(db);
+    if (!sameStoredRows(written, prepared.rows) || !prepareReencrypt(written, input.newOAuthSecret, input.newOAuthSecret).ok) {
+      const restored = await restoreRows(db, written, nonce, input.newOAuthSecret, current, input.backup);
+      return reencryptCounts({ ...restored, ok: false, written: 0 });
+    }
+    return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, written: prepared.rows.length });
+  } catch {
+    return reencryptCounts();
+  }
+}
+
+async function appliedNonce(db: ReencryptDatabase, nonce: string) {
   const prior = await db.query<{ nonce: string }>(
-    "SELECT nonce FROM oauth_reencrypt_runs WHERE nonce = ?",
+    "SELECT nonce FROM oauth_reencrypt_runs WHERE nonce = ? AND mode = 'applied'",
     [nonce],
   ).catch(() => []);
-  if (prior.length > 0) return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, already: true });
-  const envelope = sealBackup(existing, input.newOAuthSecret);
-  if (!openBackup(envelope, input.newOAuthSecret)) return reencryptCounts({ total: existing.length, ready: existing.length });
-  try {
-    await db.batch([
-      { sql: createRunsSql, params: [] },
-      { sql: createBackupsSql, params: [] },
-      { sql: "INSERT INTO oauth_reencrypt_runs (nonce, mode, created_at) VALUES (?, 'apply', unixepoch())", params: [nonce] },
-      { sql: "INSERT INTO oauth_reencrypt_backups (nonce, envelope, created_at) VALUES (?, ?, unixepoch())", params: [nonce, envelope] },
-      ...prepared.rows.map(updateSql),
-    ]);
-  } catch {
-    return reencryptCounts({ total: existing.length, ready: existing.length });
-  }
-  const written = await listRows(db);
-  if (!sameStoredRows(written, prepared.rows) || !prepareReencrypt(written, input.newOAuthSecret, input.newOAuthSecret).ok) {
-    const restored = await restoreRows(db, written, nonce, input.newOAuthSecret, current);
-    return reencryptCounts({ ...restored, ok: false, written: 0 });
-  }
-  return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, written: prepared.rows.length });
+  return prior.length > 0;
 }
 
 async function restoreRows(
@@ -169,19 +200,27 @@ async function restoreRows(
   nonce: string,
   newSecret: string,
   currentSecret: string,
+  backup?: BackupSink,
 ) {
-  const stored = await db.query<{ envelope: string }>(
-    "SELECT envelope FROM oauth_reencrypt_backups WHERE nonce = ?",
-    [nonce],
-  );
-  const envelope = stored[0]?.envelope;
+  if (prepareReencrypt(currentRows, newSecret, newSecret).ok) {
+    return reencryptCounts({
+      ok: true,
+      total: currentRows.length,
+      ready: currentRows.length,
+      already: true,
+    });
+  }
+  const envelope = await backup?.get(nonce) ?? null;
   if (!envelope) return reencryptCounts({ total: currentRows.length });
   const previous = openBackup(envelope, newSecret);
   if (!previous || !prepareReencrypt(previous, currentSecret, currentSecret).ok) {
     return reencryptCounts({ total: currentRows.length });
   }
   try {
-    await db.batch(previous.map(updateSql));
+    await db.batch(previous.map((row) => ({
+      sql: "UPDATE oauth_connections SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, updated_at = unixepoch() WHERE id = ?",
+      params: [row.accessTokenCiphertext, row.refreshTokenCiphertext, row.id],
+    })));
   } catch {
     return reencryptCounts({ total: currentRows.length });
   }
@@ -201,10 +240,10 @@ const createRunsSql = `CREATE TABLE IF NOT EXISTS oauth_reencrypt_runs (
   created_at INTEGER NOT NULL
 )`;
 
-const createBackupsSql = `CREATE TABLE IF NOT EXISTS oauth_reencrypt_backups (
-  nonce TEXT PRIMARY KEY,
-  envelope TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+const createGuardsSql = `CREATE TABLE IF NOT EXISTS oauth_reencrypt_guards (
+  nonce TEXT NOT NULL,
+  id TEXT NOT NULL,
+  PRIMARY KEY (nonce, id)
 )`;
 
 async function listRows(db: ReencryptDatabase): Promise<OAuthCipherRow[]> {
@@ -220,11 +259,45 @@ async function listRows(db: ReencryptDatabase): Promise<OAuthCipherRow[]> {
   }));
 }
 
-function updateSql(row: OAuthCipherRow): SqlStatement {
-  return {
-    sql: "UPDATE oauth_connections SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, updated_at = unixepoch() WHERE id = ?",
-    params: [row.accessTokenCiphertext, row.refreshTokenCiphertext, row.id],
-  };
+function updateSql(next: OAuthCipherRow, previous: OAuthCipherRow): SqlStatement[] {
+  return [
+    {
+      sql: "INSERT INTO oauth_reencrypt_guards (nonce, id) VALUES (?, ?)",
+      params: ["row", next.id],
+    },
+    {
+      sql: `UPDATE oauth_connections
+        SET access_token_ciphertext = ?, refresh_token_ciphertext = ?, updated_at = unixepoch()
+        WHERE id = ?
+          AND access_token_ciphertext = ?
+          AND ((? IS NULL AND refresh_token_ciphertext IS NULL) OR refresh_token_ciphertext = ?)`,
+      params: [
+        next.accessTokenCiphertext,
+        next.refreshTokenCiphertext,
+        next.id,
+        previous.accessTokenCiphertext,
+        previous.refreshTokenCiphertext,
+        previous.refreshTokenCiphertext,
+      ],
+    },
+    {
+      sql: `INSERT INTO oauth_reencrypt_guards (nonce, id)
+        SELECT ?, ?
+        WHERE NOT EXISTS (
+          SELECT 1 FROM oauth_connections
+          WHERE id = ? AND access_token_ciphertext = ?
+            AND ((? IS NULL AND refresh_token_ciphertext IS NULL) OR refresh_token_ciphertext = ?)
+        )`,
+      params: [
+        "row",
+        next.id,
+        next.id,
+        next.accessTokenCiphertext,
+        next.refreshTokenCiphertext,
+        next.refreshTokenCiphertext,
+      ],
+    },
+  ];
 }
 
 function openRow(row: OAuthCipherRow, secret: string) {

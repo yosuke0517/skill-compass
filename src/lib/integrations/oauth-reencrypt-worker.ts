@@ -8,6 +8,8 @@ export type ReencryptWorkerEnv = {
   OAUTH_REENCRYPT_NEW_SECRET?: string;
   OAUTH_REENCRYPT_NEW_SESSION_SECRET?: string;
   OAUTH_TOKEN_ENCRYPTION_SECRET?: string;
+  OAUTH_REENCRYPT_DATABASE?: string;
+  OAUTH_REENCRYPT_BACKUP_DB?: D1Like;
   SESSION_SECRET?: string;
 };
 
@@ -35,6 +37,30 @@ export function reencryptHoldResponse(env: object): Response | null {
   });
 }
 
+export function d1BackupSink(db: D1Like) {
+  return {
+    async put(nonce: string, envelope: string) {
+      await db.batch([
+        db.prepare(`CREATE TABLE IF NOT EXISTS oauth_reencrypt_backups (
+          nonce TEXT PRIMARY KEY,
+          envelope TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        )`).bind(),
+        db.prepare(
+          "INSERT INTO oauth_reencrypt_backups (nonce, envelope, created_at) VALUES (?, ?, unixepoch())",
+        ).bind(nonce, envelope),
+      ]);
+    },
+    async get(nonce: string) {
+      const { results } = await db.prepare(
+        "SELECT envelope FROM oauth_reencrypt_backups WHERE nonce = ?",
+      ).bind(nonce).all();
+      const row = results?.[0] as { envelope?: unknown } | undefined;
+      return typeof row?.envelope === "string" ? row.envelope : null;
+    },
+  };
+}
+
 export function d1ReencryptDatabase(db: D1Like): ReencryptDatabase {
   return {
     async query(sql, params = []) {
@@ -54,11 +80,13 @@ export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<bo
   const counts = await runOAuthReencrypt(d1ReencryptDatabase(env.DB), {
     mode,
     maintenanceReadOnly: env.MAINTENANCE_MODE === "read_only",
+    databaseName: env.OAUTH_REENCRYPT_DATABASE,
     currentOAuthSecret: env.OAUTH_TOKEN_ENCRYPTION_SECRET,
     currentSessionSecret: env.SESSION_SECRET ?? "",
     newOAuthSecret: env.OAUTH_REENCRYPT_NEW_SECRET ?? "",
     newSessionSecret: env.OAUTH_REENCRYPT_NEW_SESSION_SECRET,
     nonce: env.OAUTH_REENCRYPT_NONCE,
+    backup: env.OAUTH_REENCRYPT_BACKUP_DB ? d1BackupSink(env.OAUTH_REENCRYPT_BACKUP_DB) : undefined,
   });
   console.info("oauth_reencrypt", counts);
   } catch {

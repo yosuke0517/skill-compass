@@ -160,15 +160,23 @@ jobs:
         run: |
           if [ "$SESSION_SECRET_WRITE" = "hold" ]; then
             echo "session_secret_put=skipped"
+          elif [ "$SESSION_SECRET_WRITE" = "release" ]; then
+            if [ -z "$SESSION_SECRET" ] || [ -z "$OAUTH_TOKEN_ENCRYPTION_SECRET" ]; then
+              echo "secret_release=blocked"
+              exit 1
+            fi
+            printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
+            printf %s "$OAUTH_TOKEN_ENCRYPTION_SECRET" | pnpm exec wrangler secret put OAUTH_TOKEN_ENCRYPTION_SECRET --config .cloudflare/deploy-values.json --env production
+            echo "secret_release=updated"
           else
             printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
             echo "session_secret_put=updated"
-          fi
-          if [ -n "$OAUTH_TOKEN_ENCRYPTION_SECRET" ]; then
-            printf %s "$OAUTH_TOKEN_ENCRYPTION_SECRET" | pnpm exec wrangler secret put OAUTH_TOKEN_ENCRYPTION_SECRET --config .cloudflare/deploy-values.json --env production
-            echo "oauth_token_encryption_secret_put=updated"
-          else
-            echo "oauth_token_encryption_secret_put=absent"
+            if [ -n "$OAUTH_TOKEN_ENCRYPTION_SECRET" ]; then
+              printf %s "$OAUTH_TOKEN_ENCRYPTION_SECRET" | pnpm exec wrangler secret put OAUTH_TOKEN_ENCRYPTION_SECRET --config .cloudflare/deploy-values.json --env production
+              echo "oauth_token_encryption_secret_put=updated"
+            else
+              echo "oauth_token_encryption_secret_put=absent"
+            fi
           fi
       - run: printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
       - run: printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
