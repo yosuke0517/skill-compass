@@ -496,6 +496,9 @@ describe("production secret deploy guard", () => {
     expect(workflow).toContain("vars.PRODUCTION_ROTATION_FREEZE == 'hold'");
     expect(workflow).toContain("terraform_apply=skipped");
     expect(workflow).toContain("wrangler_deploy=skipped");
+    expect(workflow).toContain(
+      'pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production --secrets-file "$RUNNER_TEMP/keep-secrets.json"',
+    );
     expect(workflow).not.toContain("\n  push:");
     const freezeAt = workflow.indexOf("production_rotation_freeze=hold");
     for (const marker of [

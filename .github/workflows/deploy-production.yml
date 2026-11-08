@@ -182,7 +182,10 @@ jobs:
           printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
           printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
           printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env production
-      - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production
+      - name: Deploy production Worker and keep secrets absent from the empty file
+        run: |
+          printf '%s\n' '{}' > "$RUNNER_TEMP/keep-secrets.json"
+          pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production --secrets-file "$RUNNER_TEMP/keep-secrets.json"
       - name: Record production deployment evidence
         run: |
           mkdir -p production-verification
