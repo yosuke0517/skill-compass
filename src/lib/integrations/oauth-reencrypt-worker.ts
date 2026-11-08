@@ -23,6 +23,7 @@ type D1Like = {
 };
 
 const modes = new Set<ReencryptMode>(["plan", "apply", "restore"]);
+const holdModes = new Set<string>(["plan", "apply", "restore", "drain"]);
 
 export function reencryptMode(env: object): ReencryptMode | null {
   const mode = (env as { OAUTH_REENCRYPT_MODE?: unknown }).OAUTH_REENCRYPT_MODE;
@@ -30,7 +31,8 @@ export function reencryptMode(env: object): ReencryptMode | null {
 }
 
 export function reencryptHoldResponse(env: object): Response | null {
-  if (!reencryptMode(env)) return null;
+  const mode = (env as { OAUTH_REENCRYPT_MODE?: unknown }).OAUTH_REENCRYPT_MODE;
+  if (typeof mode !== "string" || !holdModes.has(mode)) return null;
   return new Response(JSON.stringify({ error: "unavailable" }), {
     status: 503,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
@@ -74,6 +76,10 @@ export function d1ReencryptDatabase(db: D1Like): ReencryptDatabase {
 }
 
 export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<boolean> {
+  if (env.OAUTH_REENCRYPT_MODE === "drain") {
+    console.info("oauth_reencrypt_drain", { writing: false });
+    return true;
+  }
   const mode = reencryptMode(env);
   if (!mode) return false;
   try {
@@ -84,9 +90,8 @@ export async function runScheduledReencrypt(env: ReencryptWorkerEnv): Promise<bo
     currentOAuthSecret: env.OAUTH_TOKEN_ENCRYPTION_SECRET,
     currentSessionSecret: env.SESSION_SECRET ?? "",
     newOAuthSecret: env.OAUTH_REENCRYPT_NEW_SECRET ?? "",
-    newSessionSecret: env.OAUTH_REENCRYPT_NEW_SESSION_SECRET,
     nonce: env.OAUTH_REENCRYPT_NONCE,
-    backup: env.OAUTH_REENCRYPT_BACKUP_DB ? d1BackupSink(env.OAUTH_REENCRYPT_BACKUP_DB) : undefined,
+    backup: d1BackupSink(env.OAUTH_REENCRYPT_BACKUP_DB ?? env.DB),
   });
   console.info("oauth_reencrypt", counts);
   } catch {

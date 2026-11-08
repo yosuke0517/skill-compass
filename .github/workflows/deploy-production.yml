@@ -102,6 +102,14 @@ jobs:
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
       INTERVIEW_RELAY_CONFIG: ${{ vars.INTERVIEW_RELAY_CONFIG }}
     steps:
+      - name: Refuse production mutation while rotation is frozen
+        if: ${{ vars.PRODUCTION_ROTATION_FREEZE == 'hold' }}
+        run: |
+          echo "production_rotation_freeze=hold"
+          echo "terraform_apply=skipped"
+          echo "worker_secret_put=skipped"
+          echo "wrangler_deploy=skipped"
+          exit 1
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.workflow_sha }}

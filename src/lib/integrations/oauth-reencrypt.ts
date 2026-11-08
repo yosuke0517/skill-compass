@@ -59,20 +59,19 @@ export function currentOAuthSecret(input: Pick<ReencryptSecrets, "currentOAuthSe
   return input.currentOAuthSecret ?? input.currentSessionSecret;
 }
 
-export function validateReencryptSecrets(input: ReencryptSecrets, mode: ReencryptMode): ReencryptCounts | null {
+export function validateReencryptSecrets(input: ReencryptSecrets, _mode: ReencryptMode): ReencryptCounts | null {
   const current = currentOAuthSecret(input);
   if (current.length < 32 || input.newOAuthSecret.length < 32) return reencryptCounts();
   if (sameSecret(input.newOAuthSecret, current) || sameSecret(input.newOAuthSecret, input.currentSessionSecret)) {
     return reencryptCounts();
   }
-  if (mode === "apply") {
-    if (!input.newSessionSecret || input.newSessionSecret.length < 32) return reencryptCounts();
-    if (
+  if (
+    input.newSessionSecret !== undefined &&
+    (input.newSessionSecret.length < 32 ||
       sameSecret(input.newSessionSecret, input.currentSessionSecret) ||
-      sameSecret(input.newSessionSecret, input.newOAuthSecret)
-    ) {
-      return reencryptCounts();
-    }
+      sameSecret(input.newSessionSecret, input.newOAuthSecret))
+  ) {
+    return reencryptCounts();
   }
   return null;
 }

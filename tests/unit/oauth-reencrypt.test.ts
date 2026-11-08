@@ -340,6 +340,23 @@ describe("oauth reencrypt", () => {
     expect(store.rows()[0]?.accessTokenCiphertext).toBe(original.accessTokenCiphertext);
   });
 
+  it("applies the dedicated key without a replacement session secret", async () => {
+    const store = database([sealedRow("row-1")]);
+    const result = await runOAuthReencrypt(store, {
+      mode: "apply",
+      ...production,
+      backup: backupSink(),
+      maintenanceReadOnly: true,
+      currentSessionSecret: currentSession,
+      newOAuthSecret: newOAuth,
+      nonce: "nonce-stage-a",
+    });
+
+    expect(result).toMatchObject({ ok: true, written: 1 });
+    expect(openOAuthToken(store.rows()[0]!.accessTokenCiphertext, newOAuth)).toBe(access);
+    expect(JSON.stringify(result)).not.toContain(currentSession);
+  });
+
   it("does not report a plan while writers are still allowed", async () => {
     const result = await runOAuthReencrypt(database([sealedRow("row-1")]), {
       mode: "plan",
@@ -366,6 +383,29 @@ describe("oauth reencrypt worker gate", () => {
     expect(held?.status).toBe(503);
     expect(await held?.json()).toEqual({ error: "unavailable" });
     expect(reencryptHoldResponse({})).toBeNull();
+    expect(reencryptHoldResponse({ MAINTENANCE_MODE: "read_only" })).toBeNull();
+    expect(reencryptHoldResponse({ OAUTH_REENCRYPT_MODE: "drain" })?.status).toBe(503);
+  });
+
+  it("drains the new cron without touching the database", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const handled = await runScheduledReencrypt({
+      DB: {
+        prepare() {
+          throw new Error("database touched");
+        },
+        async batch() {
+          throw new Error("database touched");
+        },
+      },
+      OAUTH_REENCRYPT_MODE: "drain",
+      SESSION_SECRET: currentSession,
+    });
+
+    expect(handled).toBe(true);
+    expect(info).toHaveBeenCalledWith("oauth_reencrypt_drain", { writing: false });
+    expect(JSON.stringify(info.mock.calls)).not.toContain(currentSession);
+    info.mockRestore();
   });
 
   it("logs only counts from the scheduled one-shot and skips notification work", async () => {
@@ -417,5 +457,11 @@ describe("production secret deploy guard", () => {
     expect(workflow).toContain("secret_release=blocked");
     expect(workflow).not.toContain("echo \"$SESSION_SECRET\"");
     expect(workflow).not.toContain("echo \"$OAUTH_TOKEN_ENCRYPTION_SECRET\"");
+    expect(workflow).toContain("vars.PRODUCTION_ROTATION_FREEZE == 'hold'");
+    expect(workflow).toContain("terraform_apply=skipped");
+    expect(workflow).toContain("wrangler_deploy=skipped");
+    expect(workflow.indexOf("production_rotation_freeze=hold")).toBeLessThan(
+      workflow.indexOf("terraform -chdir=infra/cloudflare apply"),
+    );
   });
 });
