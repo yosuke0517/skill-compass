@@ -53,21 +53,47 @@ export async function getOAuthToken(userId: string, provider: "google-calendar" 
   };
 }
 
-function encryptionKey() {
-  return createHash("sha256").update(getEnv().OAUTH_TOKEN_ENCRYPTION_SECRET ?? getEnv().SESSION_SECRET).digest();
+export function effectiveOAuthTokenSecret(input: {
+  oauthTokenEncryptionSecret?: string;
+  sessionSecret: string;
+}) {
+  return input.oauthTokenEncryptionSecret ?? input.sessionSecret;
 }
 
-function encrypt(value: string) {
+export function sealOAuthToken(value: string, secret: string) {
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const cipher = createCipheriv("aes-256-gcm", oauthTokenKey(secret), iv);
   const ciphertext = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   return `v1:${iv.toString("base64url")}:${cipher.getAuthTag().toString("base64url")}:${ciphertext.toString("base64url")}`;
 }
 
-function decrypt(value: string) {
+export function openOAuthToken(value: string, secret: string) {
   const [version, encodedIv, encodedTag, encodedCiphertext] = value.split(":");
-  if (version !== "v1" || !encodedIv || !encodedTag || !encodedCiphertext) throw new Error("Invalid OAuth token ciphertext");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(encodedIv, "base64url"));
+  if (version !== "v1" || !encodedIv || !encodedTag || !encodedCiphertext) {
+    throw new Error("Invalid OAuth token ciphertext");
+  }
+  const decipher = createDecipheriv("aes-256-gcm", oauthTokenKey(secret), Buffer.from(encodedIv, "base64url"));
   decipher.setAuthTag(Buffer.from(encodedTag, "base64url"));
-  return Buffer.concat([decipher.update(Buffer.from(encodedCiphertext, "base64url")), decipher.final()]).toString("utf8");
+  return Buffer.concat([
+    decipher.update(Buffer.from(encodedCiphertext, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+function oauthTokenKey(secret: string) {
+  return createHash("sha256").update(secret).digest();
+}
+
+function encrypt(value: string) {
+  return sealOAuthToken(value, effectiveOAuthTokenSecret({
+    oauthTokenEncryptionSecret: getEnv().OAUTH_TOKEN_ENCRYPTION_SECRET,
+    sessionSecret: getEnv().SESSION_SECRET,
+  }));
+}
+
+function decrypt(value: string) {
+  return openOAuthToken(value, effectiveOAuthTokenSecret({
+    oauthTokenEncryptionSecret: getEnv().OAUTH_TOKEN_ENCRYPTION_SECRET,
+    sessionSecret: getEnv().SESSION_SECRET,
+  }));
 }

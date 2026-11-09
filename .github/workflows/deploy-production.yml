@@ -102,6 +102,14 @@ jobs:
       DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
       INTERVIEW_RELAY_CONFIG: ${{ vars.INTERVIEW_RELAY_CONFIG }}
     steps:
+      - name: Refuse production mutation while rotation is frozen
+        if: ${{ vars.PRODUCTION_ROTATION_FREEZE == 'hold' }}
+        run: |
+          echo "production_rotation_freeze=hold"
+          echo "terraform_apply=skipped"
+          echo "worker_secret_put=skipped"
+          echo "wrangler_deploy=skipped"
+          exit 1
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.workflow_sha }}
@@ -149,16 +157,32 @@ jobs:
         run: pnpm exec wrangler d1 execute DB --remote --config .cloudflare/deploy-values.json --env production --file drizzle-d1/0001_today_notifications.sql
       - name: Apply and verify interview schema without resetting allowances
         run: pnpm exec tsx scripts/interview/migrations.ts .cloudflare/deploy-values.json production
-      - name: Update notification signing keys when configured
-        if: ${{ env.VAPID_CONFIG != '' }}
+      - name: Update the session signing key on explicit release
+        if: ${{ vars.SESSION_SECRET_WRITE == 'release' }}
+        run: |
+          if [ -z "$SESSION_SECRET" ]; then
+            echo "secret_release=blocked"
+            exit 1
+          fi
+          printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
+          echo "secret_release=updated"
+      - name: Leave Worker secrets unchanged unless release is set
+        if: ${{ vars.SESSION_SECRET_WRITE != 'release' }}
+        run: echo "worker_secret_put=skipped"
+      - name: Update notification signing keys on separate release
+        if: ${{ vars.AUXILIARY_SECRET_WRITE == 'release' && env.VAPID_CONFIG != '' }}
         run: |
           printf %s "$VAPID_CONFIG" | pnpm exec wrangler secret bulk --config .cloudflare/deploy-values.json --env production
-      - name: Update required production Worker secrets
-        run: printf %s "$SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config .cloudflare/deploy-values.json --env production
-      - run: printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
-      - run: printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
-      - run: printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env production
-      - run: pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production
+      - name: Update X and Gemini secrets on separate release
+        if: ${{ vars.AUXILIARY_SECRET_WRITE == 'release' }}
+        run: |
+          printf %s "$X_OAUTH_CLIENT_ID" | pnpm exec wrangler secret put X_OAUTH_CLIENT_ID --config .cloudflare/deploy-values.json --env production
+          printf %s "$X_OAUTH_CLIENT_SECRET" | pnpm exec wrangler secret put X_OAUTH_CLIENT_SECRET --config .cloudflare/deploy-values.json --env production
+          printf %s "$GEMINI_API_KEY" | pnpm exec wrangler secret put GEMINI_API_KEY --config .cloudflare/deploy-values.json --env production
+      - name: Deploy production Worker and keep secrets absent from the empty file
+        run: |
+          printf '%s\n' '{}' > "$RUNNER_TEMP/keep-secrets.json"
+          pnpm exec wrangler deploy --config .cloudflare/deploy-values.json --env production --secrets-file "$RUNNER_TEMP/keep-secrets.json"
       - name: Record production deployment evidence
         run: |
           mkdir -p production-verification
