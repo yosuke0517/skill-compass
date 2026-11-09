@@ -145,10 +145,6 @@ function envelope() {
   };
 }
 
-function count(db: DatabaseSync, table: string) {
-  return (db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as { count: number }).count;
-}
-
 function counting(inner: ReencryptDatabase) {
   let oauthReads = 0;
   return {
@@ -166,6 +162,37 @@ function counting(inner: ReencryptDatabase) {
 function runMode(db: DatabaseSync, nonce: string) {
   return (db.prepare("SELECT mode FROM oauth_reencrypt_runs WHERE nonce = ?").get(nonce) as { mode: string } | undefined)?.mode;
 }
+
+test("a substituted but decryptable ciphertext restores the exact original and stops future ticks", async () => {
+  const db = memory();
+  try {
+    seed(db);
+    const read = () => db.prepare("SELECT access_token_ciphertext FROM oauth_connections").get()?.access_token_ciphertext;
+    const original = read();
+    const inner = adapter(db);
+    const input = {
+      mode: "apply" as const, nonce: "nonce-substituted", databaseName: "skill-compass-production",
+      maintenanceReadOnly: true, backup: envelope(), currentSessionSecret: current, newOAuthSecret: replacement,
+    };
+    const changed: ReencryptDatabase = {
+      query: inner.query,
+      async batch(statements) {
+        await inner.batch(statements);
+        if (statements.some(s => s.sql.startsWith("INSERT INTO oauth_reencrypt_runs"))) {
+          db.prepare("UPDATE oauth_connections SET access_token_ciphertext = ?").run(sealOAuthToken("different", replacement));
+        }
+      },
+    };
+    const result = await runOAuthReencrypt(changed, input);
+    assert.equal(result.ok, false);
+    assert.equal(result.restored, 1);
+    assert.equal(read(), original);
+    assert.equal(runMode(db, input.nonce), "stopped");
+    const watched = counting(inner);
+    for (let i = 0; i < 3; i++) assert.equal((await runOAuthReencrypt(watched.db, input)).stopped, true);
+    assert.equal(watched.reads(), 0);
+  } finally { db.close(); }
+});
 
 test("a failed verify stops that nonce and later ticks do not read or write OAuth rows", async () => {
   const db = memory();
@@ -216,6 +243,34 @@ test("a failed verify stops that nonce and later ticks do not read or write OAut
   assert.equal(runMode(db, "nonce-bbb"), "applied");
 });
 
+test("an interrupted apply verifies the committed ciphertext before accepting a retry", async () => {
+  for (const substitute of [false, true]) {
+    const db = memory();
+    try {
+      seed(db);
+      const inner = adapter(db);
+      const nonce = "nonce-interrupt";
+      const input = { mode: "apply" as const, databaseName: "skill-compass-production",
+        maintenanceReadOnly: true, currentSessionSecret: current, newOAuthSecret: replacement, backup: envelope(), nonce };
+      const interrupted: ReencryptDatabase = {
+        query: inner.query,
+        async batch(statements) {
+          await inner.batch(statements);
+          throw new Error("lost acknowledgement after commit");
+        },
+      };
+      assert.equal((await runOAuthReencrypt(interrupted, input)).ok, false);
+      assert.match(runMode(db, nonce) ?? "", /^checking:/);
+      if (substitute) db.prepare("UPDATE oauth_connections SET access_token_ciphertext = ?").run(sealOAuthToken("other", replacement));
+      const resumed = await runOAuthReencrypt(inner, input);
+      assert.equal(resumed.ok, !substitute);
+      assert.equal(runMode(db, nonce), substitute ? "stopped" : "applied");
+      const value = db.prepare("SELECT access_token_ciphertext FROM oauth_connections").get()?.access_token_ciphertext;
+      assert.equal(openOAuthToken(String(value), substitute ? current : replacement), "fake-access-token");
+    } finally { db.close(); }
+  }
+});
+
 test("an existing stopped nonce is not cleared or retried", async () => {
   const db = memory();
   seed(db);
@@ -246,6 +301,24 @@ test("an existing stopped nonce is not cleared or retried", async () => {
     ),
     "fake-access-token",
   );
+});
+
+test("a failed restore retries restoration even when the next read decrypts with the new key", async () => {
+  const db = memory();
+  try {
+    seed(db);
+    const inner = adapter(db);
+    const saved = envelope();
+    let available = false;
+    const input = { mode: "apply" as const, databaseName: "skill-compass-production",
+      maintenanceReadOnly: true, currentSessionSecret: current, newOAuthSecret: replacement, nonce: "nonce-recover",
+      backup: { put: saved.put, get: (nonce: string) => available ? saved.get(nonce) : Promise.resolve(null) } };
+    assert.equal((await runOAuthReencrypt(corruptSecondRead(inner), input)).ok, false);
+    assert.equal(runMode(db, input.nonce), "restoring");
+    available = true;
+    assert.equal((await runOAuthReencrypt(inner, input)).restored, 1);
+    assert.equal(runMode(db, input.nonce), "stopped");
+  } finally { db.close(); }
 });
 
 test("a completed apply stays applied and restore does not rewrite it", async () => {

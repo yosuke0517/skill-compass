@@ -1,154 +1,56 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { placeStoredSecret, placementNames } from "../../scripts/oauth/place-generated-secret";
 
-import { randomBytes } from "node:crypto";
+const base = { deployedId: "version-a", latestUploadId: "version-a", expectedBaseId: "version-a" };
+const dummy = Buffer.from("synthetic+test/value=with punctuation_012345");
 
-import {
-  encodePlacementSecret,
-  githubPlacementCommand,
-  placeGeneratedSecret,
-  workerPlacementCommand,
-  type CommandResult,
-  type VersionBase,
-} from "../../scripts/oauth/place-generated-secret";
-
-const entropy = Buffer.from("0123456789abcdef0123456789abcdef");
-const versionBase: VersionBase = {
-  deployedId: "1507690e",
-  latestUploadId: "1507690e",
-  expectedBaseId: "1507690e",
-};
-
-function trimmed(value: Buffer) {
-  let end = value.length;
-  while (end > 0 && value[end - 1]! <= 32) end -= 1;
-  const nul = value.indexOf(0);
-  const cut = nul === -1 ? end : Math.min(end, nul);
-  return value.subarray(0, cut);
-}
-
-function quiet(status: number): CommandResult {
-  return { status, stdout: "", stderr: "" };
-}
-
-describe("generated secret placement", () => {
-  it("writes one value to GitHub and an undeployed Worker version without printing it", async () => {
-    const calls: string[][] = [];
-    const result = await placeGeneratedSecret({
-      name: "OAUTH_TOKEN_ENCRYPTION_SECRET",
-      generate: () => Buffer.from(entropy),
-      versionBase,
-      githubCommand: githubPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      workerCommand: workerPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      run: (command, stdin) => {
-        calls.push(command);
-        expect(stdin.equals(encodePlacementSecret(entropy))).toBe(true);
-        expect(trimmed(stdin).equals(stdin)).toBe(true);
-        return quiet(0);
-      },
+describe("production secret placement", () => {
+  it.each(placementNames)("pipes the exact saved %s to both production destinations", name => {
+    const run = vi.fn((_command: string[], value: Buffer) => {
+      expect(value.equals(dummy)).toBe(true);
+      return 0;
     });
-
-    expect(result).toEqual({ ok: true, bytes: encodePlacementSecret(entropy).length });
-    expect(calls[0]?.slice(0, 3)).toEqual(["gh", "secret", "set"]);
-    expect(calls[1]?.slice(0, 6)).toEqual(["pnpm", "exec", "wrangler", "versions", "secret", "put"]);
-    expect(JSON.stringify(result)).not.toContain(entropy.toString("utf8"));
+    expect(placeStoredSecret(name, dummy, base, run)).toBe("secret_placed");
+    const commands = run.mock.calls.map(([command]) => command);
+    expect(commands).toEqual([
+      ["gh", "secret", "set", name, "--repo", "yosuke0517/skill-compass", "--env", "production"],
+      ["pnpm", "exec", "wrangler", "versions", "secret", "put", name,
+        "--config", ".cloudflare/deploy-values.json", "--env", "production"],
+    ]);
   });
-
-  it("keeps real entropy identical for both CLIs after trim and NUL cuts", async () => {
-    const raw = Buffer.concat([randomBytes(15), Buffer.from([0, 0x20, 0x0a]), randomBytes(16)]);
-    const seen: Buffer[] = [];
-    const result = await placeGeneratedSecret({
-      name: "OAUTH_TOKEN_ENCRYPTION_SECRET",
-      generate: () => Buffer.from(raw),
-      versionBase,
-      githubCommand: githubPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      workerCommand: workerPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      run: (_command, stdin) => {
-        seen.push(Buffer.from(stdin));
-        return quiet(0);
-      },
-    });
-    const encoded = encodePlacementSecret(raw);
-
-    expect(raw.length).toBeGreaterThanOrEqual(32);
-    expect(trimmed(raw).equals(raw)).toBe(false);
-    expect(trimmed(encoded).equals(encoded)).toBe(true);
-    expect(Buffer.from(encoded.toString("ascii"), "base64url").equals(raw)).toBe(true);
-    expect(seen).toHaveLength(2);
-    expect(seen[0]?.equals(seen[1] ?? Buffer.alloc(0))).toBe(true);
-    expect(seen[0]?.equals(encoded)).toBe(true);
-    expect(result.ok).toBe(true);
-    expect(JSON.stringify(result)).not.toContain(encoded.toString("ascii"));
+  it("refuses ambiguous input or a stale version before either write", () => {
+    const run = vi.fn(() => 0);
+    for (const value of [Buffer.alloc(0), Buffer.from("short"), Buffer.concat([dummy, Buffer.from("\n")]),
+      Buffer.concat([dummy, Buffer.from([0])]), Buffer.from(" " + dummy), Buffer.alloc(5121, 65)]) {
+      expect(placeStoredSecret("SESSION_SECRET", value, base, run)).toBe("placement_refused");
+    }
+    expect(placeStoredSecret("SESSION_SECRET", dummy, { ...base, latestUploadId: "other" }, run)).toBe("version_base_mismatch");
+    expect(run).not.toHaveBeenCalled();
   });
-
-  it("refuses a short value and a version that is not the deployed base", async () => {
-    let called = false;
-    const short = await placeGeneratedSecret({
-      name: "OAUTH_TOKEN_ENCRYPTION_SECRET",
-      generate: () => Buffer.alloc(31),
-      versionBase,
-      githubCommand: githubPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      workerCommand: workerPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      run: () => {
-        called = true;
-        return quiet(0);
-      },
-    });
-    const mismatch = await placeGeneratedSecret({
-      name: "OAUTH_TOKEN_ENCRYPTION_SECRET",
-      generate: () => randomBytes(32),
-      versionBase: { ...versionBase, latestUploadId: "93df164b" },
-      githubCommand: githubPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      workerCommand: workerPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      run: () => {
-        called = true;
-        return quiet(0);
-      },
-    });
-
-    expect(short).toEqual({ ok: false, reason: "placement_refused" });
-    expect(mismatch).toEqual({ ok: false, reason: "version_base_mismatch" });
-    expect(called).toBe(false);
+  it("distinguishes first-write failure from a partial placement", () => {
+    const first = vi.fn(() => 1);
+    expect(placeStoredSecret("SESSION_SECRET", dummy, base, first)).toBe("github_failed");
+    expect(first).toHaveBeenCalledTimes(1);
+    const second = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(null);
+    expect(placeStoredSecret("SESSION_SECRET", dummy, base, second)).toBe("worker_failed_after_github");
   });
-
-  it("stops after a GitHub failure and refuses an immediate wrangler secret put", async () => {
-    let workerCalled = false;
-    const failed = await placeGeneratedSecret({
-      name: "SESSION_SECRET",
-      generate: () => Buffer.from(entropy),
-      versionBase,
-      githubCommand: githubPlacementCommand("SESSION_SECRET"),
-      workerCommand: workerPlacementCommand("SESSION_SECRET"),
-      run: () => quiet(1),
-    });
-    const refused = await placeGeneratedSecret({
-      name: "SESSION_SECRET",
-      generate: () => Buffer.from(entropy),
-      versionBase,
-      githubCommand: ["gh", "secret", "set", "SESSION_SECRET"],
-      workerCommand: ["wrangler", "secret", "put", "SESSION_SECRET"],
-      run: () => {
-        workerCalled = true;
-        return quiet(0);
-      },
-    });
-
-    expect(failed).toEqual({ ok: false, reason: "github_failed" });
-    expect(refused).toEqual({ ok: false, reason: "placement_refused" });
-    expect(workerCalled).toBe(false);
-    expect(JSON.stringify(refused)).not.toContain(entropy.toString("utf8"));
-  });
-
-  it("does not return destination output when a command echoes the value", async () => {
-    const echoed = await placeGeneratedSecret({
-      name: "OAUTH_TOKEN_ENCRYPTION_SECRET",
-      generate: () => Buffer.from(entropy),
-      versionBase,
-      githubCommand: githubPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      workerCommand: workerPlacementCommand("OAUTH_TOKEN_ENCRYPTION_SECRET"),
-      run: (_command, stdin) => ({ status: 0, stdout: stdin.toString("utf8"), stderr: "" }),
-    });
-
-    expect(echoed).toEqual({ ok: false, reason: "destination_echoed" });
-    expect(JSON.stringify(echoed)).not.toContain(encodePlacementSecret(entropy).toString("ascii"));
+  it("reads stdin and suppresses both child output streams even on partial failure", () => {
+    const dir = mkdtempSync(join(tmpdir(), "oauth-placement-"));
+    try {
+      for (const [name, exit] of [["gh", 0], ["pnpm", 1]] as const) {
+        writeFileSync(join(dir, name), `#!${process.execPath}\nconst value = require("node:fs").readFileSync(0); process.stdout.write(value); process.stderr.write(value); process.exitCode = value.equals(Buffer.from(${JSON.stringify(dummy.toString())})) ? ${exit} : 2;\n`, { mode: 0o700 });
+      }
+      const child = spawnSync(process.execPath, ["--import", "tsx", "scripts/oauth/place-generated-secret.ts",
+        "SESSION_SECRET", "version-a", "version-a", "version-a"], {
+        input: dummy, encoding: "utf8", env: { ...process.env, PATH: dir, PLACEMENT_ACK: "reviewed-freeze" },
+      });
+      expect(child.status).toBe(1);
+      expect(child.stdout.trim()).toBe("worker_failed_after_github");
+      expect(child.stderr).not.toContain(dummy.toString());
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

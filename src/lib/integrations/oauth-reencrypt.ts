@@ -61,7 +61,7 @@ export function currentOAuthSecret(input: Pick<ReencryptSecrets, "currentOAuthSe
   return input.currentOAuthSecret ?? input.currentSessionSecret;
 }
 
-export function validateReencryptSecrets(input: ReencryptSecrets, _mode: ReencryptMode): ReencryptCounts | null {
+export function validateReencryptSecrets(input: ReencryptSecrets): ReencryptCounts | null {
   const current = currentOAuthSecret(input);
   if (current.length < 32 || input.newOAuthSecret.length < 32) return reencryptCounts();
   if (sameSecret(input.newOAuthSecret, current) || sameSecret(input.newOAuthSecret, input.currentSessionSecret)) {
@@ -139,7 +139,7 @@ export async function runOAuthReencrypt(
 ): Promise<ReencryptCounts> {
   if (input.databaseName !== "skill-compass-production") return reencryptCounts();
   if (!input.maintenanceReadOnly) return reencryptCounts();
-  const refused = validateReencryptSecrets(input, input.mode);
+  const refused = validateReencryptSecrets(input);
   if (refused) return refused;
   if ((input.mode === "apply" || input.mode === "restore") && !noncePattern.test(input.nonce ?? "")) {
     return reencryptCounts();
@@ -150,6 +150,15 @@ export async function runOAuthReencrypt(
     // A stopped nonce never reads or writes OAuth rows again. A new attempt needs a different nonce.
     const state = input.mode === "plan" ? null : await nonceMode(db, nonce);
     if (state === "stopped") return reencryptCounts({ stopped: true });
+    if (state === "restoring") {
+      const recorded = await listRows(db);
+      const restored = await restoreRows(db, recorded, nonce, input.newOAuthSecret, current, input.backup);
+      return reencryptCounts({ ...restored, ok: false });
+    }
+    if (state?.startsWith("checking:")) {
+      const recorded = await listRows(db);
+      return await verifyApply(db, recorded, state, input, nonce, current);
+    }
     if (input.mode === "apply" && state === "applied") {
       const recorded = await listRows(db);
       if (prepareReencrypt(recorded, input.newOAuthSecret, input.newOAuthSecret).ok) {
@@ -159,6 +168,9 @@ export async function runOAuthReencrypt(
     }
     const existing = await listRows(db);
     if (input.mode === "restore") {
+      if (prepareReencrypt(existing, input.newOAuthSecret, input.newOAuthSecret).ok) {
+        return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, already: true });
+      }
       return restoreRows(db, existing, nonce, input.newOAuthSecret, current, input.backup);
     }
     const prepared = prepareReencrypt(existing, current, input.newOAuthSecret);
@@ -169,25 +181,41 @@ export async function runOAuthReencrypt(
       return reencryptCounts({ total: existing.length, ready: existing.length });
     }
     await input.backup.put(nonce, envelope);
+    const checking = checkingState(prepared.rows);
     try {
       await db.batch([
         { sql: createRunsSql, params: [] },
         { sql: createGuardsSql, params: [] },
-        { sql: "INSERT INTO oauth_reencrypt_runs (nonce, mode, created_at) VALUES (?, 'applied', unixepoch())", params: [nonce] },
+        { sql: "INSERT INTO oauth_reencrypt_runs (nonce, mode, created_at) VALUES (?, ?, unixepoch())", params: [nonce, checking] },
         ...prepared.rows.flatMap((row, index) => updateSql(row, existing[index]!, nonce)),
       ]);
     } catch {
       return reencryptCounts({ total: existing.length, ready: existing.length });
     }
     const written = await listRows(db);
-    if (!sameStoredRows(written, prepared.rows) || !prepareReencrypt(written, input.newOAuthSecret, input.newOAuthSecret).ok) {
-      const restored = await restoreRows(db, written, nonce, input.newOAuthSecret, current, input.backup);
-      return reencryptCounts({ ...restored, ok: false, written: 0 });
-    }
-    return reencryptCounts({ ok: true, total: existing.length, ready: existing.length, written: prepared.rows.length });
+    return await verifyApply(db, written, checking, input, nonce, current);
   } catch {
     return reencryptCounts();
   }
+}
+
+// listRows uses ORDER BY id. Persist the expected result in the same transaction
+// as the rewrite so an interrupted tick can verify the exact ciphertext again.
+function checkingState(rows: OAuthCipherRow[]) {
+  return "checking:" + createHash("sha256").update(JSON.stringify(rows.map(backupRow))).digest("hex");
+}
+
+async function verifyApply(db: ReencryptDatabase, rows: OAuthCipherRow[], checking: string,
+  input: { newOAuthSecret: string; backup?: BackupSink }, nonce: string, current: string) {
+  if (checkingState(rows) !== checking || !prepareReencrypt(rows, input.newOAuthSecret, input.newOAuthSecret).ok) {
+    await db.batch([{ sql: "UPDATE oauth_reencrypt_runs SET mode = 'restoring' WHERE nonce = ? AND mode = ?", params: [nonce, checking] }]);
+    if (await nonceMode(db, nonce) !== "restoring") return reencryptCounts({ total: rows.length });
+    const restored = await restoreRows(db, rows, nonce, input.newOAuthSecret, current, input.backup);
+    return reencryptCounts({ ...restored, ok: false, written: 0 });
+  }
+  await db.batch([{ sql: "UPDATE oauth_reencrypt_runs SET mode = 'applied' WHERE nonce = ? AND mode = ?", params: [nonce, checking] }]);
+  if (await nonceMode(db, nonce) !== "applied") return reencryptCounts({ total: rows.length });
+  return reencryptCounts({ ok: true, total: rows.length, ready: rows.length, written: rows.length });
 }
 
 async function nonceMode(db: ReencryptDatabase, nonce: string) {
@@ -206,18 +234,14 @@ async function restoreRows(
   currentSecret: string,
   backup?: BackupSink,
 ) {
-  if (prepareReencrypt(currentRows, newSecret, newSecret).ok) {
-    return reencryptCounts({
-      ok: true,
-      total: currentRows.length,
-      ready: currentRows.length,
-      already: true,
-    });
-  }
   const envelope = await backup?.get(nonce) ?? null;
   if (!envelope) return reencryptCounts({ total: currentRows.length });
   const previous = openBackup(envelope, newSecret);
   if (!previous || !prepareReencrypt(previous, currentSecret, currentSecret).ok) {
+    return reencryptCounts({ total: currentRows.length });
+  }
+  const ids = new Set(currentRows.map(row => row.id));
+  if (previous.length !== ids.size || previous.some(row => !ids.has(row.id))) {
     return reencryptCounts({ total: currentRows.length });
   }
   try {
@@ -228,7 +252,7 @@ async function restoreRows(
       })),
       { sql: "DELETE FROM oauth_reencrypt_guards WHERE nonce = ?", params: [nonce] },
       {
-        sql: "UPDATE oauth_reencrypt_runs SET mode = 'stopped' WHERE nonce = ? AND mode = 'applied'",
+        sql: "UPDATE oauth_reencrypt_runs SET mode = 'stopped' WHERE nonce = ? AND mode IN ('applied', 'restoring')",
         params: [nonce],
       },
     ]);

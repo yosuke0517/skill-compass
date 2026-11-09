@@ -70,7 +70,13 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
     if (statement.sql.startsWith("CREATE")) return;
     if (statement.sql.startsWith("UPDATE oauth_reencrypt_runs")) {
       const nonce = String(statement.params[0]);
-      if (runs.get(nonce) === "applied") runs.set(nonce, "stopped");
+      if (statement.sql.includes("SET mode = 'applied'")) {
+        if (runs.get(nonce) === statement.params[1]) runs.set(nonce, "applied");
+      } else if (statement.sql.includes("SET mode = 'restoring'")) {
+        if (runs.get(nonce) === statement.params[1]) runs.set(nonce, "restoring");
+      } else if (runs.get(nonce) === "applied" || runs.get(nonce) === "restoring") {
+        runs.set(nonce, "stopped");
+      }
       return;
     }
     if (statement.sql.startsWith("DELETE FROM oauth_reencrypt_runs")) {
@@ -86,7 +92,7 @@ function database(initial: OAuthCipherRow[], failBatch = false, tamperOnBatch = 
     if (statement.sql.startsWith("INSERT INTO oauth_reencrypt_runs")) {
       const nonce = String(statement.params[0]);
       if (runs.has(nonce)) throw new Error("constraint");
-      runs.set(nonce, "applied");
+      runs.set(nonce, String(statement.params[1]));
       return;
     }
     if (statement.sql.startsWith("INSERT INTO oauth_reencrypt_guards (nonce, id) VALUES")) {
@@ -206,7 +212,7 @@ describe("oauth reencrypt", () => {
     const envelope = sink.values.get("nonce-0002") ?? "";
 
     expect(applied).toMatchObject({ ok: true, total: 2, ready: 2, written: 2 });
-    expect(store.batches).toHaveLength(1);
+    expect(store.batches).toHaveLength(2);
     expect(store.batches[0]?.filter((statement) => statement.sql.startsWith("UPDATE"))).toHaveLength(2);
     expect(openOAuthToken(store.rows()[0]!.accessTokenCiphertext, newOAuth)).toBe(access);
     expect(store.rows()[1]?.refreshTokenCiphertext).toBeNull();
@@ -237,7 +243,7 @@ describe("oauth reencrypt", () => {
 
     expect(swapped).toMatchObject({ ok: true, already: true, written: 0 });
     expect(swappedRestore).toMatchObject({ ok: true, already: true, restored: 0 });
-    expect(store.batches).toHaveLength(1);
+    expect(store.batches).toHaveLength(2);
     expect(store.rows()[0]?.accessTokenCiphertext).toBe(afterApply);
     expect(openOAuthToken(store.rows()[0]!.accessTokenCiphertext, newOAuth)).toBe(access);
 
@@ -481,7 +487,7 @@ describe("oauth reencrypt worker gate", () => {
 });
 
 describe("production secret deploy guard", () => {
-  it("can hold SESSION_SECRET writes and install the dedicated key without printing it", () => {
+  it("limits the release flag to the session signing key", () => {
     const workflow = readFileSync(".github/workflows/deploy-production.yml", "utf8");
     expect(readFileSync("src/lib/integrations/oauth-reencrypt.ts", "utf8")).not.toContain(
       "DELETE FROM oauth_reencrypt_runs",
@@ -489,6 +495,9 @@ describe("production secret deploy guard", () => {
     expect(workflow).toContain("worker_secret_put=skipped");
     expect(workflow).toContain("secret_release=blocked");
     expect(workflow).toContain("vars.SESSION_SECRET_WRITE == 'release'");
+    const sessionStep = workflow.split("Update the session signing key on explicit release")[1]?.split("- name:")[0] ?? "";
+    expect(sessionStep.match(/wrangler secret put \w+/g)).toEqual(["wrangler secret put SESSION_SECRET"]);
+    expect(workflow).toContain("vars.AUXILIARY_SECRET_WRITE == 'release'");
     expect(workflow).not.toContain("session_secret_put=updated");
     expect(workflow).not.toContain("oauth_token_encryption_secret_put=updated");
     expect(workflow).not.toContain("echo \"$SESSION_SECRET\"");
@@ -506,7 +515,6 @@ describe("production secret deploy guard", () => {
       "wrangler d1 execute",
       "scripts/interview/migrations.ts",
       "wrangler secret put",
-      "wrangler secret bulk",
       "wrangler deploy",
     ]) {
       expect(freezeAt).toBeGreaterThan(0);

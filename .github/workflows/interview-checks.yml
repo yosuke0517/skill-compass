@@ -19,6 +19,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: node --import tsx --test tests/unit/oauth-reencrypt-sqlite.run.ts
       - run: node tests/cloudflare/interview-relay-smoke.mjs
       - name: Interview relay
         working-directory: services/interview-relay
